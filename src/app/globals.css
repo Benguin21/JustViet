@@ -1,0 +1,84 @@
+@import "tailwindcss";
+
+:root {
+  /* Warm paper background, like the inside of a study notebook */
+  --color-paper: #fffaf1;
+  --color-surface: #ffffff;
+
+  /* Pastel yellow ramp */
+  --color-yellow-50: #fffaeb;
+  --color-yellow-100: #fff3c4;
+  --color-yellow-200: #ffe58a;
+  --color-yellow-300: #ffd75c;
+  --color-yellow-400: #fdc63a;
+  --color-yellow-500: #f7b721;
+  --color-yellow-600: #dc9a12;
+
+  /* Pastel red ramp (echoes the Vietnamese flag, softened) */
+  --color-red-50: #fff1ee;
+  --color-red-100: #ffe0da;
+  --color-red-200: #ffc0b6;
+  --color-red-300: #ff9c8d;
+  --color-red-400: #fb7b68;
+  --color-red-500: #f15b48;
+  --color-red-600: #d8452f;
+  --color-red-700: #b53722;
+
+  /* Warm ink for text instead of flat black */
+  --color-ink-900: #4a2f22;
+  --color-ink-700: #6b4a38;
+  --color-ink-500: #93715c;
+  --color-ink-300: #c9ac97;
+
+  --color-success: #58a700;
+  --color-success-dark: #4b8e00;
+
+  --font-heading: var(--font-baloo);
+  --font-body: var(--font-nunito);
+}
+
+@theme inline {
+  --color-paper: var(--color-paper);
+  --color-surface: var(--color-surface);
+
+  --color-yellow-50: var(--color-yellow-50);
+  --color-yellow-100: var(--color-yellow-100);
+  --color-yellow-200: var(--color-yellow-200);
+  --color-yellow-300: var(--color-yellow-300);
+  --color-yellow-400: var(--color-yellow-400);
+  --color-yellow-500: var(--color-yellow-500);
+  --color-yellow-600: var(--color-yellow-600);
+
+  --color-red-50: var(--color-red-50);
+  --color-red-100: var(--color-red-100);
+  --color-red-200: var(--color-red-200);
+  --color-red-300: var(--color-red-300);
+  --color-red-400: var(--color-red-400);
+  --color-red-500: var(--color-red-500);
+  --color-red-600: var(--color-red-600);
+  --color-red-700: var(--color-red-700);
+
+  --color-ink-900: var(--color-ink-900);
+  --color-ink-700: var(--color-ink-700);
+  --color-ink-500: var(--color-ink-500);
+  --color-ink-300: var(--color-ink-300);
+
+  --color-success: var(--color-success);
+  --color-success-dark: var(--color-success-dark);
+
+  --font-heading: var(--font-heading);
+  --font-body: var(--font-body);
+}
+
+body {
+  background: var(--color-paper);
+  color: var(--color-ink-900);
+  font-family: var(--font-body), sans-serif;
+}
+
+h1,
+h2,
+h3,
+.font-heading {
+  font-family: var(--font-heading), sans-serif;
+}
