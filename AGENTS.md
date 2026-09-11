@@ -11,7 +11,8 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 # JustViet
 
 A Duolingo-style webapp for learning Vietnamese. Next.js 16 (App Router,
-Turbopack, TypeScript, `src/` dir) + Tailwind CSS v4 + Firebase Auth.
+Turbopack, TypeScript, `src/` dir) + Tailwind CSS v4 + Firebase (Auth +
+Firestore).
 
 ## Commands
 
@@ -20,20 +21,24 @@ Turbopack, TypeScript, `src/` dir) + Tailwind CSS v4 + Firebase Auth.
   `tsc` as part of the build)
 - `npm run lint` — ESLint (flat config, `eslint.config.mjs`)
 - `npx tsc --noEmit` — type-check only, faster than a full build
-
-There is no test runner configured yet.
+- `npm run test` — Vitest, run once (`npm run test:watch` for watch mode).
+  Run a single file with `npx vitest run path/to/file.test.ts`.
 
 ## Environment / Firebase setup
 
-Auth is Firebase Auth (client SDK only, no backend of our own). Copy
+Auth is Firebase Auth; app data (vocab cards, review logs, SRS settings) is
+Firestore — both client SDK only, no backend of our own. Copy
 `.env.local.example` to `.env.local` and fill in a Firebase web app's config
 (`NEXT_PUBLIC_FIREBASE_*`). `.env.local` is gitignored. Without it,
-`src/lib/firebase.ts` leaves `auth` as `undefined` and `login` renders a
+`src/lib/firebase.ts` leaves `auth`/`db` as `undefined` and pages render a
 banner instead of failing silently — check `isFirebaseConfigured` before
-assuming `auth` exists.
+assuming either exists.
 
-The Firebase console needs the **Email/Password** sign-in provider enabled
-for signup/login/password-reset to work.
+The Firebase console needs: the **Email/Password** sign-in provider enabled
+(Authentication → Sign-in method) for signup/login/password-reset, and a
+**Firestore Database** created (Build → Firestore Database → Create
+database) with `firestore.rules`'s contents published (Firestore →
+Rules tab) — that file is what isolates each user's data by uid.
 
 ## Architecture
 
@@ -70,6 +75,67 @@ properties in `src/app/globals.css` (Tailwind v4's `@theme inline`, no
 `tailwind.config.js`) rather than Tailwind defaults, so extend the palette
 there. `Button` (`src/components/ui/Button.tsx`) implements Duolingo's
 "raised" look via a solid face + darker `border-b-4` that flattens on
-`:active`; reuse it instead of one-off button styles. Headings/buttons use
-the Baloo 2 font (`--font-heading`), body text uses Nunito
+`:active`; reuse it instead of one-off button styles (it defaults to
+`fullWidth`; pass `fullWidth={false}` for inline/table use). Headings/buttons
+use the Baloo 2 font (`--font-heading`), body text uses Nunito
 (`--font-body`), both loaded via `next/font/google` in the root layout.
+
+**Reading the clock during render.** React 19's `react-hooks/purity` rule
+flags `Date.now()`/`Math.random()` called directly in a component body —
+use `useNow()` (`src/lib/useNow.ts`, a `useSyncExternalStore`-backed clock)
+instead of `Date.now()` in render code. Don't call `Date.now()` inside
+`getSnapshot` itself — it must return a *cached*, stable value between
+store-change notifications, or React sees "torn" state and re-renders in
+an infinite loop (this bit us once during development; see the comment in
+that file).
+
+## Vocab SRS feature
+
+Everything lives on one page, `src/app/(app)/vocab-srs/page.tsx`
+(tabs: Cards / Study / Settings, plus a dashboard). The algorithm/data
+layer is intentionally UI- and Firestore-free where possible, so it's unit
+testable — see `src/lib/vocab/*.test.ts`.
+
+- `src/lib/vocab/types.ts` — the shared vocabulary (`VocabCard`,
+  `ReviewLogEntry`, `SrsSettings`, etc). Timestamps are plain epoch-ms
+  numbers throughout, not Firestore `Timestamp` or `Date`.
+- `src/lib/vocab/srs.ts` — the scheduling algorithm. Wraps `ts-fsrs`
+  (FSRS — Free Spaced Repetition Scheduler); nothing else in the app
+  imports `ts-fsrs` directly. Pure functions: `applyReview`,
+  `previewIntervals` (powers the "Again — 10m / Good — 4d" button labels),
+  `createNewCardFields`, `rescheduleForRetention`.
+- `src/lib/vocab/scheduler.ts` — turns a card list + today's review logs
+  into what the UI needs: `buildStudyQueue` (respects daily limits/new-card
+  order/mixing), `computeTodayStats`, `computeProgressStats`,
+  `computeForecast`, `computeReviewHeatmap`. Also pure.
+- `src/lib/vocab/settings.ts` — `DEFAULT_SRS_SETTINGS` and
+  `validateSrsSettings`.
+- `src/lib/vocab/repository.ts` — the *only* file that imports
+  `firebase/firestore`. Data model: `users/{uid}/vocabCards/{id}`,
+  `users/{uid}/reviewLogs/{id}` (flat, not nested under the card, so
+  daily-limit/heatmap queries don't need a composite index), and
+  `users/{uid}/settings/srs`. `submitReview` writes the card update and
+  its review-log entry in one `writeBatch` so they can't desync.
+- `src/lib/vocab/useVocabData.ts` — the one hook the page uses: live
+  `onSnapshot` subscriptions to all three collections plus every mutation
+  action, each normalizing Firestore errors via `firestore-errors.ts`
+  (mirrors `auth-errors.ts`'s pattern) so callers just catch and show
+  `err.message`.
+- `src/components/vocab/*` — UI, one concern per file (`CardList`,
+  `CardFormModal`, `CardDetailModal`, `StudySession`, `RatingButtons`,
+  `SettingsPanel`, `VocabDashboard`, …).
+
+**Why FSRS / `ts-fsrs`:** hand-rolling FSRS's stability/difficulty math is
+easy to get subtly wrong; `ts-fsrs` is small, dependency-free, and already
+handles both long-term scheduling and short-term learning/relearning steps
+through one API (`learning_steps`/`relearning_steps` params +
+`fsrs.repeat`/`fsrs.next`). We deliberately don't expose FSRS's raw `w`
+weight vector or build a parameter optimizer — see the note in the
+Settings panel's Algorithm section.
+
+**Study-session queue behavior:** `StudySession` snapshots its queue once
+at mount (`useState(initialQueue)`); cards still in `learning`/
+`relearning` after being rated get appended back onto that local queue so
+they resurface later in the same session (short learning steps), while
+graduated/reviewed cards leave for good. It does not live-sync with
+Firestore mid-session by design.

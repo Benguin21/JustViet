@@ -1,5 +1,6 @@
 import { type FirebaseApp, getApps, initializeApp } from "firebase/app";
 import { type Auth, getAuth } from "firebase/auth";
+import { type Firestore, getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -17,10 +18,12 @@ export const isFirebaseConfigured = Boolean(
 
 let app: FirebaseApp | undefined;
 let authInstance: Auth | undefined;
+let firestoreInstance: Firestore | undefined;
 
 if (isFirebaseConfigured) {
   app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
   authInstance = getAuth(app);
+  firestoreInstance = getFirestore(app);
 }
 
 /**
@@ -29,3 +32,10 @@ if (isFirebaseConfigured) {
  * `isFirebaseConfigured` before using this.
  */
 export const auth = authInstance;
+
+/**
+ * The Firestore instance, or `undefined` if Firebase isn't configured yet.
+ * Backs all per-user app data (vocab cards, review logs, SRS settings) —
+ * see `src/lib/vocab/repository.ts`.
+ */
+export const db = firestoreInstance;

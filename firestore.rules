@@ -1,0 +1,18 @@
+rules_version = '2';
+
+// Everything the app writes lives under /users/{userId}/... . A signed-in
+// user may only read or write their own subtree — this is what keeps one
+// user's vocab cards, review logs, and SRS settings isolated from everyone
+// else's (see src/lib/vocab/repository.ts, which always scopes reads/writes
+// under the current auth uid).
+//
+// To apply: Firebase console → Firestore Database → Rules tab → paste this
+// file's contents → Publish. (Same idea as enabling the Email/Password
+// sign-in provider was for Authentication.)
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{userId}/{document=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}
