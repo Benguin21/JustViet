@@ -101,22 +101,58 @@ export function subscribeToSettings(
   );
 }
 
-export async function createCard(uid: string, input: NewVocabCardInput): Promise<string> {
-  const now = Date.now();
-  const ref = doc(cardsCol(uid));
-  const card: Omit<VocabCard, "id"> = {
+/**
+ * Shapes a `NewVocabCardInput` (from the manual form, or a parsed batch-
+ * import row — see `import.ts`) into a full card document. Shared so both
+ * creation paths stay in lockstep: an imported card is built exactly the
+ * same way a manually-created one is, just with its content sourced from
+ * a parsed row instead of a form.
+ */
+function buildNewCardDoc(uid: string, input: NewVocabCardInput, now: number): Omit<VocabCard, "id"> {
+  return {
     userId: uid,
     front: input.front.trim(),
     back: input.back.trim(),
     exampleSentence: input.exampleSentence.trim(),
     partOfSpeech: input.partOfSpeech,
     tags: input.tags.map((t) => t.trim()).filter(Boolean),
+    pronunciation: input.pronunciation?.trim() ?? "",
+    notes: input.notes?.trim() ?? "",
     createdAt: now,
     updatedAt: now,
     ...createNewCardFields(new Date(now)),
   };
-  await setDoc(ref, card);
+}
+
+export async function createCard(uid: string, input: NewVocabCardInput): Promise<string> {
+  const ref = doc(cardsCol(uid));
+  await setDoc(ref, buildNewCardDoc(uid, input, Date.now()));
   return ref.id;
+}
+
+/**
+ * Creates many cards at once (batch import). Each card is built with the
+ * exact same `buildNewCardDoc` shaping as a single manually-created card —
+ * imported cards aren't a separate kind of card, they just arrive in bulk.
+ * Chunked to stay under Firestore's 500-write batch limit.
+ */
+export async function createCards(uid: string, inputs: NewVocabCardInput[]): Promise<string[]> {
+  const database = requireDb();
+  const now = Date.now();
+  const ids: string[] = [];
+
+  const CHUNK = 400;
+  for (let i = 0; i < inputs.length; i += CHUNK) {
+    const batch = writeBatch(database);
+    for (const input of inputs.slice(i, i + CHUNK)) {
+      const ref = doc(cardsCol(uid));
+      batch.set(ref, buildNewCardDoc(uid, input, now));
+      ids.push(ref.id);
+    }
+    await batch.commit();
+  }
+
+  return ids;
 }
 
 /** Updates a card's content. SRS scheduling fields are left untouched on purpose. */
@@ -133,6 +169,8 @@ export async function updateCard(
       exampleSentence: edit.exampleSentence.trim(),
       partOfSpeech: edit.partOfSpeech,
       tags: edit.tags.map((t) => t.trim()).filter(Boolean),
+      pronunciation: edit.pronunciation?.trim() ?? "",
+      notes: edit.notes?.trim() ?? "",
       updatedAt: Date.now(),
     },
     { merge: true },

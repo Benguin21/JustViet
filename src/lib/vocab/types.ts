@@ -71,6 +71,13 @@ export interface VocabCard extends SrsFields {
   exampleSentence: string;
   partOfSpeech: PartOfSpeech;
   tags: string[];
+  /**
+   * Optional, added for batch import. `?` because cards created before
+   * this field existed won't have it in Firestore — always guard reads
+   * (`card.pronunciation ?? ""`) rather than assuming it's present.
+   */
+  pronunciation?: string;
+  notes?: string;
   createdAt: number;
   updatedAt: number;
 }
@@ -82,6 +89,8 @@ export type NewVocabCardInput = {
   exampleSentence: string;
   partOfSpeech: PartOfSpeech;
   tags: string[];
+  pronunciation?: string;
+  notes?: string;
 };
 
 /** Fields the edit-card form can change; SRS progress is untouched. */

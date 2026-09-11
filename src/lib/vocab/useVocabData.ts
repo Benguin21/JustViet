@@ -23,6 +23,7 @@ export interface UseVocabDataResult {
   error: string | null;
 
   addCard: (input: NewVocabCardInput) => Promise<string>;
+  addCards: (inputs: NewVocabCardInput[]) => Promise<string[]>;
   editCard: (cardId: string, edit: VocabCardEdit) => Promise<void>;
   removeCard: (cardId: string) => Promise<void>;
   setSuspended: (cardId: string, suspended: boolean) => Promise<void>;
@@ -98,6 +99,18 @@ export function useVocabData(): UseVocabDataResult {
       if (!uid) throw new Error(NOT_SIGNED_IN);
       try {
         return await repo.createCard(uid, input);
+      } catch (err) {
+        throw new Error(friendlyFirestoreError(err));
+      }
+    },
+    [uid],
+  );
+
+  const addCards = useCallback(
+    async (inputs: NewVocabCardInput[]) => {
+      if (!uid) throw new Error(NOT_SIGNED_IN);
+      try {
+        return await repo.createCards(uid, inputs);
       } catch (err) {
         throw new Error(friendlyFirestoreError(err));
       }
@@ -194,6 +207,7 @@ export function useVocabData(): UseVocabDataResult {
     loading,
     error,
     addCard,
+    addCards,
     editCard,
     removeCard,
     setSuspended,

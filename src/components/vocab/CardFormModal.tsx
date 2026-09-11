@@ -25,6 +25,8 @@ const EMPTY: NewVocabCardInput = {
   exampleSentence: "",
   partOfSpeech: "noun",
   tags: [],
+  pronunciation: "",
+  notes: "",
 };
 
 export function CardFormModal({ card, onClose, onSubmit, onResetProgress }: CardFormModalProps) {
@@ -37,6 +39,8 @@ export function CardFormModal({ card, onClose, onSubmit, onResetProgress }: Card
           exampleSentence: card.exampleSentence,
           partOfSpeech: card.partOfSpeech,
           tags: card.tags,
+          pronunciation: card.pronunciation ?? "",
+          notes: card.notes ?? "",
         }
       : EMPTY,
   );
@@ -135,6 +139,26 @@ export function CardFormModal({ card, onClose, onSubmit, onResetProgress }: Card
               placeholder="food, travel…"
             />
           </div>
+
+          <details className="rounded-xl border border-ink-300/30 px-4 py-3">
+            <summary className="cursor-pointer text-sm font-bold text-ink-500">
+              More fields (optional)
+            </summary>
+            <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <TextField
+                label="Pronunciation"
+                value={form.pronunciation}
+                onChange={(e) => update("pronunciation", e.target.value)}
+                placeholder="an"
+              />
+              <TextField
+                label="Notes"
+                value={form.notes}
+                onChange={(e) => update("notes", e.target.value)}
+                placeholder="Common verb"
+              />
+            </div>
+          </details>
 
           {formError && (
             <p className="rounded-xl bg-red-50 px-4 py-2 text-sm font-semibold text-red-600">

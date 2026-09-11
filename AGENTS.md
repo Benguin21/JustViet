@@ -139,3 +139,24 @@ at mount (`useState(initialQueue)`); cards still in `learning`/
 they resurface later in the same session (short learning steps), while
 graduated/reviewed cards leave for good. It does not live-sync with
 Firestore mid-session by design.
+
+**Batch import** (paste from Excel/Sheets, no file upload):
+`src/lib/vocab/import.ts` is the pure parsing/validation pipeline
+(`parseImportText` → delimiter detection + header-vs-positional column
+mapping → `buildImportPreview` → duplicate/missing-field flags), tested in
+`import.test.ts`. `BatchImportModal.tsx` is the only caller; it holds the
+live-editable preview grid as its own state (re-derived from `parseImportText`
+whenever the pasted text/delimiter changes, but not when `existingCards`
+changes — reopen the modal if you need fresh dedup against very recent
+edits). Imported cards go through `repository.createCards` (batched
+`writeBatch`, chunked at 400), which shares the exact same
+`buildNewCardDoc` shaping as a single manually-created card — there's no
+separate "imported card" type. Note the deliberate front/back mapping:
+the import format is "English | Vietnamese" (matching how a learner would
+naturally fill in a spreadsheet), but internally Vietnamese → `front` and
+English → `back`, matching the manual Add Card form's orientation
+(`front` = the term being studied, shown on the study screen's flashcard
+face). Also added two optional card fields for this, `pronunciation` and
+`notes` (both `string | undefined` — see the comment on `VocabCard` in
+`types.ts` for why they're optional even though newly-written cards always
+get a value).
