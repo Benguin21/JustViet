@@ -6,6 +6,7 @@ import { VocabDashboard } from "@/components/vocab/VocabDashboard";
 import { CardList } from "@/components/vocab/CardList";
 import { CardFormModal } from "@/components/vocab/CardFormModal";
 import { CardDetailModal } from "@/components/vocab/CardDetailModal";
+import { BatchImportModal } from "@/components/vocab/BatchImportModal";
 import { StudySession } from "@/components/vocab/StudySession";
 import { SettingsPanel } from "@/components/vocab/SettingsPanel";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -23,6 +24,7 @@ export default function VocabSrsPage() {
     loading,
     error,
     addCard,
+    addCards,
     editCard,
     removeCard,
     setSuspended,
@@ -34,6 +36,7 @@ export default function VocabSrsPage() {
 
   const [tab, setTab] = useState<VocabTab>("cards");
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [editingCard, setEditingCard] = useState<VocabCard | null>(null);
   const [viewingCard, setViewingCard] = useState<VocabCard | null>(null);
   const [deletingCard, setDeletingCard] = useState<VocabCard | null>(null);
@@ -90,6 +93,7 @@ export default function VocabSrsPage() {
           setTab(next);
         }}
         onAddCard={() => setShowAddModal(true)}
+        onImportCards={() => setShowImportModal(true)}
       />
 
       {error && (
@@ -138,6 +142,16 @@ export default function VocabSrsPage() {
 
       {showAddModal && (
         <CardFormModal onClose={() => setShowAddModal(false)} onSubmit={addCard} />
+      )}
+
+      {showImportModal && (
+        <BatchImportModal
+          existingCards={cards}
+          onClose={() => setShowImportModal(false)}
+          onImport={async (inputs) => {
+            await addCards(inputs);
+          }}
+        />
       )}
 
       {editingCard && (

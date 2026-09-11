@@ -86,13 +86,19 @@ export function CardDetailModal({
                 </Badge>
               ))}
             </div>
-            <h3 className="font-heading mt-2 text-3xl font-extrabold text-ink-900">{card.front}</h3>
+            <h3 className="font-heading mt-2 text-3xl font-extrabold text-ink-900">
+              {card.front}
+              {card.pronunciation && (
+                <span className="ml-2 text-lg font-medium text-ink-500">/{card.pronunciation}/</span>
+              )}
+            </h3>
             <p className="text-lg font-semibold text-ink-700">{card.back}</p>
             {card.exampleSentence && (
               <p className="mt-2 rounded-xl bg-yellow-50 px-4 py-2 text-ink-700 italic">
                 “{card.exampleSentence}”
               </p>
             )}
+            {card.notes && <p className="mt-2 text-sm text-ink-500">{card.notes}</p>}
           </div>
 
           <dl className="grid grid-cols-2 gap-3 rounded-2xl bg-paper p-4 sm:grid-cols-3">

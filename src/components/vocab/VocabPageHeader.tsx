@@ -16,6 +16,7 @@ type VocabPageHeaderProps = {
   activeTab: VocabTab;
   onTabChange: (tab: VocabTab) => void;
   onAddCard: () => void;
+  onImportCards: () => void;
 };
 
 export function VocabPageHeader({
@@ -24,6 +25,7 @@ export function VocabPageHeader({
   activeTab,
   onTabChange,
   onAddCard,
+  onImportCards,
 }: VocabPageHeaderProps) {
   return (
     <div className="flex flex-col gap-4">
@@ -34,9 +36,14 @@ export function VocabPageHeader({
             {totalCards} card{totalCards === 1 ? "" : "s"} · {dueToday} due today
           </p>
         </div>
-        <Button onClick={onAddCard} fullWidth={false} className="px-6">
-          + Add Card
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={onImportCards} variant="outline" fullWidth={false} className="px-6">
+            Import Cards
+          </Button>
+          <Button onClick={onAddCard} fullWidth={false} className="px-6">
+            + Add Card
+          </Button>
+        </div>
       </div>
 
       <div className="flex w-full max-w-sm rounded-2xl bg-yellow-100 p-1">

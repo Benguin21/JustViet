@@ -6,13 +6,14 @@ type ModalProps = {
   title: string;
   onClose: () => void;
   children: ReactNode;
-  maxWidth?: "md" | "lg" | "xl";
+  maxWidth?: "md" | "lg" | "xl" | "2xl";
 };
 
 const MAX_WIDTH_CLASSES = {
   md: "max-w-md",
   lg: "max-w-lg",
   xl: "max-w-2xl",
+  "2xl": "max-w-4xl",
 };
 
 /** A centered modal dialog: Escape and backdrop-click both close it, and body scroll is locked while open. */
