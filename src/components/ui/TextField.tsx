@@ -3,7 +3,8 @@
 import { forwardRef, useId, type InputHTMLAttributes } from "react";
 
 type TextFieldProps = InputHTMLAttributes<HTMLInputElement> & {
-  label: string;
+  /** Omit when the field is already labeled by a wrapping component. */
+  label?: string;
   error?: string;
 };
 
@@ -14,12 +15,14 @@ export const TextField = forwardRef<HTMLInputElement, TextFieldProps>(
 
     return (
       <div className="flex flex-col gap-1.5">
-        <label
-          htmlFor={inputId}
-          className="text-sm font-bold tracking-wide text-ink-700 uppercase"
-        >
-          {label}
-        </label>
+        {label && (
+          <label
+            htmlFor={inputId}
+            className="text-sm font-bold tracking-wide text-ink-700 uppercase"
+          >
+            {label}
+          </label>
+        )}
         <input
           ref={ref}
           id={inputId}
