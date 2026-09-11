@@ -126,7 +126,7 @@ export function StudySession({ queue: initialQueue, settings, onRate, onFinish }
       </div>
 
       <div className="flex min-h-[16rem] flex-col items-center justify-center gap-4 rounded-3xl border-2 border-ink-300/20 bg-surface px-6 py-10 text-center shadow-[0_6px_0_rgba(74,47,34,0.06)]">
-        <Badge tone="gray">{current.partOfSpeech}</Badge>
+        {current.partOfSpeech && <Badge tone="gray">{current.partOfSpeech}</Badge>}
         <p className="font-heading text-4xl font-extrabold text-ink-900">{current.front}</p>
 
         {showAnswer && (

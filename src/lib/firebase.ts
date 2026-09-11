@@ -1,6 +1,6 @@
 import { type FirebaseApp, getApps, initializeApp } from "firebase/app";
 import { type Auth, getAuth } from "firebase/auth";
-import { type Firestore, getFirestore } from "firebase/firestore";
+import { type Firestore, getFirestore, initializeFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -23,7 +23,22 @@ let firestoreInstance: Firestore | undefined;
 if (isFirebaseConfigured) {
   app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
   authInstance = getAuth(app);
-  firestoreInstance = getFirestore(app);
+  // `experimentalForceLongPolling` skips Firestore's default WebSocket-vs-
+  // long-polling auto-detection handshake, which was measured (via a fresh
+  // test account + network capture) to take anywhere from several seconds
+  // to ~30s+ before falling back to long-polling anyway in some network
+  // environments (proxies, certain security/antivirus browser extensions,
+  // some sandboxes) — this was the actual cause of the Vocab page's slow
+  // initial load, not query volume. Forcing long-polling immediately is
+  // Firestore's own documented fix for exactly this symptom.
+  try {
+    firestoreInstance = initializeFirestore(app, { experimentalForceLongPolling: true });
+  } catch {
+    // initializeFirestore throws if a Firestore instance already exists for
+    // this app (e.g. this module re-evaluating under Next.js Fast Refresh)
+    // — fall back to the existing instance rather than crashing dev mode.
+    firestoreInstance = getFirestore(app);
+  }
 }
 
 /**

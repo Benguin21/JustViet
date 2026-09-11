@@ -101,7 +101,7 @@ describe("parseImportText", () => {
   it("defaults missing optional columns to blank rather than throwing", () => {
     const result = parseImportText("eat\tăn");
     expect(result.rows[0]).toMatchObject({
-      partOfSpeech: "other",
+      partOfSpeech: "",
       example: "",
       tags: [],
       pronunciation: "",
@@ -124,6 +124,13 @@ describe("parseImportText", () => {
     const result = parseImportText(text, "tab");
     expect(result.rows[0].partOfSpeech).toBe("verb");
     expect(result.rows[1].partOfSpeech).toBe("adjective");
+  });
+
+  it("only uses 'other' when the source data explicitly says so, not for unrecognized text", () => {
+    const text = "eat\tăn\tother\nrun\tchạy\tsome gibberish";
+    const result = parseImportText(text, "tab");
+    expect(result.rows[0].partOfSpeech).toBe("other");
+    expect(result.rows[1].partOfSpeech).toBe("");
   });
 });
 

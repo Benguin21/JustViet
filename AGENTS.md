@@ -115,12 +115,40 @@ testable — see `src/lib/vocab/*.test.ts`.
   `users/{uid}/reviewLogs/{id}` (flat, not nested under the card, so
   daily-limit/heatmap queries don't need a composite index), and
   `users/{uid}/settings/srs`. `submitReview` writes the card update and
-  its review-log entry in one `writeBatch` so they can't desync.
-- `src/lib/vocab/useVocabData.ts` — the one hook the page uses: live
-  `onSnapshot` subscriptions to all three collections plus every mutation
-  action, each normalizing Firestore errors via `firestore-errors.ts`
-  (mirrors `auth-errors.ts`'s pattern) so callers just catch and show
-  `err.message`.
+  its review-log entry in one `writeBatch` so they can't desync. Reads are
+  one-time (`getDocs`/`getDoc`), **not** `onSnapshot` — see below.
+- `src/lib/vocab/useVocabData.ts` — the one hook the page uses: fetches
+  cards/logs/settings once per sign-in, plus every mutation action, each
+  normalizing Firestore errors via `firestore-errors.ts` (mirrors
+  `auth-errors.ts`'s pattern) so callers just catch and show `err.message`.
+  Every mutation updates local state directly from what it wrote (e.g.
+  `addCard` appends the created card returned by `repo.createCard`) rather
+  than waiting on a listener or re-fetching — this is what makes
+  create/import/review feel instant and is why `CardFormModal`/
+  `BatchImportModal` can safely close themselves right after their
+  `onSubmit`/`onImport` promise resolves.
+
+**Why one-time reads instead of `onSnapshot`:** an earlier version used
+live listeners on all three collections and gated the whole page behind
+all three loading. Investigating a "page takes ~a minute to load" report
+(see git history) found two compounding problems: (1) a real bug —
+`handleError` never marked a failed subscription "loaded", so a single
+subscription error left `loading` stuck `true` forever with no way for
+the error banner to ever render; (2) in the environment where this was
+tested, Firestore's realtime `Listen` channel was failing outright with
+`PERMISSION_DENIED: Cloud Firestore API has not been used in project ...
+or it is disabled` and retrying with growing backoff (10s, then 20s, then
+30s+) rather than failing fast — a project-level Google Cloud API
+enablement/propagation issue, not something fixable in this codebase. If
+the Vocab page is slow to load again, check that first: the error message
+names the exact console URL to enable the API. `experimentalForceLongPolling`
+is set in `firebase.ts` as a standard mitigation for the broader class of
+"WebChannel slow to establish" issue (proxies, some security/antivirus
+browser extensions) even though it didn't move the needle for the specific
+API-disabled case above. Given none of this app's features need
+cross-tab/cross-device live sync, one-time fetch + optimistic local updates
+sidesteps the whole class of problem and is simpler besides — don't
+reintroduce `onSnapshot` here without a real reason.
 - `src/components/vocab/*` — UI, one concern per file (`CardList`,
   `CardFormModal`, `CardDetailModal`, `StudySession`, `RatingButtons`,
   `SettingsPanel`, `VocabDashboard`, …).

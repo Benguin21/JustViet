@@ -79,7 +79,7 @@ export function CardDetailModal({
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <StatusBadge status={effectiveStatus(card)} />
-              <Badge tone="gray">{card.partOfSpeech}</Badge>
+              {card.partOfSpeech && <Badge tone="gray">{card.partOfSpeech}</Badge>}
               {card.tags.map((tag) => (
                 <Badge key={tag} tone="yellow">
                   {tag}

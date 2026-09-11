@@ -134,12 +134,17 @@ const PART_OF_SPEECH_ALIASES: Record<string, PartOfSpeech> = {
   conjunction: "conjunction",
 };
 
+/**
+ * Missing/unrecognized part-of-speech text is left blank rather than
+ * guessed as "other" — "other" is reserved for when the source data (or a
+ * user in the form) explicitly says so, matching the manual Add Card form.
+ */
 function normalizePartOfSpeech(raw: string | undefined): PartOfSpeech {
-  if (!raw) return "other";
+  if (!raw) return "";
   const normalized = raw.trim().toLowerCase().replace(/\.$/, "");
   if (normalized in PART_OF_SPEECH_ALIASES) return PART_OF_SPEECH_ALIASES[normalized];
   if ((PARTS_OF_SPEECH as readonly string[]).includes(normalized)) return normalized as PartOfSpeech;
-  return "other";
+  return "";
 }
 
 function splitTagsCell(raw: string | undefined): string[] {

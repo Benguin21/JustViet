@@ -10,19 +10,31 @@
  *                                      the card) so daily-limit/heatmap queries
  *                                      don't need a composite index
  *   users/{uid}/settings/srs         — a single doc holding the user's SrsSettings
+ *
+ * Reads are one-time (`getDocs`/`getDoc`), not live `onSnapshot` listeners.
+ * We measured `onSnapshot`'s realtime `Listen` channel taking 10-30+
+ * seconds to establish in some environments (a Firestore project's
+ * streaming RPC surface can lag behind plain reads/writes right after
+ * Firestore is first enabled, and some networks/proxies are slow to
+ * negotiate its WebChannel transport) while plain `getDocs` reads
+ * consistently resolved in well under a second. Since this is a
+ * single-user tool with no real need for live cross-tab sync, `useVocabData`
+ * fetches once on mount and every mutation here returns the exact data it
+ * wrote so the hook can update local state immediately, without waiting on
+ * a listener or a follow-up fetch.
  */
 import {
   collection,
   doc,
+  getDoc,
   getDocs,
-  onSnapshot,
+  limit,
   orderBy,
   query,
   setDoc,
   where,
   writeBatch,
   type Firestore,
-  type Unsubscribe,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { applyReview, createNewCardFields, rescheduleForRetention } from "./srs";
@@ -50,55 +62,29 @@ const cardRef = (uid: string, cardId: string) =>
 const logsCol = (uid: string) => collection(requireDb(), "users", uid, "reviewLogs");
 const settingsRef = (uid: string) => doc(requireDb(), "users", uid, "settings", "srs");
 
-/** Live-subscribes to every vocab card the user owns. */
-export function subscribeToCards(
-  uid: string,
-  onData: (cards: VocabCard[]) => void,
-  onError: (error: unknown) => void,
-): Unsubscribe {
-  return onSnapshot(
-    cardsCol(uid),
-    (snapshot) => {
-      const cards = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as VocabCard);
-      onData(cards);
-    },
-    onError,
-  );
+/** Reasonable cap on how much review history a single load pulls in — see the module comment. */
+const REVIEW_LOG_FETCH_LIMIT = 2000;
+
+export async function fetchCards(uid: string): Promise<VocabCard[]> {
+  const snapshot = await getDocs(cardsCol(uid));
+  return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as VocabCard);
 }
 
 /**
- * Live-subscribes to the user's review log, most recent first. Bounded by
- * a generous limit rather than fetched in full — fine for the dashboard
- * heatmap/forecast and daily-limit accounting, which only look at recent
- * history; a very long-lived collection would eventually want pagination.
+ * Fetches the user's most recent review log entries (bounded — see
+ * `REVIEW_LOG_FETCH_LIMIT`), most recent first. This is enough for the
+ * dashboard heatmap/forecast and daily-limit accounting; a very long-lived
+ * collection would eventually want real pagination for per-card history.
  */
-export function subscribeToReviewLogs(
-  uid: string,
-  onData: (logs: ReviewLogEntry[]) => void,
-  onError: (error: unknown) => void,
-): Unsubscribe {
-  const q = query(logsCol(uid), orderBy("reviewedAt", "desc"));
-  return onSnapshot(
-    q,
-    (snapshot) => {
-      const logs = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as ReviewLogEntry);
-      onData(logs);
-    },
-    onError,
-  );
+export async function fetchReviewLogs(uid: string): Promise<ReviewLogEntry[]> {
+  const q = query(logsCol(uid), orderBy("reviewedAt", "desc"), limit(REVIEW_LOG_FETCH_LIMIT));
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as ReviewLogEntry);
 }
 
-/** Live-subscribes to the user's SRS settings doc (null until they've saved any). */
-export function subscribeToSettings(
-  uid: string,
-  onData: (settings: Partial<SrsSettings> | null) => void,
-  onError: (error: unknown) => void,
-): Unsubscribe {
-  return onSnapshot(
-    settingsRef(uid),
-    (snapshot) => onData(snapshot.exists() ? (snapshot.data() as SrsSettings) : null),
-    onError,
-  );
+export async function fetchSettings(uid: string): Promise<Partial<SrsSettings> | null> {
+  const snapshot = await getDoc(settingsRef(uid));
+  return snapshot.exists() ? (snapshot.data() as SrsSettings) : null;
 }
 
 /**
@@ -124,10 +110,11 @@ function buildNewCardDoc(uid: string, input: NewVocabCardInput, now: number): Om
   };
 }
 
-export async function createCard(uid: string, input: NewVocabCardInput): Promise<string> {
+export async function createCard(uid: string, input: NewVocabCardInput): Promise<VocabCard> {
   const ref = doc(cardsCol(uid));
-  await setDoc(ref, buildNewCardDoc(uid, input, Date.now()));
-  return ref.id;
+  const card = buildNewCardDoc(uid, input, Date.now());
+  await setDoc(ref, card);
+  return { id: ref.id, ...card };
 }
 
 /**
@@ -136,23 +123,24 @@ export async function createCard(uid: string, input: NewVocabCardInput): Promise
  * imported cards aren't a separate kind of card, they just arrive in bulk.
  * Chunked to stay under Firestore's 500-write batch limit.
  */
-export async function createCards(uid: string, inputs: NewVocabCardInput[]): Promise<string[]> {
+export async function createCards(uid: string, inputs: NewVocabCardInput[]): Promise<VocabCard[]> {
   const database = requireDb();
   const now = Date.now();
-  const ids: string[] = [];
+  const created: VocabCard[] = [];
 
   const CHUNK = 400;
   for (let i = 0; i < inputs.length; i += CHUNK) {
     const batch = writeBatch(database);
     for (const input of inputs.slice(i, i + CHUNK)) {
       const ref = doc(cardsCol(uid));
-      batch.set(ref, buildNewCardDoc(uid, input, now));
-      ids.push(ref.id);
+      const card = buildNewCardDoc(uid, input, now);
+      batch.set(ref, card);
+      created.push({ id: ref.id, ...card });
     }
     await batch.commit();
   }
 
-  return ids;
+  return created;
 }
 
 /** Updates a card's content. SRS scheduling fields are left untouched on purpose. */
@@ -160,31 +148,27 @@ export async function updateCard(
   uid: string,
   cardId: string,
   edit: VocabCardEdit,
-): Promise<void> {
-  await setDoc(
-    cardRef(uid, cardId),
-    {
-      front: edit.front.trim(),
-      back: edit.back.trim(),
-      exampleSentence: edit.exampleSentence.trim(),
-      partOfSpeech: edit.partOfSpeech,
-      tags: edit.tags.map((t) => t.trim()).filter(Boolean),
-      pronunciation: edit.pronunciation?.trim() ?? "",
-      notes: edit.notes?.trim() ?? "",
-      updatedAt: Date.now(),
-    },
-    { merge: true },
-  );
+): Promise<Partial<VocabCard>> {
+  const patch = {
+    front: edit.front.trim(),
+    back: edit.back.trim(),
+    exampleSentence: edit.exampleSentence.trim(),
+    partOfSpeech: edit.partOfSpeech,
+    tags: edit.tags.map((t) => t.trim()).filter(Boolean),
+    pronunciation: edit.pronunciation?.trim() ?? "",
+    notes: edit.notes?.trim() ?? "",
+    updatedAt: Date.now(),
+  };
+  await setDoc(cardRef(uid, cardId), patch, { merge: true });
+  return patch;
 }
 
 /** Resets a card's SRS scheduling back to "new". Past review history is kept for the record. */
-export async function resetCardProgress(uid: string, cardId: string): Promise<void> {
+export async function resetCardProgress(uid: string, cardId: string): Promise<Partial<VocabCard>> {
   const now = Date.now();
-  await setDoc(
-    cardRef(uid, cardId),
-    { ...createNewCardFields(new Date(now)), updatedAt: now },
-    { merge: true },
-  );
+  const patch = { ...createNewCardFields(new Date(now)), updatedAt: now };
+  await setDoc(cardRef(uid, cardId), patch, { merge: true });
+  return patch;
 }
 
 export async function setCardSuspended(
@@ -242,35 +226,44 @@ export async function saveSettings(uid: string, settings: SrsSettings): Promise<
   await setDoc(settingsRef(uid), settings);
 }
 
+export interface RescheduledCard {
+  id: string;
+  due: number;
+  scheduledDays: number;
+}
+
 /**
  * Recomputes the due date of every review-state card from its current
  * stability under the settings' desired retention (see
  * `srs.ts#rescheduleForRetention`) — a lightweight "apply my new retention
  * target to cards I've already scheduled" action, not a full re-optimization.
+ * Returns just the cards that actually changed, so the caller can patch
+ * local state without a refetch.
  */
 export async function rescheduleAllCards(
   uid: string,
   cards: VocabCard[],
   settings: SrsSettings,
-): Promise<number> {
+): Promise<RescheduledCard[]> {
   const database = requireDb();
   const now = Date.now();
-  const toUpdate = cards
+  const toUpdate: RescheduledCard[] = cards
     .map((card) => ({ card, next: rescheduleForRetention(card, settings, now) }))
-    .filter(({ card, next }) => next.due !== card.due || next.scheduledDays !== card.scheduledDays);
+    .filter(({ card, next }) => next.due !== card.due || next.scheduledDays !== card.scheduledDays)
+    .map(({ card, next }) => ({ id: card.id, due: next.due, scheduledDays: next.scheduledDays }));
 
   const CHUNK = 400; // stay under Firestore's 500-write batch limit
   for (let i = 0; i < toUpdate.length; i += CHUNK) {
     const batch = writeBatch(database);
-    for (const { card, next } of toUpdate.slice(i, i + CHUNK)) {
+    for (const update of toUpdate.slice(i, i + CHUNK)) {
       batch.set(
-        cardRef(uid, card.id),
-        { due: next.due, scheduledDays: next.scheduledDays, updatedAt: now },
+        cardRef(uid, update.id),
+        { due: update.due, scheduledDays: update.scheduledDays, updatedAt: now },
         { merge: true },
       );
     }
     await batch.commit();
   }
 
-  return toUpdate.length;
+  return toUpdate;
 }
