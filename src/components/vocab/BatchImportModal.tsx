@@ -39,13 +39,11 @@ export function BatchImportModal({ existingCards, onClose, onImport }: BatchImpo
   const [rows, setRows] = useState<ImportPreviewRow[]>([]);
   const [importing, setImporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [successCount, setSuccessCount] = useState<number | null>(null);
 
   const detectedDelimiter = useMemo(() => parseImportText(text).delimiterUsed, [text]);
 
   function handleTextChange(next: string) {
     setText(next);
-    setSuccessCount(null);
     setError(null);
     const parsed = parseImportText(next, delimiterOption);
     setRows(buildImportPreview(parsed.rows, existingCards));
@@ -90,17 +88,20 @@ export function BatchImportModal({ existingCards, onClose, onImport }: BatchImpo
   const includedCount = rows.filter((r) => r.included).length;
 
   async function handleImport() {
+    if (importing) return; // guard against double-submission (e.g. a fast double-click)
     setImporting(true);
     setError(null);
     try {
       const inputs = rows.filter((r) => r.included).map(toNewCardInput);
       await onImport(inputs);
-      setSuccessCount(inputs.length);
-      setText("");
-      setRows([]);
+      // Success: close immediately: the caller shows a toast and the card
+      // list already reflects the import (see useVocabData's optimistic
+      // local update), so there's nothing left for this modal to do.
+      onClose();
     } catch (err) {
+      // Failure: stay open so the user can see what went wrong and retry
+      // without having to re-paste everything.
       setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
-    } finally {
       setImporting(false);
     }
   }
@@ -146,12 +147,6 @@ export function BatchImportModal({ existingCards, onClose, onImport }: BatchImpo
           )}
         </div>
 
-        {successCount !== null && (
-          <p className="rounded-xl bg-success/15 px-4 py-2 text-sm font-semibold text-success-dark">
-            Imported {successCount} card{successCount === 1 ? "" : "s"}. Paste more below, or close
-            when you&apos;re done.
-          </p>
-        )}
         {error && (
           <p className="rounded-xl bg-red-50 px-4 py-2 text-sm font-semibold text-red-600">
             {error}
@@ -218,6 +213,7 @@ export function BatchImportModal({ existingCards, onClose, onImport }: BatchImpo
                           }
                           className="w-full rounded-lg border border-ink-300/40 bg-surface px-2 py-1 text-sm capitalize"
                         >
+                          <option value="">—</option>
                           {PARTS_OF_SPEECH.map((pos) => (
                             <option key={pos} value={pos}>
                               {pos}

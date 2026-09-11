@@ -20,7 +20,13 @@ export const PARTS_OF_SPEECH = [
   "other",
 ] as const;
 
-export type PartOfSpeech = (typeof PARTS_OF_SPEECH)[number];
+/**
+ * `""` means "not set" — it's deliberately not in `PARTS_OF_SPEECH` (which
+ * lists only the real, selectable categories for `<option>` lists, filters,
+ * etc). New and imported cards default to `""`; "Other" is only ever set
+ * when a user explicitly picks it (or pasted data explicitly says "other").
+ */
+export type PartOfSpeech = (typeof PARTS_OF_SPEECH)[number] | "";
 
 /** The four FSRS-style ratings a user can give a card during review. */
 export const RATINGS = ["again", "hard", "good", "easy"] as const;

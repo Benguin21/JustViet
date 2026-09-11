@@ -24,7 +24,7 @@ export function CardRow({ card, onSelect, onEdit, onDelete, onStudy }: CardRowPr
         <div className="font-heading font-bold text-ink-900">{card.front}</div>
       </td>
       <td className="px-4 py-3 text-ink-700">{card.back}</td>
-      <td className="px-4 py-3 text-ink-500 capitalize">{card.partOfSpeech}</td>
+      <td className="px-4 py-3 text-ink-500 capitalize">{card.partOfSpeech || "—"}</td>
       <td className="px-4 py-3">
         <div className="flex flex-wrap gap-1">
           {card.tags.slice(0, 3).map((tag) => (

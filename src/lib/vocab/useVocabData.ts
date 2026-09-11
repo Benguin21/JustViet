@@ -19,8 +19,10 @@ export interface UseVocabDataResult {
   reviewLogs: ReviewLogEntry[];
   settings: SrsSettings;
   loading: boolean;
-  /** Set when a live subscription itself fails (e.g. permission/network); actions surface their own errors via thrown Errors. */
+  /** Set when the initial load (or a manual refresh) fails; actions surface their own errors via thrown Errors. */
   error: string | null;
+  /** Re-fetches everything from Firestore. Mutations already update local state directly, so this is mostly an escape hatch. */
+  refresh: () => Promise<void>;
 
   addCard: (input: NewVocabCardInput) => Promise<string>;
   addCards: (inputs: NewVocabCardInput[]) => Promise<string[]>;
@@ -36,11 +38,20 @@ export interface UseVocabDataResult {
 const NOT_SIGNED_IN = "You need to be signed in to do that.";
 
 /**
- * The single source of truth for the Vocab SRS page: live Firestore data
- * (cards / review logs / settings) plus the mutation actions, all bound to
- * the current user. Every write goes through `repository.ts`; every
- * failure is normalized to a friendly message via `friendlyFirestoreError`
- * so callers can just catch and display `err.message`.
+ * The single source of truth for the Vocab SRS page: Firestore data
+ * (cards / review logs / settings), fetched once per sign-in, plus the
+ * mutation actions, all bound to the current user.
+ *
+ * Deliberately NOT using live `onSnapshot` listeners — see the comment at
+ * the top of `repository.ts` for why (their realtime `Listen` channel was
+ * measured taking 10-30+ seconds to establish in some environments, which
+ * was the actual cause of the page's slow load). Instead, every mutation
+ * here updates local state directly from what it wrote, so the UI reflects
+ * changes immediately without waiting on a fetch or a listener.
+ *
+ * Every failure is normalized to a friendly message via
+ * `friendlyFirestoreError` so callers can just catch and display
+ * `err.message`.
  */
 export function useVocabData(): UseVocabDataResult {
   const { user } = useAuth();
@@ -49,56 +60,65 @@ export function useVocabData(): UseVocabDataResult {
   const [cards, setCards] = useState<VocabCard[]>([]);
   const [reviewLogs, setReviewLogs] = useState<ReviewLogEntry[]>([]);
   const [rawSettings, setRawSettings] = useState<Partial<SrsSettings> | null>(null);
-  const [loaded, setLoaded] = useState({ cards: false, logs: false, settings: false });
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async (currentUid: string) => {
+    const [cardsResult, logsResult, settingsResult] = await Promise.allSettled([
+      repo.fetchCards(currentUid),
+      repo.fetchReviewLogs(currentUid),
+      repo.fetchSettings(currentUid),
+    ]);
+
+    if (cardsResult.status === "fulfilled") {
+      setCards(cardsResult.value);
+    } else {
+      setError(friendlyFirestoreError(cardsResult.reason));
+    }
+
+    if (logsResult.status === "fulfilled") {
+      setReviewLogs(logsResult.value);
+    } else {
+      setError(friendlyFirestoreError(logsResult.reason));
+    }
+
+    if (settingsResult.status === "fulfilled") {
+      setRawSettings(settingsResult.value);
+    } else {
+      setError(friendlyFirestoreError(settingsResult.reason));
+    }
+  }, []);
 
   useEffect(() => {
     if (!uid) return;
-    // (No reset of `loaded`/`error` here: this effect only re-runs if `uid`
-    // changes, and in practice RequireAuth unmounts this whole tree on
-    // sign-out/sign-in rather than swapping `uid` under a live instance.)
-    const handleError = (err: unknown) => setError(friendlyFirestoreError(err));
-
-    const unsubCards = repo.subscribeToCards(
-      uid,
-      (data) => {
-        setCards(data);
-        setLoaded((prev) => ({ ...prev, cards: true }));
-      },
-      handleError,
-    );
-    const unsubLogs = repo.subscribeToReviewLogs(
-      uid,
-      (data) => {
-        setReviewLogs(data);
-        setLoaded((prev) => ({ ...prev, logs: true }));
-      },
-      handleError,
-    );
-    const unsubSettings = repo.subscribeToSettings(
-      uid,
-      (data) => {
-        setRawSettings(data);
-        setLoaded((prev) => ({ ...prev, settings: true }));
-      },
-      handleError,
-    );
-
+    let cancelled = false;
+    // This genuinely needs an effect (fetching from Firestore on mount is
+    // an external-system call, not derivable state) — `setLoading(false)`
+    // just marks that real network round-trip as settled.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    load(uid).finally(() => {
+      if (!cancelled) setLoading(false);
+    });
     return () => {
-      unsubCards();
-      unsubLogs();
-      unsubSettings();
+      cancelled = true;
     };
-  }, [uid]);
+  }, [uid, load]);
+
+  const refresh = useCallback(async () => {
+    if (!uid) return;
+    setError(null);
+    await load(uid);
+  }, [uid, load]);
 
   const settings = useMemo(() => withSettingsDefaults(rawSettings ?? {}), [rawSettings]);
-  const loading = !loaded.cards || !loaded.logs || !loaded.settings;
 
   const addCard = useCallback(
     async (input: NewVocabCardInput) => {
       if (!uid) throw new Error(NOT_SIGNED_IN);
       try {
-        return await repo.createCard(uid, input);
+        const card = await repo.createCard(uid, input);
+        setCards((prev) => [...prev, card]);
+        return card.id;
       } catch (err) {
         throw new Error(friendlyFirestoreError(err));
       }
@@ -110,7 +130,9 @@ export function useVocabData(): UseVocabDataResult {
     async (inputs: NewVocabCardInput[]) => {
       if (!uid) throw new Error(NOT_SIGNED_IN);
       try {
-        return await repo.createCards(uid, inputs);
+        const created = await repo.createCards(uid, inputs);
+        setCards((prev) => [...prev, ...created]);
+        return created.map((c) => c.id);
       } catch (err) {
         throw new Error(friendlyFirestoreError(err));
       }
@@ -122,7 +144,8 @@ export function useVocabData(): UseVocabDataResult {
     async (cardId: string, edit: VocabCardEdit) => {
       if (!uid) throw new Error(NOT_SIGNED_IN);
       try {
-        await repo.updateCard(uid, cardId, edit);
+        const patch = await repo.updateCard(uid, cardId, edit);
+        setCards((prev) => prev.map((c) => (c.id === cardId ? { ...c, ...patch } : c)));
       } catch (err) {
         throw new Error(friendlyFirestoreError(err));
       }
@@ -135,6 +158,8 @@ export function useVocabData(): UseVocabDataResult {
       if (!uid) throw new Error(NOT_SIGNED_IN);
       try {
         await repo.deleteCard(uid, cardId);
+        setCards((prev) => prev.filter((c) => c.id !== cardId));
+        setReviewLogs((prev) => prev.filter((l) => l.cardId !== cardId));
       } catch (err) {
         throw new Error(friendlyFirestoreError(err));
       }
@@ -147,6 +172,10 @@ export function useVocabData(): UseVocabDataResult {
       if (!uid) throw new Error(NOT_SIGNED_IN);
       try {
         await repo.setCardSuspended(uid, cardId, suspended);
+        const updatedAt = Date.now();
+        setCards((prev) =>
+          prev.map((c) => (c.id === cardId ? { ...c, suspended, updatedAt } : c)),
+        );
       } catch (err) {
         throw new Error(friendlyFirestoreError(err));
       }
@@ -158,7 +187,8 @@ export function useVocabData(): UseVocabDataResult {
     async (cardId: string) => {
       if (!uid) throw new Error(NOT_SIGNED_IN);
       try {
-        await repo.resetCardProgress(uid, cardId);
+        const patch = await repo.resetCardProgress(uid, cardId);
+        setCards((prev) => prev.map((c) => (c.id === cardId ? { ...c, ...patch } : c)));
       } catch (err) {
         throw new Error(friendlyFirestoreError(err));
       }
@@ -170,7 +200,9 @@ export function useVocabData(): UseVocabDataResult {
     async (card: VocabCard, rating: CardRating) => {
       if (!uid) throw new Error(NOT_SIGNED_IN);
       try {
-        const { card: updated } = await repo.submitReview(uid, card, rating, settings);
+        const { card: updated, log } = await repo.submitReview(uid, card, rating, settings);
+        setCards((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
+        setReviewLogs((prev) => [log, ...prev]);
         return updated;
       } catch (err) {
         throw new Error(friendlyFirestoreError(err));
@@ -184,6 +216,7 @@ export function useVocabData(): UseVocabDataResult {
       if (!uid) throw new Error(NOT_SIGNED_IN);
       try {
         await repo.saveSettings(uid, next);
+        setRawSettings(next);
       } catch (err) {
         throw new Error(friendlyFirestoreError(err));
       }
@@ -194,7 +227,15 @@ export function useVocabData(): UseVocabDataResult {
   const rescheduleAllCardsAction = useCallback(async () => {
     if (!uid) throw new Error(NOT_SIGNED_IN);
     try {
-      return await repo.rescheduleAllCards(uid, cards, settings);
+      const updates = await repo.rescheduleAllCards(uid, cards, settings);
+      const byId = new Map(updates.map((u) => [u.id, u]));
+      setCards((prev) =>
+        prev.map((c) => {
+          const update = byId.get(c.id);
+          return update ? { ...c, due: update.due, scheduledDays: update.scheduledDays } : c;
+        }),
+      );
+      return updates.length;
     } catch (err) {
       throw new Error(friendlyFirestoreError(err));
     }
@@ -206,6 +247,7 @@ export function useVocabData(): UseVocabDataResult {
     settings,
     loading,
     error,
+    refresh,
     addCard,
     addCards,
     editCard,

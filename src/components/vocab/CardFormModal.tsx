@@ -23,7 +23,7 @@ const EMPTY: NewVocabCardInput = {
   front: "",
   back: "",
   exampleSentence: "",
-  partOfSpeech: "noun",
+  partOfSpeech: "",
   tags: [],
   pronunciation: "",
   notes: "",
@@ -64,15 +64,15 @@ export function CardFormModal({ card, onClose, onSubmit, onResetProgress }: Card
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
+    if (submitting) return; // guard against double-submission (e.g. a fast double-click)
     setFormError(null);
     if (!validate()) return;
     setSubmitting(true);
     try {
       await onSubmit(form);
-      onClose();
+      onClose(); // success: close immediately, the caller shows a toast
     } catch (err) {
       setFormError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
-    } finally {
       setSubmitting(false);
     }
   }
@@ -126,6 +126,7 @@ export function CardFormModal({ card, onClose, onSubmit, onResetProgress }: Card
               value={form.partOfSpeech}
               onChange={(e) => update("partOfSpeech", e.target.value as PartOfSpeech)}
             >
+              <option value="">—</option>
               {PARTS_OF_SPEECH.map((pos) => (
                 <option key={pos} value={pos}>
                   {pos[0].toUpperCase() + pos.slice(1)}

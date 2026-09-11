@@ -10,10 +10,12 @@ import { BatchImportModal } from "@/components/vocab/BatchImportModal";
 import { StudySession } from "@/components/vocab/StudySession";
 import { SettingsPanel } from "@/components/vocab/SettingsPanel";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { Toast } from "@/components/ui/Toast";
 import { useVocabData } from "@/lib/vocab/useVocabData";
 import { buildStudyQueue, computeTodayStats } from "@/lib/vocab/scheduler";
 import { startOfDay } from "@/lib/vocab/srs";
 import { useNow } from "@/lib/useNow";
+import { useToast } from "@/lib/useToast";
 import type { VocabCard } from "@/lib/vocab/types";
 
 export default function VocabSrsPage() {
@@ -42,6 +44,7 @@ export default function VocabSrsPage() {
   const [deletingCard, setDeletingCard] = useState<VocabCard | null>(null);
   const [singleCardQueue, setSingleCardQueue] = useState<VocabCard[] | null>(null);
   const [listError, setListError] = useState<string | null>(null);
+  const { message: toastMessage, showToast } = useToast();
 
   const now = useNow();
   const todayStats = useMemo(() => computeTodayStats(cards, now), [cards, now]);
@@ -73,11 +76,17 @@ export default function VocabSrsPage() {
 
   if (loading) {
     return (
-      <main className="flex flex-1 items-center justify-center">
+      <main className="flex flex-1 flex-col items-center justify-center gap-4">
         <span
           className="h-10 w-10 animate-spin rounded-full border-4 border-red-300 border-t-red-500"
           aria-hidden="true"
         />
+        {/* Shown if a fetch is failing repeatedly rather than just being slow —
+            `loading` itself always resolves once the attempt settles (see
+            useVocabData), so this is a courtesy message, not a stuck state. */}
+        {error && (
+          <p className="max-w-sm text-center text-sm font-semibold text-red-600">{error}</p>
+        )}
       </main>
     );
   }
@@ -141,7 +150,13 @@ export default function VocabSrsPage() {
       )}
 
       {showAddModal && (
-        <CardFormModal onClose={() => setShowAddModal(false)} onSubmit={addCard} />
+        <CardFormModal
+          onClose={() => setShowAddModal(false)}
+          onSubmit={async (input) => {
+            await addCard(input);
+            showToast("Card created");
+          }}
+        />
       )}
 
       {showImportModal && (
@@ -150,6 +165,7 @@ export default function VocabSrsPage() {
           onClose={() => setShowImportModal(false)}
           onImport={async (inputs) => {
             await addCards(inputs);
+            showToast("Cards imported successfully");
           }}
         />
       )}
@@ -158,7 +174,10 @@ export default function VocabSrsPage() {
         <CardFormModal
           card={editingCard}
           onClose={() => setEditingCard(null)}
-          onSubmit={(input) => editCard(editingCard.id, input)}
+          onSubmit={async (input) => {
+            await editCard(editingCard.id, input);
+            showToast("Card updated");
+          }}
           onResetProgress={() => resetProgress(editingCard.id)}
         />
       )}
@@ -193,6 +212,8 @@ export default function VocabSrsPage() {
           onCancel={() => setDeletingCard(null)}
         />
       )}
+
+      {toastMessage && <Toast message={toastMessage} />}
     </main>
   );
 }
