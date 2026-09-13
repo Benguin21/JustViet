@@ -2,13 +2,26 @@
 
 import { useMemo } from "react";
 import {
+  computeDailyAverage,
   computeForecast,
+  computeHeatmapMonthLabels,
   computeProgressStats,
   computeReviewHeatmap,
+  computeStudyStreaks,
   computeTodayStats,
+  type HeatmapDay,
 } from "@/lib/vocab/scheduler";
 import { useNow } from "@/lib/useNow";
 import type { ReviewLogEntry, VocabCard } from "@/lib/vocab/types";
+
+const HEATMAP_WINDOW_DAYS = 98; // ~14 weeks, like GitHub's default contribution view
+const WEEKDAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+// Keep in sync with the square's `h-*`/`w-*` and the grid's `gap-*` classes
+// below — the month labels are positioned with inline styles computed from
+// these, since Tailwind classes can't express a per-label dynamic offset.
+const SQUARE_PX = 24;
+const GAP_PX = 4;
 
 function heatColor(count: number): string {
   if (count === 0) return "bg-ink-300/15";
@@ -16,6 +29,26 @@ function heatColor(count: number): string {
   if (count <= 5) return "bg-yellow-400";
   if (count <= 10) return "bg-red-400";
   return "bg-red-600";
+}
+
+/** Paired with `heatColor`'s buckets so the in-square count stays readable against either light or dark fills. */
+function heatTextColor(count: number): string {
+  return count <= 5 ? "text-ink-900" : "text-white";
+}
+
+/** Keeps large counts from overflowing the square; realistically rare for a personal vocab app, but cheap to handle. */
+function formatCount(count: number): string {
+  return count < 1000 ? String(count) : `${Math.round(count / 100) / 10}k`;
+}
+
+function heatmapCellLabel(cell: HeatmapDay): string {
+  const date = new Date(cell.date).toLocaleDateString(undefined, {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+  return `${date} — ${cell.count} card${cell.count === 1 ? "" : "s"} studied`;
 }
 
 export function VocabDashboard({
@@ -29,9 +62,18 @@ export function VocabDashboard({
   const today = useMemo(() => computeTodayStats(cards, now), [cards, now]);
   const progress = useMemo(() => computeProgressStats(cards), [cards]);
   const forecast = useMemo(() => computeForecast(cards, now, 14), [cards, now]);
-  const heatmap = useMemo(() => computeReviewHeatmap(reviewLogs, now, 98), [reviewLogs, now]);
+  const heatmap = useMemo(
+    () => computeReviewHeatmap(reviewLogs, now, HEATMAP_WINDOW_DAYS),
+    [reviewLogs, now],
+  );
+  const monthLabels = useMemo(() => computeHeatmapMonthLabels(heatmap), [heatmap]);
+  const dailyAverage = useMemo(() => computeDailyAverage(heatmap), [heatmap]);
+  // Streaks use the complete review history the app has loaded, not just
+  // the visible heatmap window — a streak can be older than 98 days.
+  const streaks = useMemo(() => computeStudyStreaks(reviewLogs, now), [reviewLogs, now]);
 
   const maxForecast = Math.max(1, ...forecast.map((d) => d.count));
+  const monthRowWidthPx = Math.ceil(heatmap.length / 7) * (SQUARE_PX + GAP_PX);
 
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -78,15 +120,66 @@ export function VocabDashboard({
         <h3 className="mb-3 text-xs font-bold tracking-wide text-ink-500 uppercase">
           Study Activity
         </h3>
-        <div className="overflow-x-auto">
-          <div className="grid grid-flow-col grid-rows-7 gap-1" style={{ width: "max-content" }}>
-            {heatmap.map((day) => (
+
+        <div className="mb-4 flex gap-6">
+          <MiniStat value={Math.round(dailyAverage)} label="Daily Average" tone="text-red-500" />
+          <MiniStat value={streaks.current} label="Current Streak" tone="text-yellow-600" />
+          <MiniStat value={streaks.longest} label="Longest Streak" tone="text-success-dark" />
+        </div>
+
+        <div className="flex items-start gap-2">
+          {/* Weekday labels: a fixed column outside the scroll area, so they
+              stay put while the squares scroll horizontally. */}
+          <div className="grid shrink-0 grid-rows-7" style={{ rowGap: GAP_PX }}>
+            {WEEKDAY_LABELS.map((label) => (
               <div
-                key={day.date}
-                title={`${new Date(day.date).toLocaleDateString()}: ${day.count} reviewed`}
-                className={`h-3 w-3 rounded-sm ${heatColor(day.count)}`}
-              />
+                key={label}
+                className="flex items-center text-[10px] font-semibold text-ink-300"
+                style={{ height: SQUARE_PX }}
+              >
+                {label}
+              </div>
             ))}
+          </div>
+
+          {/* Squares + month labels scroll together so they stay in sync. */}
+          <div className="overflow-x-auto pb-1">
+            <div style={{ width: "max-content" }}>
+              <div
+                className="grid grid-flow-col grid-rows-7"
+                style={{ gap: GAP_PX }}
+              >
+                {heatmap.map((cell, index) =>
+                  cell === null ? (
+                    <div key={`pad-${index}`} aria-hidden="true" style={{ height: SQUARE_PX, width: SQUARE_PX }} />
+                  ) : (
+                    <div
+                      key={cell.date}
+                      role="img"
+                      tabIndex={0}
+                      title={heatmapCellLabel(cell)}
+                      aria-label={heatmapCellLabel(cell)}
+                      className={`flex items-center justify-center rounded-sm text-[9px] font-bold leading-none focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400 ${heatColor(cell.count)} ${heatTextColor(cell.count)}`}
+                      style={{ height: SQUARE_PX, width: SQUARE_PX }}
+                    >
+                      {cell.count > 0 ? formatCount(cell.count) : ""}
+                    </div>
+                  ),
+                )}
+              </div>
+
+              <div className="relative mt-1 h-4" style={{ width: monthRowWidthPx }}>
+                {monthLabels.map((month) => (
+                  <span
+                    key={`${month.columnIndex}-${month.label}`}
+                    className="absolute text-[10px] font-semibold text-ink-300"
+                    style={{ left: month.columnIndex * (SQUARE_PX + GAP_PX) }}
+                  >
+                    {month.label}
+                  </span>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       </div>

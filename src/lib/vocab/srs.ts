@@ -285,3 +285,17 @@ export function startOfDay(ms: number): number {
   d.setHours(0, 0, 0, 0);
   return d.getTime();
 }
+
+/**
+ * Adds `n` calendar days (n may be negative) to a timestamp, correctly
+ * handling month/year rollover — and, unlike `ms + n * 86400000`, daylight
+ * saving transitions too (a DST day is 23 or 25 real hours, so raw
+ * millisecond arithmetic can land on the wrong local midnight right around
+ * the transition). Uses `Date#setDate`, which does calendar-aware
+ * arithmetic rather than fixed-duration arithmetic.
+ */
+export function addDays(ms: number, n: number): number {
+  const d = new Date(ms);
+  d.setDate(d.getDate() + n);
+  return d.getTime();
+}
