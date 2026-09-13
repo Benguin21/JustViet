@@ -3,10 +3,13 @@ import { DEFAULT_SRS_SETTINGS } from "./settings";
 import { createNewCardFields } from "./srs";
 import {
   buildStudyQueue,
+  computeDailyAverage,
   computeDailyBudget,
   computeForecast,
+  computeHeatmapMonthLabels,
   computeProgressStats,
   computeReviewHeatmap,
+  computeStudyStreaks,
   computeTodayStats,
 } from "./scheduler";
 import type { ReviewLogEntry, SrsSettings, VocabCard } from "./types";
@@ -190,8 +193,211 @@ describe("computeReviewHeatmap", () => {
       makeLog({ reviewedAt: NOW - DAY }),
     ];
     const heatmap = computeReviewHeatmap(logs, NOW, 7);
-    expect(heatmap).toHaveLength(7);
-    const todayBucket = heatmap[heatmap.length - 1];
-    expect(todayBucket.count).toBe(2);
+    const real = heatmap.filter((cell): cell is NonNullable<typeof cell> => cell !== null);
+    expect(real).toHaveLength(7);
+    // The last cell is always today, regardless of any leading padding.
+    const todayBucket = heatmap.at(-1);
+    expect(todayBucket?.count).toBe(2);
+  });
+
+  it("shows zero (not missing) for a real day with no logged reviews", () => {
+    // Leading nulls are expected (weekday-alignment padding) — every *real*
+    // day cell should still be an explicit 0, not absent.
+    const heatmap = computeReviewHeatmap([], NOW, 7);
+    for (const cell of heatmap) {
+      if (cell === null) continue;
+      expect(cell.count).toBe(0);
+    }
+    expect(heatmap.some((cell) => cell !== null)).toBe(true);
+  });
+
+  it("pads the start so every row lines up with its real Mon-Sun weekday", () => {
+    // Core invariant: row index (position mod 7) must match the cell's
+    // actual local weekday (Mon=0..Sun=6) for every non-null cell — this
+    // is what the UI's static "Mon..Sun" row labels rely on. Checked
+    // structurally (not against a hardcoded date/weekday) so it holds
+    // regardless of which timezone the test runs in.
+    const heatmap = computeReviewHeatmap([], NOW, 30);
+    heatmap.forEach((cell, index) => {
+      if (!cell) return;
+      const mondayIndexed = (new Date(cell.date).getDay() + 6) % 7;
+      expect(mondayIndexed).toBe(index % 7);
+    });
+  });
+
+  it("has fewer than 7 leading padding cells and no trailing padding", () => {
+    const heatmap = computeReviewHeatmap([], NOW, 14);
+    const firstRealIndex = heatmap.findIndex((cell) => cell !== null);
+    expect(firstRealIndex).toBeGreaterThanOrEqual(0);
+    expect(firstRealIndex).toBeLessThan(7);
+    expect(heatmap.at(-1)).not.toBeNull();
+  });
+});
+
+describe("computeDailyAverage", () => {
+  it("averages over every day in the window, not just days with activity", () => {
+    // Mirrors the spec example: 20 / 0 / 40 across 3 days averages to 20/day.
+    const heatmap = [
+      { date: NOW - 2 * 86_400_000, count: 20 },
+      { date: NOW - 1 * 86_400_000, count: 0 },
+      { date: NOW, count: 40 },
+    ];
+    expect(computeDailyAverage(heatmap)).toBe(20);
+  });
+
+  it("ignores leading null padding cells rather than counting them as zero days", () => {
+    const withPadding = [null, null, { date: NOW, count: 10 }];
+    const withoutPadding = [{ date: NOW, count: 10 }];
+    expect(computeDailyAverage(withPadding)).toBe(computeDailyAverage(withoutPadding));
+  });
+
+  it("returns 0 for an all-empty window instead of NaN", () => {
+    expect(computeDailyAverage([null, null])).toBe(0);
+    expect(computeDailyAverage([])).toBe(0);
+  });
+});
+
+describe("computeStudyStreaks", () => {
+  const DAY = 86_400_000;
+
+  it("counts today toward the current streak when today has activity", () => {
+    const logs = [
+      makeLog({ reviewedAt: NOW }),
+      makeLog({ reviewedAt: NOW - DAY }),
+      makeLog({ reviewedAt: NOW - 2 * DAY }),
+    ];
+    expect(computeStudyStreaks(logs, NOW).current).toBe(3);
+  });
+
+  it("doesn't break the streak just because today hasn't been studied yet", () => {
+    // "Today" isn't over — an ongoing streak through yesterday should
+    // still show as live, not reset to 0.
+    const logs = [makeLog({ reviewedAt: NOW - DAY }), makeLog({ reviewedAt: NOW - 2 * DAY })];
+    expect(computeStudyStreaks(logs, NOW).current).toBe(2);
+  });
+
+  it("is 0 when there's a real gap (neither today nor yesterday studied)", () => {
+    const logs = [makeLog({ reviewedAt: NOW - 3 * DAY })];
+    expect(computeStudyStreaks(logs, NOW).current).toBe(0);
+  });
+
+  it("a zero-activity day in the middle breaks the streak", () => {
+    const logs = [
+      makeLog({ reviewedAt: NOW }), // today
+      // NOW - DAY: a gap, no log
+      makeLog({ reviewedAt: NOW - 2 * DAY }),
+      makeLog({ reviewedAt: NOW - 3 * DAY }),
+    ];
+    expect(computeStudyStreaks(logs, NOW).current).toBe(1);
+  });
+
+  it("longest streak reflects the best historical run, even after it's since broken", () => {
+    const logs = [
+      // An old 4-day streak, then a gap, then today's 1-day streak.
+      makeLog({ reviewedAt: NOW - 10 * DAY }),
+      makeLog({ reviewedAt: NOW - 9 * DAY }),
+      makeLog({ reviewedAt: NOW - 8 * DAY }),
+      makeLog({ reviewedAt: NOW - 7 * DAY }),
+      makeLog({ reviewedAt: NOW }),
+    ];
+    const streaks = computeStudyStreaks(logs, NOW);
+    expect(streaks.current).toBe(1);
+    expect(streaks.longest).toBe(4);
+  });
+
+  it("multiple reviews on the same day only count once toward the streak", () => {
+    const logs = [
+      makeLog({ reviewedAt: NOW }),
+      makeLog({ reviewedAt: NOW }),
+      makeLog({ reviewedAt: NOW }),
+    ];
+    expect(computeStudyStreaks(logs, NOW).current).toBe(1);
+  });
+
+  it("handles a streak crossing a month boundary", () => {
+    // Local dates, so this is unambiguous regardless of test-runner timezone.
+    const jan31 = new Date(2026, 0, 31, 9).getTime();
+    const feb1 = new Date(2026, 1, 1, 9).getTime();
+    const feb2 = new Date(2026, 1, 2, 9).getTime();
+    const logs = [
+      makeLog({ reviewedAt: jan31 }),
+      makeLog({ reviewedAt: feb1 }),
+      makeLog({ reviewedAt: feb2 }),
+    ];
+    expect(computeStudyStreaks(logs, feb2).current).toBe(3);
+  });
+
+  it("handles a streak crossing a year boundary", () => {
+    const dec30 = new Date(2025, 11, 30, 9).getTime();
+    const dec31 = new Date(2025, 11, 31, 9).getTime();
+    const jan1 = new Date(2026, 0, 1, 9).getTime();
+    const logs = [
+      makeLog({ reviewedAt: dec30 }),
+      makeLog({ reviewedAt: dec31 }),
+      makeLog({ reviewedAt: jan1 }),
+    ];
+    expect(computeStudyStreaks(logs, jan1).current).toBe(3);
+    expect(computeStudyStreaks(logs, jan1).longest).toBe(3);
+  });
+
+  it("uses the complete log history rather than a windowed subset", () => {
+    // A 30-day-old streak should still count toward "longest" even though
+    // it would have fallen outside a typical ~14-week heatmap window.
+    const logs = [
+      makeLog({ reviewedAt: NOW - 40 * DAY }),
+      makeLog({ reviewedAt: NOW - 39 * DAY }),
+      makeLog({ reviewedAt: NOW - 38 * DAY }),
+      makeLog({ reviewedAt: NOW - 37 * DAY }),
+      makeLog({ reviewedAt: NOW - 36 * DAY }),
+    ];
+    expect(computeStudyStreaks(logs, NOW).longest).toBe(5);
+  });
+});
+
+describe("computeHeatmapMonthLabels", () => {
+  it("places one label per month at the column where that month first appears", () => {
+    // Two months' worth of daily cells, laid out exactly like the real
+    // heatmap grid (7 rows per column).
+    const start = new Date(2026, 0, 15); // Jan 15, 2026
+    const heatmap = Array.from({ length: 21 }, (_, i) => {
+      const d = new Date(start);
+      d.setDate(d.getDate() + i);
+      return { date: d.getTime(), count: 0 };
+    });
+
+    const labels = computeHeatmapMonthLabels(heatmap);
+    const monthNames = labels.map((l) => l.label);
+    expect(monthNames).toEqual(["Jan", "Feb"]);
+    // Columns must be non-hardcoded and strictly increasing.
+    expect(labels[1].columnIndex).toBeGreaterThan(labels[0].columnIndex);
+  });
+
+  it("handles a year boundary (Dec -> Jan)", () => {
+    const start = new Date(2025, 11, 20); // Dec 20, 2025
+    const heatmap = Array.from({ length: 20 }, (_, i) => {
+      const d = new Date(start);
+      d.setDate(d.getDate() + i);
+      return { date: d.getTime(), count: 0 };
+    });
+
+    const labels = computeHeatmapMonthLabels(heatmap);
+    expect(labels.map((l) => l.label)).toEqual(["Dec", "Jan"]);
+  });
+
+  it("skips null padding cells without emitting a spurious label", () => {
+    const jan1 = new Date(2026, 0, 1).getTime();
+    const heatmap = [null, null, { date: jan1, count: 0 }];
+    const labels = computeHeatmapMonthLabels(heatmap);
+    expect(labels).toEqual([{ columnIndex: 0, label: "Jan" }]);
+  });
+
+  it("derives label positions purely from cell dates, not fixed offsets", () => {
+    // Same data, shifted by a week of extra leading padding — the label's
+    // columnIndex should shift by exactly one column, proving it isn't hardcoded.
+    const jan1 = new Date(2026, 0, 1).getTime();
+    const withoutPadding = computeHeatmapMonthLabels([{ date: jan1, count: 0 }]);
+    const sevenPaddingCells = new Array(7).fill(null);
+    const withPadding = computeHeatmapMonthLabels([...sevenPaddingCells, { date: jan1, count: 0 }]);
+    expect(withPadding[0].columnIndex).toBe(withoutPadding[0].columnIndex + 1);
   });
 });
