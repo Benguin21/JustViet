@@ -40,3 +40,13 @@
 - `dtsPropsFor.RatingButtons` and the font copies are hand-maintained snapshots of app code.
 - next/link is bundled outside Next; NavCard renders a plain anchor. A Next upgrade that changes Link's
   module-scope requirements could break the bundle (look for runtime errors on NavCard first).
+
+## Design System Artifact (new home, replaces the standalone Claude Design site)
+- Lives at https://claude.ai/artifact/86tE99EjtveFPJRE2Ke47K (created 2026-10-15). Claude Design's standalone site
+  is being retired (usable until 2026-12-14); this Artifact is the target from now on, not a DesignSync project.
+- `node .design-sync/build.mjs && node .design-sync/artifact-build.mjs` writes its `components/` (bundle.js against
+  React 18 globals, bundle.css with Google-hosted fonts, index.d.ts, one preview.html per authored preview, card
+  groups/heights from `artifact-cards.json`) to `.design-sync/.cache/artifact/project/components/`. index.d.ts copies
+  the converter's ds-bundle/ .d.ts, so run the converter first. tokens.json, README.md, component READMEs and the
+  cover were hand-written into the Artifact; re-sync by reading them back from the Artifact and editing in place.
+- bundle.css wraps the app's unlayered `:root` token block in `@layer base` so the Artifact's tokens.css wins.
