@@ -1,0 +1,62 @@
+{
+  "Button": {
+    "group": "Actions",
+    "height": 720
+  },
+  "RatingButtons": {
+    "group": "Actions",
+    "height": 260
+  },
+  "TextField": {
+    "group": "Forms",
+    "height": 440
+  },
+  "Textarea": {
+    "group": "Forms",
+    "height": 420
+  },
+  "Select": {
+    "group": "Forms",
+    "height": 330
+  },
+  "Switch": {
+    "group": "Forms",
+    "height": 260
+  },
+  "TagInput": {
+    "group": "Forms",
+    "height": 230
+  },
+  "Modal": {
+    "group": "Overlays",
+    "height": 1040
+  },
+  "ConfirmDialog": {
+    "group": "Overlays",
+    "height": 880
+  },
+  "Toast": {
+    "group": "Overlays",
+    "height": 360
+  },
+  "Tooltip": {
+    "group": "Overlays",
+    "height": 240
+  },
+  "Badge": {
+    "group": "Status",
+    "height": 130
+  },
+  "StatusBadge": {
+    "group": "Status",
+    "height": 80
+  },
+  "Logo": {
+    "group": "Brand",
+    "height": 190
+  },
+  "NavCard": {
+    "group": "Navigation",
+    "height": 1060
+  }
+}
