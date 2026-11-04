@@ -3,16 +3,18 @@ import { Baloo_2, Nunito } from "next/font/google";
 import { AuthProvider } from "@/lib/auth-context";
 import "./globals.css";
 
+// Vietnamese needs its own subset for letters like ồ, ữ and ạ, or they fall back to
+// another font mid-word.
 const baloo = Baloo_2({
   variable: "--font-baloo",
-  subsets: ["latin"],
+  subsets: ["latin", "vietnamese"],
   weight: ["500", "600", "700", "800"],
 });
 
 const nunito = Nunito({
   variable: "--font-nunito",
-  subsets: ["latin"],
-  weight: ["400", "600", "700", "800"],
+  subsets: ["latin", "vietnamese"],
+  weight: ["400", "600", "700", "800", "900"],
 });
 
 export const metadata: Metadata = {

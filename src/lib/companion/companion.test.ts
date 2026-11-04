@@ -5,6 +5,7 @@ import {
   checkEligibility,
   nextVocabTier,
   normalizeGoalSettings,
+  progressFromReviews,
   vocabTier,
   xpEntitlement,
 } from "./goals";
@@ -17,6 +18,14 @@ import { EAT_LINES, LINES, MOODS, eatLine, moodFor } from "./lines";
 const TARGETS = { vocab: 5, grammar: 1, skills: 1 };
 const progress = (vocab = 0, grammar = 0, skills = 0) => ({ vocab, grammar, skills });
 const claims = (vocab = false, grammar = false, skills = false) => ({ vocab, grammar, skills });
+
+describe("today's progress from Vocab reviews", () => {
+  it("counts each card reviewed today once, however many times it was rated", () => {
+    const logs = [{ cardId: "a" }, { cardId: "b" }, { cardId: "a" }, { cardId: "c" }, { cardId: "a" }];
+    expect(progressFromReviews(logs)).toEqual({ vocab: 3, grammar: 0, skills: 0 });
+    expect(progressFromReviews([])).toEqual({ vocab: 0, grammar: 0, skills: 0 });
+  });
+});
 
 describe("goal settings", () => {
   it("defaults to Vocab only, since Grammar and Skills have no pages yet", () => {

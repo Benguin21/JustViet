@@ -91,6 +91,14 @@ export function activeGoals(settings: GoalSettings): GoalId[] {
 /** Today's verified progress per goal (vocab = unique cards reviewed today). */
 export type Progress = PerGoal<number>;
 
+/**
+ * Today's progress from today's Vocab SRS review log: the number of unique cards reviewed, so
+ * re-rating the same card never counts twice. Grammar and Skills have no lessons yet.
+ */
+export function progressFromReviews(todaysLogs: readonly { cardId: string }[]): Progress {
+  return { vocab: new Set(todaysLogs.map((l) => l.cardId)).size, grammar: 0, skills: 0 };
+}
+
 export function checkEligibility(targets: PerGoal<number>, progress: Progress): PerGoal<boolean> {
   return {
     vocab: progress.vocab >= targets.vocab,

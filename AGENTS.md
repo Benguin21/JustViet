@@ -63,7 +63,7 @@ client-only guarding is not a security boundary.
   password) toggled by local state, not separate routes; see
   `src/components/auth/*Form.tsx`.
 - `src/app/(app)/` — route group for everything behind `RequireAuth`:
-  `home/` (the 6-button dashboard) plus one stub page per nav section
+  `home/` (Rồng Con's homepage, see below) plus one stub page per nav section
   (`goals/`, `grammar/`, `dictionary/`, `vocab-srs/`, `skills/`,
   `community/`), each just rendering `<ComingSoon />` with its own
   copy. Flesh these out in place as features land.
@@ -110,8 +110,8 @@ testable — see `src/lib/vocab/*.test.ts`.
   `computeForecast`, `computeReviewHeatmap`. Also pure.
 - `src/lib/vocab/settings.ts` — `DEFAULT_SRS_SETTINGS` and
   `validateSrsSettings`.
-- `src/lib/vocab/repository.ts` — the *only* file that imports
-  `firebase/firestore`. Data model: `users/{uid}/vocabCards/{id}`,
+- `src/lib/vocab/repository.ts` — the only file of the Vocab feature that
+  imports `firebase/firestore` (the homepage has its own, below). Data model: `users/{uid}/vocabCards/{id}`,
   `users/{uid}/reviewLogs/{id}` (flat, not nested under the card, so
   daily-limit/heatmap queries don't need a composite index), and
   `users/{uid}/settings/srs`. `submitReview` writes the card update and
@@ -188,3 +188,50 @@ face). Also added two optional card fields for this, `pronunciation` and
 `notes` (both `string | undefined` — see the comment on `VocabCard` in
 `types.ts` for why they're optional even though newly-written cards always
 get a value).
+
+## Homepage: Rồng Con
+
+`/home` is a dragon companion that grows as the learner finishes daily
+goals: today's goal cards (each shows a Vietnamese dish), an egg that
+cracks with XP and hatches into a Baby Dragon at 250 XP, speech bubbles,
+and two teachers (Cô Tươi, Thầy Vinh) who run a first-visit intro and the
+hatching milestone. It was designed on the JustViet Design canvas
+(https://claude.ai/artifact/5LFnFo85BXbFJk6swP39kQ, board "HomeDraft")
+and ported one to one.
+
+- `src/lib/companion/` — the rules, pure and unit tested
+  (`companion.test.ts`): `goals.ts` (settings, eligibility, XP tiers,
+  `progressFromReviews`), `ledger.ts` (one doc per learner: today's claims
+  and XP plus past days; `settleLedger` re-derives today's XP from
+  progress so re-settling never double-counts), `menu.ts` (each goal's dish
+  for the day, seeded by date), `growth.ts` + `crackTables.ts` (stages,
+  cracks, flakes), `lines.ts` (what Rồng Con says), `profile.ts`.
+- `src/lib/companion/repository.ts` — the homepage's only
+  `firebase/firestore` importer: `users/{uid}/companion/ledger`,
+  `users/{uid}/companion/profile` (`onboarded`, `hatchSeen`; merge
+  writes) and `users/{uid}/settings/goals` (read only for now; the Goals
+  page will write it, and until then the default is Vocab only, 5 words).
+  `firestore.rules` already covers these (everything under `users/{uid}`).
+- `src/lib/companion/useCompanionData.ts` — loads the above plus today's
+  Vocab review logs (`fetchReviewLogsSince` in the vocab repository, from
+  local midnight) once per sign-in. Vocab progress is the number of
+  distinct cards reviewed today. Grammar and Skills report 0 until those
+  pages exist. If the load fails the page shows a retry button and never
+  renders from a blank ledger, so a failed read can't overwrite saved XP.
+- `src/components/companion/HomeCompanion.tsx` — the engine: a class
+  component that ports the board's logic (timed beats, feeding flights,
+  the reactions queue, the dialogue's position, the teacher guide). It
+  never saves during render: the constructor queues the settled ledger and
+  `componentDidMount` sends it. Don't name a field `refs` on it (React
+  resets `this.refs` on mount); the view's element refs are `viewRefs`.
+- Generated from the board by `scripts/home-board-to-app.py` (don't edit by
+  hand): `HomeView.tsx` (the markup, reading every value from
+  `HomeCompanion.renderVals()`), `companion.css` (the board's CSS scoped
+  under `:where(.jv-root)` so it neither leaks to other pages nor raises
+  specificity; the board's `.hidden` is renamed `.unshown` because
+  Tailwind's `.hidden` is `display:none`) and `art.ts` (dish and teacher
+  drawings as SVG `<defs>`). To bring in a newer board, download
+  `HomeDraft.dc.html` from the canvas, re-run the script and port any
+  logic changes into `HomeCompanion.tsx` by hand.
+- Both fonts load the `vietnamese` subset (root layout), or letters such
+  as ợ and ỗ fall back to another font.
