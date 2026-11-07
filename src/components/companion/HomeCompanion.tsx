@@ -1490,6 +1490,8 @@ export class HomeCompanion extends Component<HomeCompanionProps, State> {
       (hatch.wiggle ? " wiggle-" + hatch.wiggle : "") +
       (!hatched ? " limbs-hidden" : "") +
       (hatch.soon ? " hatch-soon" : "") +
+      (hatch.ready ? " hatch-ready" : "") +
+      [1, 2, 3, 4, 5, 6, 7].filter((n) => n <= hatch.reveal).map((n) => " rv-" + n).join("") +
       (hatch.frag.a ? " frag-a-on" : "") +
       (hatch.frag.b ? " frag-b-on" : "") +
       (s.hatchFx ? " fx-" + s.hatchFx : "") +
@@ -1560,6 +1562,7 @@ export class HomeCompanion extends Component<HomeCompanionProps, State> {
           : "Rồng Con, your dragon companion, still hatching. Tap to say hi.",
       dragonScale: scale.toFixed(2),
       holeScale: hatch.hole,
+      pawScale: (0.8 * hatch.hole).toFixed(3),
       frag_a: hatch.frag.a.toFixed(2),
       frag_b: hatch.frag.b.toFixed(2),
       poke: () => this.poke(),

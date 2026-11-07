@@ -3,7 +3,7 @@
  *
  * Hatching runs in three looks that follow on from each other (the egg keeps one size):
  *   egg     0-112 XP  cracks spread over the shell
- *   peek  113-174 XP  a small hole opens and Rồng Con's two eyes peek out
+ *   peek  113-174 XP  a small hole opens on Rồng Con's two eyes, then step by step (REVEAL) more of its face
  *   almost 175-249 XP  a line of pecks runs round the egg from the hole; the shell goes flaky
  * It hatches at Baby Dragon (STAGES[1].min).
  */
@@ -63,28 +63,54 @@ export interface Hatch {
   state: HatchState;
   /** Size of the pip hole (0 = none). */
   hole: number;
+  /** How much of Rồng Con shows through the hole, 0..7 (see REVEAL). */
+  reveal: number;
+  /** From HATCH_READY: the last, most excited steps before hatching. */
+  ready: boolean;
   /** Restlessness band 1..3 (0 once hatched). */
   wiggle: 0 | 1 | 2 | 3;
   soon: boolean;
   frag: { a: number; b: number };
 }
 
+/**
+ * The peek opens step by step instead of all at once, so every few days of study show a bit more
+ * of Rồng Con: the hole's size (a scale of its outline) at each XP, straight lines between. It
+ * never shows the whole head or body; that stays for the hatching at 250.
+ */
+export const HOLE_STEPS: readonly (readonly [number, number])[] = [
+  [113, 0.8], [130, 0.95], [150, 1.1], [174, 1.2], [175, 1.35], [195, 1.55], [215, 1.7], [249, 1.85],
+];
+/**
+ * What shows through it, from each XP (the page's .rv-N classes): 1 eyes, 2 snout and cheeks,
+ * 3 a smile, 4 horn buds, 5 whiskers, 6 little paws gripping the rim, 7 an excited grin, sparkly
+ * eyes and faster wiggles.
+ */
+export const REVEAL = [113, 130, 150, 175, 195, 215, 235] as const;
+export const HATCH_READY = REVEAL[6];
+
+function holeAt(xp: number): number {
+  for (let i = 0; i < HOLE_STEPS.length - 1; i++) {
+    const [ax, ay] = HOLE_STEPS[i];
+    const [bx, by] = HOLE_STEPS[i + 1];
+    if (xp <= bx) return ay + (by - ay) * clamp01((xp - ax) / (bx - ax));
+  }
+  return HOLE_STEPS[HOLE_STEPS.length - 1][1];
+}
+
 export function hatchFor(xp: number): Hatch {
   const top = STAGES[1].min;
-  if (xp >= top) return { state: "hatched", hole: 0, wiggle: 0, soon: false, frag: { a: 0, b: 0 } };
+  if (xp >= top) return { state: "hatched", hole: 0, reveal: 0, ready: false, wiggle: 0, soon: false, frag: { a: 0, b: 0 } };
   const h = clamp01(xp / top);
   const state: HatchState = xp < PEEK_AT ? "egg" : xp < ALMOST_AT ? "peek" : "almost";
-  // The hole: just room for Rồng Con's two eyes at first, a little more of it each day, then barely growing.
-  const hole =
-    state === "egg"
-      ? 0
-      : state === "peek"
-        ? 0.8 + 0.2 * clamp01((xp - PEEK_AT) / (ALMOST_AT - 1 - PEEK_AT))
-        : 1 + 0.1 * clamp01((xp - ALMOST_AT) / (top - 1 - ALMOST_AT));
+  // The hole: room for the two eyes at first, then it opens step by step (HOLE_STEPS).
+  const hole = state === "egg" ? 0 : holeAt(xp);
   const lift = (from: number) => (xp < from ? 0 : 0.3 + 0.7 * clamp01((xp - from) / (top - 1 - from)));
   return {
     state,
     hole: Math.round(hole * 100) / 100,
+    reveal: REVEAL.filter((x) => xp >= x).length,
+    ready: xp >= HATCH_READY,
     wiggle: h < 0.3 ? 1 : h < 0.6 ? 2 : 3,
     soon: xp >= HATCH_SOON,
     frag: { a: lift(FRAGS.a.from), b: lift(FRAGS.b.from) },

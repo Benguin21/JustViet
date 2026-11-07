@@ -321,20 +321,42 @@ export function HomeView({ v, at }: { v: HomeVals; at: HomeRefs }) {
                             </g>
                             <g className="egg-closed">
                               <g className="egg-inside">
-                                <ellipse cx="131" cy="81" rx="26" ry="25" fill="#9a735d" />
-                                <ellipse cx="131" cy="87" rx="23" ry="18" fill="#6f9f86" />
-                                <ellipse cx="119.5" cy="88.5" rx="3.6" ry="2.3" fill="#f28b74" opacity="0.55" />
-                                <ellipse cx="142.5" cy="88.5" rx="3.6" ry="2.3" fill="#f28b74" opacity="0.55" />
+                                <ellipse cx="131" cy="81" rx="44" ry="42" fill="#9a735d" />
+                                <ellipse cx="131" cy="86" rx="38" ry="34" fill="#8f6c56" />
+                                <g className="pk-horns">
+                                  <path d="M117.5 70 L113.5 57.5 Q113 54.5 116 55.5 L124 66 Z" fill="#f2c35b" stroke="#5a3a28" strokeWidth="2" strokeLinejoin="round" />
+                                  <path d="M144.5 70 L148.5 57.5 Q149 54.5 146 55.5 L138 66 Z" fill="#f2c35b" stroke="#5a3a28" strokeWidth="2" strokeLinejoin="round" />
+                                </g>
+                                <g className="pk-whiskers">
+                                  <path d="M113 92 C 104 92 100 98 103 102" fill="none" stroke="#f2c35b" strokeWidth="2.2" strokeLinecap="round" />
+                                  <path d="M149 92 C 158 92 162 98 159 102" fill="none" stroke="#f2c35b" strokeWidth="2.2" strokeLinecap="round" />
+                                </g>
+                                <ellipse className="pk-head" cx="131" cy="85" rx="22.5" ry="19.5" fill="#7fb69a" stroke="#5a3a28" strokeWidth="2.2" />
+                                <g className="pk-snout">
+                                  <ellipse cx="131" cy="93" rx="9.5" ry="5.8" fill="#a9d6bc" />
+                                  <circle cx="128.3" cy="92" r="0.95" fill="#5a3a28" />
+                                  <circle cx="133.7" cy="92" r="0.95" fill="#5a3a28" />
+                                </g>
+                                <g className="pk-cheeks">
+                                  <ellipse cx="119.5" cy="88.5" rx="3.6" ry="2.3" fill="#f28b74" opacity="0.6" />
+                                  <ellipse cx="142.5" cy="88.5" rx="3.6" ry="2.3" fill="#f28b74" opacity="0.6" />
+                                </g>
+                                <path className="pk-smile" d="M127.5 97 q3.5 2.6 7 0" fill="none" stroke="#5a3a28" strokeWidth="1.6" strokeLinecap="round" />
+                                <path className="pk-grin" d="M126.5 96.2 Q131 102.5 135.5 96.2 Z" fill="#c0503f" stroke="#5a3a28" strokeWidth="1.5" strokeLinejoin="round" />
                                 <g className="peek-eye peek-open">
                                   <g className="peek-pupil">
                                     <ellipse cx="125" cy="81.5" rx="3.8" ry="4.6" fill="#2b1c15" />
                                     <circle cx="126.3" cy="79.6" r="1.35" fill="#ffffff" />
                                     <ellipse cx="137" cy="81.5" rx="3.8" ry="4.6" fill="#2b1c15" />
                                     <circle cx="138.3" cy="79.6" r="1.35" fill="#ffffff" />
+                                    <g className="pk-sparkle">
+                                      <circle cx="123.6" cy="83.6" r="0.75" fill="#ffffff" />
+                                      <circle cx="135.6" cy="83.6" r="0.75" fill="#ffffff" />
+                                    </g>
                                   </g>
                                 </g>
                                 <path className="peek-happy" d="M121.5 83 q3.5 -5 7 0 M133.5 83 q3.5 -5 7 0" fill="none" stroke="#2b1c15" strokeWidth="2.4" strokeLinecap="round" />
-                                <path d="M-13.5 -5 L-10 -10.5 L-6.5 -9.5 L-3.5 -14.5 L2 -13 L4.5 -15 L9 -11.5 L14 -7 L13 -2.5 L16.5 2 L13.5 6.5 L11 12.5 L6 11 L2.5 14.5 L-2 12 L-7.5 13.5 L-10 8.5 L-15.5 4 L-14 0.5 Z" fill="none" stroke="#5a3a28" strokeOpacity="0.2" strokeWidth="6" strokeLinejoin="round" style={css({ transformBox: "view-box", transformOrigin: "0 0", transform: `translate(131px, 80px) scale(${v.holeScale})`, transition: "transform .8s ease" })} />
+                                <path d="M-13.5 -5 L-10 -10.5 L-6.5 -9.5 L-3.5 -14.5 L2 -13 L4.5 -15 L9 -11.5 L14 -7 L13 -2.5 L16.5 2 L13.5 6.5 L11 12.5 L6 11 L2.5 14.5 L-2 12 L-7.5 13.5 L-10 8.5 L-15.5 4 L-14 0.5 Z" fill="none" stroke="#5a3a28" strokeOpacity="0.2" strokeWidth="6" strokeLinejoin="round" vectorEffect="non-scaling-stroke" style={css({ transformBox: "view-box", transformOrigin: "0 0", transform: `translate(131px, 80px) scale(${v.holeScale})`, transition: "transform .8s ease" })} />
                               </g>
                               <g mask="url(#jvEggHole)">
                                 <use href="#jvEggShell" />
@@ -514,13 +536,15 @@ export function HomeView({ v, at }: { v: HomeVals; at: HomeRefs }) {
                                   <path className="crack-split" d="M109.4 93.7 L108.6 98 L108 104 L109.5 108.6 L111.3 113.7 L113 117.5 L111.1 121.3 L108.9 127.2 L107.5 131 L109 136.4 L110.8 140.1 L112.5 146 L110.3 151.1 L109 155.8 L107 161 L108.7 166 L110.3 170.3 L112 176 L110.3 182 L109.5 186.7 L108.5 192 L109 197.5 L109.1 201.2 L109.8 206 L110 211" pathLength="100" strokeWidth="2.4" />
                                 </g>
                               </g>
-                              <g className="frag frag-a" style={css({ "--lift": v.frag_a })}>
-                                <path className="frag-gap" d="M113 69 L117.5 63.5 L124.5 61 L132 63 L131.5 67.5 L125.5 67 L120 70.5 L117.5 74 Z" fill="#a07a62" />
-                                <path className="frag-piece" d="M113 69 L117.5 63.5 L124.5 61 L132 63 L131.5 67.5 L125.5 67 L120 70.5 L117.5 74 Z" fill="#fffaf1" stroke="#8f6c56" strokeWidth="1.4" strokeLinejoin="round" />
-                              </g>
-                              <g className="frag frag-b" style={css({ "--lift": v.frag_b })}>
-                                <path className="frag-gap" d="M89 91.9 L94 88.4 L101 89.9 L103.5 94.9 L100 99.9 L92.5 99.4 Z" fill="#a07a62" />
-                                <path className="frag-piece" d="M89 91.9 L94 88.4 L101 89.9 L103.5 94.9 L100 99.9 L92.5 99.4 Z" fill="#fffaf1" stroke="#8f6c56" strokeWidth="1.4" strokeLinejoin="round" />
+                              <g mask="url(#jvEggHole)">
+                                <g className="frag frag-a" style={css({ "--lift": v.frag_a })}>
+                                  <path className="frag-gap" d="M113 69 L117.5 63.5 L124.5 61 L132 63 L131.5 67.5 L125.5 67 L120 70.5 L117.5 74 Z" fill="#a07a62" />
+                                  <path className="frag-piece" d="M113 69 L117.5 63.5 L124.5 61 L132 63 L131.5 67.5 L125.5 67 L120 70.5 L117.5 74 Z" fill="#fffaf1" stroke="#8f6c56" strokeWidth="1.4" strokeLinejoin="round" />
+                                </g>
+                                <g className="frag frag-b" style={css({ "--lift": v.frag_b })}>
+                                  <path className="frag-gap" d="M89 91.9 L94 88.4 L101 89.9 L103.5 94.9 L100 99.9 L92.5 99.4 Z" fill="#a07a62" />
+                                  <path className="frag-piece" d="M89 91.9 L94 88.4 L101 89.9 L103.5 94.9 L100 99.9 L92.5 99.4 Z" fill="#fffaf1" stroke="#8f6c56" strokeWidth="1.4" strokeLinejoin="round" />
+                                </g>
                               </g>
                               <g className="lift" opacity={v.cv.liftOn_u0} style={css({ "--lift": v.cv.liftOn_u0 })}>
                                 <path d="M153.6 137.3 L156.3 140.2 L157.6 142.9 L155.6 144 L153.6 144.8 L151.1 143.5 L148.7 141.3 L149.7 138.9 L152.8 137.1 Z" fill="#a07a62" />
@@ -535,6 +559,12 @@ export function HomeView({ v, at }: { v: HomeVals; at: HomeRefs }) {
                                 <path className="lift-piece" d="M98.1 166.5 L96.1 163.9 L94.7 162.8 L98.6 160.3 L102.7 159.1 L103.3 160.6 L105.6 162.8 L102.5 165.1 L101.9 166.4 Z" fill="#fffaf1" stroke="#8f6c56" strokeWidth="1.2" strokeLinejoin="round" style={css({ transformOrigin: "85% 85%", transform: "translate(calc(var(--lift) * 0.9px), calc(var(--lift) * -2.6px)) rotate(calc(var(--lift) * 20deg))", animationDelay: "-1.0s" })} />
                               </g>
                               <path d="M-13.5 -5 L-10 -10.5 L-6.5 -9.5 L-3.5 -14.5 L2 -13 L4.5 -15 L9 -11.5 L14 -7 L13 -2.5 L16.5 2 L13.5 6.5 L11 12.5 L6 11 L2.5 14.5 L-2 12 L-7.5 13.5 L-10 8.5 L-15.5 4 L-14 0.5 Z" fill="none" stroke="#5a3a28" strokeWidth="2.5" strokeLinejoin="round" vectorEffect="non-scaling-stroke" style={css({ transformBox: "view-box", transformOrigin: "0 0", transform: `translate(131px, 80px) scale(${v.holeScale})`, transition: "transform .8s ease" })} />
+                              <g className="pk-paws" style={css({ transformBox: "view-box", transformOrigin: "131px 80px", transform: `scale(${v.pawScale})` })}>
+                                <path d="M114.5 96.5 C 114 92.5 118.5 91 121 93.5 C 122.5 95 122 97.5 120.5 98.5 L 115.5 99 C 114.8 98.5 114.6 97.5 114.5 96.5 Z" fill="#8cc4a5" stroke="#5a3a28" strokeWidth="1.9" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+                                <path d="M116.5 98.6 L116.8 96.4 M118.9 98.5 L119.3 96.2" fill="none" stroke="#5a3a28" strokeWidth="1.2" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+                                <path d="M147.5 96.5 C 148 92.5 143.5 91 141 93.5 C 139.5 95 140 97.5 141.5 98.5 L 146.5 99 C 147.2 98.5 147.4 97.5 147.5 96.5 Z" fill="#8cc4a5" stroke="#5a3a28" strokeWidth="1.9" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+                                <path d="M145.5 98.6 L145.2 96.4 M143.1 98.5 L142.7 96.2" fill="none" stroke="#5a3a28" strokeWidth="1.2" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+                              </g>
                             </g>
                             <g className="chip chip-l">
                               <path d="M114 70 L124 64 L126 76 Z" fill="#fffaf1" stroke="#5a3a28" strokeWidth="2" strokeLinejoin="round" />

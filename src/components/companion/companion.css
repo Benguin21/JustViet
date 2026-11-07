@@ -105,6 +105,17 @@
 :where(.jv-root) .hatch-peek .egg-inside,:where(.jv-root) .hatch-almost .egg-inside{display:inline}
 :where(.jv-root) .dragon.eyes-happy .peek-open{display:none}
 :where(.jv-root) .dragon.eyes-happy .peek-happy{display:inline}
+:where(.jv-root) .pk-horns,:where(.jv-root) .pk-whiskers,:where(.jv-root) .pk-snout,:where(.jv-root) .pk-cheeks,:where(.jv-root) .pk-smile,:where(.jv-root) .pk-grin,:where(.jv-root) .pk-sparkle,:where(.jv-root) .pk-paws{display:none}
+/* The peek, step by step (see REVEAL): eyes 113, snout and cheeks 130, a smile 150, horn buds 175,
+   whiskers 195, little paws on the rim 215, an excited grin and sparkly eyes 235. */
+:where(.jv-root) .rv-2 .pk-snout,:where(.jv-root) .rv-2 .pk-cheeks,:where(.jv-root) .rv-3 .pk-smile,:where(.jv-root) .rv-4 .pk-horns,:where(.jv-root) .rv-5 .pk-whiskers,:where(.jv-root) .rv-6 .pk-paws,:where(.jv-root) .rv-7 .pk-sparkle{display:inline}
+:where(.jv-root) .rv-7 .pk-smile{display:none}
+:where(.jv-root) .rv-7 .pk-grin{display:inline}
+:where(.jv-root) .dragon.eyes-happy .pk-sparkle{display:none}
+:where(.jv-root) .pk-paws path{transition:transform .5s}
+:where(.jv-root) .rv-7 .pk-paws{animation:jv-paw-grip 1.6s ease-in-out infinite}
+:where(.jv-root) .wiggle-3.hatch-ready .egg-wobble{animation:jv-wiggle-4 3.4s ease-in-out infinite}
+:where(.jv-root) .rv-7 .peek-pupil{animation:jv-peek-look 3.2s ease-in-out infinite}
 :where(.jv-root) .peek-eye{transform-box:fill-box;transform-origin:50% 50%;animation:jv-blink 4.6s infinite}
 :where(.jv-root) .peek-pupil{animation:jv-peek-look 7s ease-in-out infinite}
 :where(.jv-root) .frag-a-on .frag-a,:where(.jv-root) .frag-b-on .frag-b{display:inline}
@@ -309,6 +320,7 @@
 @keyframes jv-feed-y-b{0%{opacity:0;transform:translateY(var(--fy)) scale(1.5);animation-timing-function:cubic-bezier(.2,.7,.4,1)}8%{opacity:1}20%{transform:translateY(calc(var(--fy) - 22px)) scale(1.35);animation-timing-function:cubic-bezier(.55,0,.75,.5)}56%{transform:translateY(0) scale(1);animation-timing-function:ease-out}66%{opacity:1;transform:translateY(-3px) scale(1.06);animation-timing-function:ease-in}100%{opacity:0;transform:translateY(6px) scale(.15)}}
 @keyframes jv-glow{0%{opacity:0;scale:.92}35%{opacity:.75;scale:1.03}100%{opacity:0;scale:1.08}}
 @keyframes jv-guide-hop{0%,62%,100%{translate:0 0;scale:1 1}66%{translate:0 0;scale:1.04 .95}72%{translate:0 -6px;scale:.98 1.03}78%{translate:0 0;scale:1.03 .97}83%{translate:0 -2.5px;scale:1 1}88%{translate:0 0}}
+@keyframes jv-paw-grip{0%,100%{translate:0 0}50%{translate:0 -1px}}
 @keyframes jv-float{0%,100%{translate:0 0}50%{translate:0 -4px}}
 @keyframes jv-celebrate{0%,100%{translate:0 0;rotate:0deg}30%{translate:0 -26px;rotate:-8deg}60%{translate:0 -26px;rotate:8deg}}
 @keyframes jv-confetti{0%{opacity:0;transform:translate(0,0) rotate(0deg)}7%{opacity:1}30%{transform:translate(calc(var(--dx) * .5),calc(var(--up) * -1)) rotate(calc(var(--rot) * .3));animation-timing-function:cubic-bezier(.4,0,.8,.55)}82%{opacity:1}100%{opacity:0;transform:translate(var(--dx),var(--fall)) rotate(var(--rot))}}

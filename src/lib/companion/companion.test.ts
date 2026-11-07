@@ -218,7 +218,13 @@ describe("growth", () => {
     ]);
     expect([0, 74, 75, 149, 150, 249].map((x) => hatchFor(x).wiggle)).toEqual([1, 1, 2, 2, 3, 3]);
     expect(hatchFor(113).hole).toBe(0.8);
-    expect(hatchFor(249).hole).toBe(1.1);
+    expect(hatchFor(249).hole).toBe(1.85);
+    // The reveal keeps going right up to hatching: 120 XP shows far less than 240 XP.
+    expect([112, 113, 129, 130, 150, 175, 195, 215, 234, 235, 249, 250].map((x) => hatchFor(x).reveal)).toEqual([
+      0, 1, 1, 2, 3, 4, 5, 6, 6, 7, 7, 0,
+    ]);
+    expect(hatchFor(240).hole - hatchFor(120).hole).toBeGreaterThan(0.8);
+    expect([234, 235, 250].map((x) => hatchFor(x).ready)).toEqual([false, true, false]);
     expect([224, 225].map((x) => hatchFor(x).soon)).toEqual([false, true]);
     expect(hatchFor(199).frag.a).toBe(0);
     expect(hatchFor(200).frag.a).toBeCloseTo(0.3);
