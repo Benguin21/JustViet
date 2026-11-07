@@ -46,7 +46,7 @@ writeFileSync(join(out, "bundle.js"), header + safe(bundle.outputFiles[0].text, 
 // token block moves into @layer base so the page's tokens.css (unlayered) wins.
 let css = readFileSync(join(here, "pkg/.cache/tailwind.out.css"), "utf8");
 css = css.replace(/^:root \{[\s\S]*?^\}/gm, (blk) => `@layer base {\n${blk}\n}`);
-const fonts = '@import url("https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Nunito:wght@400;600;700;800&display=swap");\n';
+const fonts = '@import url("https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Nunito:wght@400;600;700;800;900&display=swap");\n';
 if (/<\/style/i.test(css)) throw new Error("bundle.css contains </style");
 writeFileSync(join(out, "bundle.css"), fonts + css);
 
