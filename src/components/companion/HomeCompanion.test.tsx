@@ -134,6 +134,19 @@ describe("HomeCompanion", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
+  it("shows a new learner Rồng Con's egg in the intro, and the dragon once it has hatched", () => {
+    const { container, unmount } = setup({ onboarded: false });
+    expect(container.querySelector(".guide-companion")!.classList.contains("is-egg")).toBe(true);
+    expect(container.querySelector("#jvDragonArt > g")!.classList.contains("hatch-egg")).toBe(true);
+    expect(screen.getByText(/still snug inside its egg/)).toBeTruthy();
+    unmount();
+
+    const hatched = setup({ onboarded: false, hatchSeen: true, ledger: savedLedger({}, 300) });
+    expect(hatched.container.querySelector(".guide-companion")!.classList.contains("is-egg")).toBe(false);
+    expect(hatched.container.querySelector("#jvDragonArt > g")!.classList.contains("hatch-hatched")).toBe(true);
+    expect(screen.getByText(/help your companion grow/)).toBeTruthy();
+  });
+
   it("does not show the intro to a learner who has seen it", () => {
     setup({ onboarded: true });
     expect(screen.queryByRole("dialog")).toBeNull();

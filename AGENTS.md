@@ -235,3 +235,23 @@ and ported one to one.
   logic changes into `HomeCompanion.tsx` by hand.
 - Both fonts load the `vietnamese` subset (root layout), or letters such
   as ợ and ỗ fall back to another font.
+- The intro's card shows Rồng Con through `<use href="#jvDragonArt">`. A
+  `<use>` copy only sees its own subtree, so `#jvDragonArt` carries
+  `jv-root` (added by the script) and the dragon's state classes sit on the
+  group just inside it; that way the copy shows the egg at its real stage
+  instead of the hatched dragon.
+
+## Teachers and lessons
+
+Cô Tươi and Thầy Vinh are equal Vietnamese teachers: either one teaches
+any lesson type, they differ only in personality and look.
+`src/lib/lessons/teachers.ts` holds both (names, card colours, short voice
+lines for a lesson to use around its own content) and
+`teacherForLesson({ order, teacher? })`: teachers take turns by whole
+lesson in a course's order (lesson 1 Cô Tươi, 2 Thầy Vinh, 3 Cô Tươi…),
+so reopening or resuming a lesson always gets the same teacher. A lesson
+can pin `teacher` if a course is ever reordered. Lesson content never
+names its teacher; the Grammar/Skills lesson screens, when built, should
+call `teacherForLesson` once per lesson and keep that teacher through every
+explanation, exercise and piece of feedback. `guides.ts` re-exports
+`TEACHERS` for the homepage intro.

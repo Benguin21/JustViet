@@ -1580,13 +1580,13 @@ export class HomeCompanion extends Component<HomeCompanionProps, State> {
       xpPct: pct + "%",
       xpPctNum: pct,
       nav: NAV,
-      ...this.guideVals(st.cur.en),
+      ...this.guideVals(st.cur.en, !hatched),
     };
   }
 
   // The guide card's values: the speaker, every step (they share one cell, see .guide-step),
   // the dots and the controls.
-  guideVals(stageName: string) {
+  guideVals(stageName: string, inEgg: boolean) {
     const s = this.state;
     const g = s.guide;
     const G = g ? GUIDES[g.set] : null;
@@ -1621,13 +1621,15 @@ export class HomeCompanion extends Component<HomeCompanionProps, State> {
               textId: "jv-guide-text-" + i,
               hasLead: !!st.lead,
               lead: st.lead || "",
-              text: st.text,
+              text: inEgg && st.textEgg ? st.textEgg : st.text,
               hasChips: !!st.chips,
               chips: (st.chips || []).flatMap((href) => {
                 const n = NAV.find((x) => x.href === href);
                 return n ? [{ label: n.label, icon: n.icon, tint: n.tint, ink: n.ink }] : [];
               }),
               hasCompanion: !!st.companion,
+              // While it's still an egg the card shows the egg (with a little hop), never the dragon.
+              companionCls: "guide-companion" + (inEgg ? " is-egg" : ""),
               companionStage: stageName,
             };
           })

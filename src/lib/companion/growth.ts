@@ -3,7 +3,7 @@
  *
  * Hatching runs in three looks that follow on from each other (the egg keeps one size):
  *   egg     0-112 XP  cracks spread over the shell
- *   peek  113-174 XP  a small hole opens and only Rồng Con's eye looks out
+ *   peek  113-174 XP  a small hole opens and Rồng Con's two eyes peek out
  *   almost 175-249 XP  a line of pecks runs round the egg from the hole; the shell goes flaky
  * It hatches at Baby Dragon (STAGES[1].min).
  */
@@ -74,12 +74,12 @@ export function hatchFor(xp: number): Hatch {
   if (xp >= top) return { state: "hatched", hole: 0, wiggle: 0, soon: false, frag: { a: 0, b: 0 } };
   const h = clamp01(xp / top);
   const state: HatchState = xp < PEEK_AT ? "egg" : xp < ALMOST_AT ? "peek" : "almost";
-  // The hole: just the eye at first, a little more of it each day, then barely growing.
+  // The hole: just room for Rồng Con's two eyes at first, a little more of it each day, then barely growing.
   const hole =
     state === "egg"
       ? 0
       : state === "peek"
-        ? 0.55 + 0.45 * clamp01((xp - PEEK_AT) / (ALMOST_AT - 1 - PEEK_AT))
+        ? 0.8 + 0.2 * clamp01((xp - PEEK_AT) / (ALMOST_AT - 1 - PEEK_AT))
         : 1 + 0.1 * clamp01((xp - ALMOST_AT) / (top - 1 - ALMOST_AT));
   const lift = (from: number) => (xp < from ? 0 : 0.3 + 0.7 * clamp01((xp - from) / (top - 1 - from)));
   return {

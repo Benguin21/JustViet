@@ -98,14 +98,14 @@
 :where(.jv-root) .egg-closed,:where(.jv-root) .egg-inside,:where(.jv-root) .shards,:where(.jv-root) .chip,:where(.jv-root) .burst,:where(.jv-root) .frag,:where(.jv-root) .crack-major,:where(.jv-root) .peek-happy{display:none}
 :where(.jv-root) .hatch-egg .egg-closed,:where(.jv-root) .hatch-peek .egg-closed,:where(.jv-root) .hatch-almost .egg-closed{display:inline}
 :where(.jv-root) .hatch-hatched .shards{display:inline}
-/* Until it hatches Rồng Con stays inside the shell: from 113 XP only its eye shows, through a
+/* Until it hatches Rồng Con stays inside the shell: from 113 XP two small eyes peek out, through a
    hole that slowly grows. Almost hatched (175+), a line of pecks runs round the egg from the
    hole and two flakes of shell come loose. From HATCH_SOON (225) it gets restless. */
 :where(.jv-root) .limbs-hidden .dg-tail,:where(.jv-root) .limbs-hidden .dg-wing-l,:where(.jv-root) .limbs-hidden .dg-wing-r,:where(.jv-root) .limbs-hidden .dg-body,:where(.jv-root) .limbs-hidden .dg-head{display:none}
 :where(.jv-root) .hatch-peek .egg-inside,:where(.jv-root) .hatch-almost .egg-inside{display:inline}
 :where(.jv-root) .dragon.eyes-happy .peek-open{display:none}
 :where(.jv-root) .dragon.eyes-happy .peek-happy{display:inline}
-:where(.jv-root) .peek-eye{transform-origin:50% 50%;animation:jv-blink 4.6s infinite}
+:where(.jv-root) .peek-eye{transform-box:fill-box;transform-origin:50% 50%;animation:jv-blink 4.6s infinite}
 :where(.jv-root) .peek-pupil{animation:jv-peek-look 7s ease-in-out infinite}
 :where(.jv-root) .frag-a-on .frag-a,:where(.jv-root) .frag-b-on .frag-b{display:inline}
 :where(.jv-root) .frag-piece{transform-box:fill-box;transition:transform .8s cubic-bezier(.22,1,.36,1)}
@@ -241,7 +241,12 @@
 :where(.jv-root) .guide-chip{display:inline-flex;align-items:center;gap:6px;min-height:34px;padding:3px 12px 3px 4px;border-radius:9999px;background:#ffffff;border:2px solid #f3dcc8;font-size:14px;line-height:18px;font-weight:800;color:#4a2f22}
 :where(.jv-root) .guide-chip-icon{width:26px;height:26px;border-radius:9999px;display:flex;align-items:center;justify-content:center}
 :where(.jv-root) .guide-companion{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 10px 6px;border-radius:18px;background:#fff3e6;border:2px solid #f6dcc6}
-:where(.jv-root) .guide-companion svg{display:block;overflow:visible}
+:where(.jv-root) .guide-companion svg{display:block;overflow:visible;--in-guide:1}
+/* The guide card shows Rồng Con through <use>, which copies #jvDragonArt (with the state classes
+   on its inner group) but not the page around it: no thought bubble or alert in there, and while it is
+   still an egg it gives a little hop now and then. */
+:where(.jv-root) .dg-thought,:where(.jv-root) .dg-excl{opacity:calc(1 - var(--in-guide, 0))}
+:where(.jv-root) .guide-companion.is-egg svg{transform-origin:50% 100%;animation:jv-guide-hop 3.6s ease-in-out infinite}
 :where(.jv-root) .guide-companion-name{font-family:var(--font-heading),sans-serif;font-size:15px;line-height:18px;font-weight:800;color:#4a2f22}
 :where(.jv-root) .guide-companion-stage{font-size:12px;line-height:16px;font-weight:800;color:#2f6b55}
 :where(.jv-root) .guide-foot{display:flex;align-items:center;justify-content:space-between;gap:12px}
@@ -303,6 +308,7 @@
 @keyframes jv-feed-y-a{0%{opacity:0;transform:translateY(var(--fy)) scale(1.5);animation-timing-function:cubic-bezier(.2,.7,.4,1)}8%{opacity:1}20%{transform:translateY(calc(var(--fy) - 22px)) scale(1.35);animation-timing-function:cubic-bezier(.55,0,.75,.5)}56%{transform:translateY(0) scale(1);animation-timing-function:ease-out}66%{opacity:1;transform:translateY(-3px) scale(1.06);animation-timing-function:ease-in}100%{opacity:0;transform:translateY(6px) scale(.15)}}
 @keyframes jv-feed-y-b{0%{opacity:0;transform:translateY(var(--fy)) scale(1.5);animation-timing-function:cubic-bezier(.2,.7,.4,1)}8%{opacity:1}20%{transform:translateY(calc(var(--fy) - 22px)) scale(1.35);animation-timing-function:cubic-bezier(.55,0,.75,.5)}56%{transform:translateY(0) scale(1);animation-timing-function:ease-out}66%{opacity:1;transform:translateY(-3px) scale(1.06);animation-timing-function:ease-in}100%{opacity:0;transform:translateY(6px) scale(.15)}}
 @keyframes jv-glow{0%{opacity:0;scale:.92}35%{opacity:.75;scale:1.03}100%{opacity:0;scale:1.08}}
+@keyframes jv-guide-hop{0%,62%,100%{translate:0 0;scale:1 1}66%{translate:0 0;scale:1.04 .95}72%{translate:0 -6px;scale:.98 1.03}78%{translate:0 0;scale:1.03 .97}83%{translate:0 -2.5px;scale:1 1}88%{translate:0 0}}
 @keyframes jv-float{0%,100%{translate:0 0}50%{translate:0 -4px}}
 @keyframes jv-celebrate{0%,100%{translate:0 0;rotate:0deg}30%{translate:0 -26px;rotate:-8deg}60%{translate:0 -26px;rotate:8deg}}
 @keyframes jv-confetti{0%{opacity:0;transform:translate(0,0) rotate(0deg)}7%{opacity:1}30%{transform:translate(calc(var(--dx) * .5),calc(var(--up) * -1)) rotate(calc(var(--rot) * .3));animation-timing-function:cubic-bezier(.4,0,.8,.55)}82%{opacity:1}100%{opacity:0;transform:translate(var(--dx),var(--fall)) rotate(var(--rot))}}

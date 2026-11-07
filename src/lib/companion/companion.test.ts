@@ -217,7 +217,7 @@ describe("growth", () => {
       "hatched",
     ]);
     expect([0, 74, 75, 149, 150, 249].map((x) => hatchFor(x).wiggle)).toEqual([1, 1, 2, 2, 3, 3]);
-    expect(hatchFor(113).hole).toBe(0.55);
+    expect(hatchFor(113).hole).toBe(0.8);
     expect(hatchFor(249).hole).toBe(1.1);
     expect([224, 225].map((x) => hatchFor(x).soon)).toEqual([false, true]);
     expect(hatchFor(199).frag.a).toBe(0);
