@@ -235,11 +235,15 @@ and ported one to one.
   logic changes into `HomeCompanion.tsx` by hand.
 - Both fonts load the `vietnamese` subset (root layout), or letters such
   as ợ and ỗ fall back to another font.
-- The intro's card shows Rồng Con through `<use href="#jvDragonArt">`. A
-  `<use>` copy only sees its own subtree, so `#jvDragonArt` carries
-  `jv-root` (added by the script) and the dragon's state classes sit on the
-  group just inside it; that way the copy shows the egg at its real stage
-  instead of the hatched dragon.
+- Until Rồng Con hatches, the intro's card shows just the whole egg
+  (`#jvEggShell`, no cracks or peek). After that it shows Rồng Con through
+  `<use href="#jvDragonArt">`. A `<use>` copy only sees its own subtree, so
+  `#jvDragonArt` carries `jv-root` (added by the script) and the dragon's
+  state classes sit on the group just inside it.
+- The peek (hole, face, cracks, flakes) is drawn around x=131 and shifted
+  21px left (`translate(-21 0)`) so it sits on the egg's centre line; the
+  cracks are clipped to the shell (`#jvShellClip`). What shows through the
+  hole steps up with XP (`HOLE_STEPS`, `REVEAL` in `growth.ts`).
 
 ## Teachers and lessons
 

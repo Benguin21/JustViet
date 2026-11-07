@@ -136,14 +136,17 @@ describe("HomeCompanion", () => {
 
   it("shows a new learner Rồng Con's egg in the intro, and the dragon once it has hatched", () => {
     const { container, unmount } = setup({ onboarded: false });
-    expect(container.querySelector(".guide-companion")!.classList.contains("is-egg")).toBe(true);
-    expect(container.querySelector("#jvDragonArt > g")!.classList.contains("hatch-egg")).toBe(true);
+    const card = container.querySelector(".guide-companion")!;
+    expect(card.classList.contains("is-egg")).toBe(true);
+    // Just the whole egg: no cracks or peek in the intro.
+    expect(card.querySelector("use")!.getAttribute("href")).toBe("#jvEggShell");
     expect(screen.getByText(/still snug inside its egg/)).toBeTruthy();
     unmount();
 
     const hatched = setup({ onboarded: false, hatchSeen: true, ledger: savedLedger({}, 300) });
     expect(hatched.container.querySelector(".guide-companion")!.classList.contains("is-egg")).toBe(false);
     expect(hatched.container.querySelector("#jvDragonArt > g")!.classList.contains("hatch-hatched")).toBe(true);
+    expect(hatched.container.querySelector(".guide-companion use")!.getAttribute("href")).toBe("#jvDragonArt");
     expect(screen.getByText(/help your companion grow/)).toBeTruthy();
   });
 

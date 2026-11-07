@@ -1633,6 +1633,9 @@ export class HomeCompanion extends Component<HomeCompanionProps, State> {
               hasCompanion: !!st.companion,
               // While it's still an egg the card shows the egg (with a little hop), never the dragon.
               companionCls: "guide-companion" + (inEgg ? " is-egg" : ""),
+              // Still in its egg: the intro shows just the whole egg, never its cracks or what peeks out.
+              companionEgg: inEgg,
+              companionDragon: !inEgg,
               companionStage: stageName,
             };
           })
