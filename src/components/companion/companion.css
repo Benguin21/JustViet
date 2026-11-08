@@ -20,10 +20,10 @@
 :where(.jv-root) .steam{animation:jv-steam 2.4s ease-in-out infinite;visibility:var(--jv-steam,visible)}
 :where(.jv-root) .goal-card.is-ready{border-color:#f2c35b}
 :where(.jv-root) .check-btn{cursor:pointer;transition:transform .15s}
-:where(.jv-root) .check-btn.is-locked{cursor:default}
-:where(.jv-root) .check-btn:not(.is-locked):active{transform:scale(.94)}
+:where(.jv-root) .check-btn.is-locked,:where(.jv-root) .check-btn.is-fed{cursor:default}
+:where(.jv-root) .check-btn.is-ready:active{transform:scale(.94)}
 :where(.jv-root) .check-preview{opacity:0;transition:opacity .15s}
-@media (hover: hover){:where(.jv-root) .check-btn:not(.is-locked):hover{transform:scale(1.08)}:where(.jv-root) .check-btn.is-ready:hover .check-preview{opacity:.45}}
+@media (hover: hover){:where(.jv-root) .check-btn.is-ready:hover{transform:scale(1.08)}:where(.jv-root) .check-btn.is-ready:hover .check-preview{opacity:.45}}
 :where(.jv-root) .check-ring{transition:stroke .3s}
 :where(.jv-root) .check-btn.is-ready .check-ring{stroke:#4f9a78}
 :where(.jv-root) .ready-ring{opacity:0;transform-box:fill-box;transform-origin:50% 50%}

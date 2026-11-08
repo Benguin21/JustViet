@@ -116,16 +116,37 @@ describe("HomeCompanion", () => {
     expect(screen.getByText("10 XP")).toBeTruthy();
   });
 
-  it("takes the XP back when a goal is unticked", () => {
+  it("keeps a fed goal fed: tapping it again changes nothing", () => {
     const { onSaveLedger } = setup({ progress: { vocab: 5 } });
     fireEvent.click(vocabCheck());
     act(() => {
       vi.advanceTimersByTime(10_000);
     });
+    const check = vocabCheck();
+    expect(check.getAttribute("aria-checked")).toBe("true");
+    expect(check.getAttribute("aria-disabled")).toBe("true");
+    expect(check.getAttribute("aria-label")).toBe("Vocab SRS fed, 10 XP");
+    const saves = onSaveLedger.mock.calls.length;
+    fireEvent.click(check);
+    act(() => {
+      vi.advanceTimersByTime(10_000);
+    });
+    expect(onSaveLedger.mock.calls.length).toBe(saves);
+    expect(vocabCheck().getAttribute("aria-checked")).toBe("true");
+    expect(lastLedger(onSaveLedger).xp.vocab).toBe(10);
+  });
+
+  it("can't untick a goal while Rồng Con is still eating it", () => {
+    reduceMotion(false);
+    const { onSaveLedger } = setup({ progress: { vocab: 5 } });
+    act(() => {
+      vi.advanceTimersByTime(10_000);
+    });
+    fireEvent.click(vocabCheck());
     fireEvent.click(vocabCheck());
     const saved = lastLedger(onSaveLedger);
-    expect(saved.claims.vocab).toBe(false);
-    expect(saved.xp.vocab).toBe(0);
+    expect(saved.claims.vocab).toBe(true);
+    expect(saved.xp.vocab).toBe(10);
   });
 
   it("shows a goal fed earlier today as fed, without saving anything new for it", () => {
@@ -222,13 +243,16 @@ describe("HomeCompanion", () => {
 
   it("doesn't celebrate a level again after XP dips below it and comes back", () => {
     const ledger = savedLedger({ claims: flags(true), xp: { vocab: 10, grammar: 0, skills: 0 }, items: { vocab: "miquang" } }, 950);
-    setup({ progress: { vocab: 5 }, ledger, levelSeen: 6 });
+    const { rerender, props } = setup({ progress: { vocab: 5 }, ledger, levelSeen: 6 });
     expect(screen.getByText("Level 6 · Baby Dragon")).toBeTruthy();
-    fireEvent.click(vocabCheck());
+    // A fed goal can't be unticked, but losing its eligibility (say a card was deleted)
+    // takes the claim and its bonus back.
+    rerender(<HomeCompanion {...props} progress={{ vocab: 4, grammar: 0, skills: 0 }} />);
     act(() => {
       vi.advanceTimersByTime(10_000);
     });
     expect(screen.getByText("Level 5 · Baby Dragon")).toBeTruthy();
+    rerender(<HomeCompanion {...props} progress={{ vocab: 5, grammar: 0, skills: 0 }} />);
     fireEvent.click(vocabCheck());
     act(() => {
       vi.advanceTimersByTime(10_000);

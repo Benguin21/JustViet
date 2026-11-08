@@ -239,6 +239,11 @@ and ported one to one.
   drawings as SVG `<defs>`). To bring in a newer board, download
   `HomeDraft.dc.html` from the canvas, re-run the script and port any
   logic changes into `HomeCompanion.tsx` by hand.
+- A goal card's check feeds Rồng Con once the goal is ready; a fed goal
+  stays checked for the rest of the day and can't be unticked. Only losing
+  its eligibility (say a reviewed card was deleted) takes the claim and its
+  bonus back, through the ledger's unclaim. The cards show only the XP
+  ("Ready to feed · +10 XP", "+10 XP earned"), never the tier name.
 - Home shows the level, total XP and XP to the next level on Rồng Con's
   card, and a small "Level up!" cue the first time a level is reached
   (`levelSeen`). XP earned elsewhere since Home last showed it (`seenXp`)

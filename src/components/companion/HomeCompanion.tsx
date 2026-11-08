@@ -1030,8 +1030,9 @@ export class HomeCompanion extends Component<HomeCompanionProps, State> {
     this.patch({ ledger: l, bumps, foodsShown: true, waiting: this.stillWaiting(l), ...this.held(l), ...extra });
   }
 
-  // Tick an eligible goal to feed Rồng Con, or untick it. The XP follows from the ledger:
-  // claiming adds the goal's current entitlement, unclaiming takes it all back.
+  // Tick an eligible goal to feed Rồng Con. The XP follows from the ledger: claiming adds the
+  // goal's current entitlement. A fed goal stays fed for the day: it can't be unticked (only
+  // losing its eligibility takes a claim back, see reconcile).
   toggle(id: GoalId) {
     const targets = this.props.settings.targets;
     const progress = this.progress();
@@ -1039,40 +1040,28 @@ export class HomeCompanion extends Component<HomeCompanionProps, State> {
     // Act on what this page shows, then write it onto today's ledger.
     const shown = this.state.ledger;
     if (!this.active().includes(id)) return; // its goal is switched off in Goals
-    const want = !(shown.day === this.today() && !!shown.claims[id] && ok[id]);
-    if (want && !ok[id]) return; // feeding unlocks once the daily target is met
+    if (shown.day === this.today() && !!shown.claims[id] && ok[id]) return; // already fed
+    if (!ok[id]) return; // feeding unlocks once the daily target is met
     const ledger = this.currentLedger();
     const xpWas = { ...ledger.xp };
-    ledger.claims[id] = want;
+    ledger.claims[id] = true;
     // Rồng Con eats the dish on the card, and the goal keeps it for the rest of the day.
-    if (want) {
-      ledger.announced[id] = true;
-      ledger.greeted = true;
-      const dish = this.menuFor(ledger)[id];
-      if (dish) ledger.items[id] = dish.key;
-    }
+    ledger.announced[id] = true;
+    ledger.greeted = true;
+    const dish = this.menuFor(ledger)[id];
+    if (dish) ledger.items[id] = dish.key;
     const l = settleLedger(ledger, targets, progress, this.active()).ledger;
     this.saveLedger(l);
     const bumps = { ...this.state.bumps };
     bumps[id] += 1;
     this.openingLine = null;
-    let extra: Patch = {};
-    if (want) {
-      // A meal on its way for a goal this ledger no longer claims (a new day has started) stops first.
-      if (this.reconcile(l)) this.begin({ kind: "progress", dx: {}, done: 0 });
-      // The item stays full on its card until Rồng Con has eaten it (see stillWaiting).
-      const meal: Reaction = { kind: "meal", goal: id, dx: diffXp(xpWas, l.xp), done: 1 };
-      if (this.waits(meal)) this.queue.push(meal);
-      else this.begin(meal);
-    } else {
-      // Unticking takes back what was shown for it and drops what wasn't shown yet.
-      const r: Reaction = { kind: "untick", goal: id, dx: {}, done: 0, now: -this.shownFor(id, xpWas) };
-      let stopped = this.forget(id);
-      if (this.reconcile(l)) stopped = true;
-      if (stopped || !this.showing()) this.begin(r);
-      else extra = this.chip(r.now || 0); // another item is on its way: just the chip
-    }
-    this.patch({ ledger: l, bumps, foodsShown: true, waiting: this.stillWaiting(l), ...this.held(l), ...extra });
+    // A meal on its way for a goal this ledger no longer claims (a new day has started) stops first.
+    if (this.reconcile(l)) this.begin({ kind: "progress", dx: {}, done: 0 });
+    // The item stays full on its card until Rồng Con has eaten it (see stillWaiting).
+    const meal: Reaction = { kind: "meal", goal: id, dx: diffXp(xpWas, l.xp), done: 1 };
+    if (this.waits(meal)) this.queue.push(meal);
+    else this.begin(meal);
+    this.patch({ ledger: l, bumps, foodsShown: true, waiting: this.stillWaiting(l), ...this.held(l) });
   }
 
   // ----- Reactions -----
@@ -1470,13 +1459,13 @@ export class HomeCompanion extends Component<HomeCompanionProps, State> {
       const readyText = "Ready to feed · +" + bonus + " XP";
       const fedText = "+" + xpNow + " XP earned";
       if (status === "ready") checkLabel = "Feed Rồng Con: mark " + d.section + " complete for " + bonus + " XP";
-      if (status === "fed") checkLabel = d.section + " fed, " + xpNow + " XP. Uncheck to undo.";
+      if (status === "fed") checkLabel = d.section + " fed, " + xpNow + " XP";
       if (status === "locked") checkLabel = d.section + ": " + done + " of " + target + " " + plural(target, d.one, d.many) + " " + d.verb + ". Feeding unlocks at " + target + ".";
       const statusLines = [
         { text: readyText, cls: status === "ready" ? "on" : "off" },
         { text: fedText, cls: status === "fed" ? "on" : "off" },
       ];
-      if (eating) checkLabel = d.section + " fed, " + s.ledger.xp[id] + " XP. Uncheck to undo.";
+      if (eating) checkLabel = d.section + " fed, " + s.ledger.xp[id] + " XP";
       return {
         id,
         section: d.section,
@@ -1491,7 +1480,7 @@ export class HomeCompanion extends Component<HomeCompanionProps, State> {
         oArc: status === "locked" && done > 0 ? 1 : 0,
         dash: (Math.min(1, done / target) * C).toFixed(1) + " " + C,
         checkedAttr: claimed,
-        disabledAttr: status === "locked",
+        disabledAttr: status === "locked" || claimed,
         checkClass: "check-btn is-" + (claimed ? "fed" : status),
         checkLabel,
         toggle: () => this.toggle(id),
