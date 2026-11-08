@@ -20,22 +20,22 @@ import { CHIPS, CRACKS, CRUMBS, FLAKES, LIFTS } from "@/lib/companion/crackTable
 import {
   GOAL_DEFS,
   GOAL_IDS,
-  XP_PER_GOAL,
   activeGoals,
   checkEligibility,
-  nextVocabTier,
+  goalTier,
   sumXp,
-  vocabTier,
   type GoalId,
   type GoalSettings,
   type PerGoal,
   type Progress,
 } from "@/lib/companion/goals";
-import { STAGES, crackInk, crackProgress, hatchFor, shellBitsFor, stageFor } from "@/lib/companion/growth";
-import { claimCount, ledgerForDay, localDayKey, settleLedger, type Ledger } from "@/lib/companion/ledger";
+import { HATCH_XP, crackInk, crackProgress, evolutionFor, hatchFor, shellBitsFor } from "@/lib/companion/growth";
+import { claimCount, ledgerForDay, settleLedger, type Ledger } from "@/lib/companion/ledger";
 import { EAT_LINES, LINES, POKES, eatLine, moodFor, type Line, type LineKey } from "@/lib/companion/lines";
 import { assignMenu, menuForDay, menuItem, thoughtFit, type MenuItem } from "@/lib/companion/menu";
-import type { CompanionProfile } from "@/lib/companion/profile";
+import { hatchSeen, type CompanionProfile } from "@/lib/companion/profile";
+import { dayKeyIn } from "@/lib/xp/day";
+import { levelFor, levelProgress } from "@/lib/xp/levels";
 import {
   CHEER_HOLD,
   CHEER_STILL,
@@ -64,20 +64,25 @@ import "./companion.css";
 export interface HomeCompanionProps {
   /** Picks the learner's own daily menu. */
   userId: string;
+  /** Which goals are on, and today's target for each (locked for the day once a goal is active). */
   settings: GoalSettings;
-  /** Today's verified progress per goal (vocab: unique cards reviewed today). */
+  /** Today's verified progress per goal (vocab: new cards studied today). */
   progress: Progress;
-  /** The local day `progress` was counted for (see localDayKey); after midnight it counts as 0. */
+  /** The local day `progress` was counted for (see dayKeyIn); after midnight it counts as 0. */
   progressDay: string;
-  /** The ledger as it was last saved, or null. Only read when Home opens. */
+  /** The learner's established time zone, which days are counted in (this device's when not given). */
+  timeZone?: string;
+  /** Today as Home opened it (see ledgerFromDay), or null. Only read when Home opens. */
   savedLedger: unknown;
   profile: CompanionProfile;
   onSaveLedger: (ledger: Ledger) => void;
-  /** Profile flags only ever turn on; only the ones that changed are passed. */
+  /** Only the profile fields that changed are passed (onboarded only turns on, levelSeen only goes up). */
   onMarkProfile: (changes: Partial<CompanionProfile>) => void;
 }
 
-type Dx = Partial<Record<GoalId, number>>;
+/** XP still to show: per goal (its bonus), and `activity` for XP earned elsewhere (cards, lessons). */
+type XpKey = GoalId | "activity";
+type Dx = Partial<Record<XpKey, number>>;
 type LineRef = LineKey | Line | null;
 type HatchFx = "shake" | "crack" | "burst" | "pop" | "fade";
 type Timer = ReturnType<typeof setTimeout>;
@@ -132,6 +137,9 @@ interface State {
   bursting: boolean;
   xpChip: { text: string; up: boolean } | null;
   xpChipSeq: number;
+  /** The level-up cue on the growth card, while it shows. */
+  levelUp: number | null;
+  levelUpSeq: number;
   bumps: PerGoal<number>;
   hatchFx: HatchFx | null;
   guide: { set: GuideSet; step: number } | null;
@@ -186,8 +194,10 @@ const RESET: Patch = {
 const DEFAULT_USER = "demo-learner";
 const NO_PROGRESS: Progress = { vocab: 0, grammar: 0, skills: 0 };
 const C = 106.8; // circumference of the check ring (r=17)
+/** How long the level-up cue stays on the growth card. */
+const LEVEL_CUE_MS = 2800;
 
-const today = () => localDayKey(new Date());
+const fmt = (n: number) => n.toLocaleString("en-US");
 const plural = (n: number, one: string, many: string) => (n === 1 ? one : many);
 const isEatLine = (line: LineRef) => line === LINES.eat || Object.values(EAT_LINES).some((l) => l === line);
 
@@ -199,7 +209,7 @@ function diffXp(was: PerGoal<number>, now: PerGoal<number>): Dx {
 }
 function sumDx(d: Dx): number {
   let t = 0;
-  for (const id of Object.keys(d) as GoalId[]) t += d[id] || 0;
+  for (const id of Object.keys(d) as XpKey[]) t += d[id] || 0;
   return t;
 }
 function inputsChanged(a: HomeCompanionProps, b: HomeCompanionProps): boolean {
@@ -239,6 +249,7 @@ export class HomeCompanion extends Component<HomeCompanionProps, State> {
   busy = false;
   pendingXp: Reaction | null = null;
   chipTimer: Timer | undefined;
+  levelTimer: Timer | undefined;
   freshTimer: Timer | undefined;
   chipFresh = false;
   nudgeFlip = false;
@@ -327,7 +338,7 @@ export class HomeCompanion extends Component<HomeCompanionProps, State> {
     const targets = props.settings.targets;
     const progress = this.progress();
     const active = this.active();
-    const stored = ledgerForDay(props.savedLedger, today());
+    const stored = ledgerForDay(props.savedLedger, this.today());
     const xpBefore = stored.historyXp + sumXp(stored.xp);
     const settled = settleLedger(stored, targets, progress, active);
     // A learner's very first visit starts with the teachers' intro. Rồng Con's own opening (and
@@ -343,22 +354,28 @@ export class HomeCompanion extends Component<HomeCompanionProps, State> {
     this.lastActive = active;
 
     let shownXp: number | null = null;
-    if (settled.delta !== 0) {
-      // XP changed since the last visit (say more words studied after feeding): keep drawing
-      // the egg as it was and show the change once the opening is over.
-      shownXp = xpBefore;
+    // XP Home hasn't shown yet: what was earned elsewhere since it last showed the total (cards
+    // studied, lessons done, a goal fed on another device), plus any bonus that changed on
+    // settling. Keep drawing the egg and the level as they were, and show the change once the
+    // opening is over.
+    const seen = this.profile.seenXp ?? 0;
+    const elsewhere = xpBefore - seen;
+    if (settled.delta !== 0 || elsewhere !== 0) {
+      shownXp = seen;
+      const dx = diffXp(stored.xp, settled.ledger.xp);
+      if (elsewhere) dx.activity = elsewhere;
       this.pendingXp = {
         kind: "progress",
-        dx: diffXp(stored.xp, settled.ledger.xp),
+        dx,
         done: 0,
-        tierUp: settled.delta > 0,
+        tierUp: settled.delta + elsewhere > 0,
         quiet: opening.kind !== "none",
       };
     }
 
-    // Already past hatching when Home loads (say an existing learner): no hatching to show.
+    // Levels already shown (say an existing learner's): nothing to celebrate for them.
     const drawn = shownXp != null ? shownXp : ledger.historyXp + sumXp(ledger.xp);
-    if (!this.profile.hatchSeen && drawn >= STAGES[1].min) this.markProfile({ hatchSeen: true });
+    if (levelFor(drawn) > this.profile.levelSeen) this.markProfile({ levelSeen: levelFor(drawn) });
 
     const animate = !reduced && opening.kind !== "none" && !intro;
     this.opening = intro ? "intro" : reduced ? "none" : opening.kind;
@@ -393,6 +410,8 @@ export class HomeCompanion extends Component<HomeCompanionProps, State> {
       bursting: false,
       xpChip: null,
       xpChipSeq: 0,
+      levelUp: null,
+      levelUpSeq: 0,
       bumps: { vocab: 0, grammar: 0, skills: 0 },
       hatchFx: null,
       guide: intro ? { set: "intro", step: 0 } : null,
@@ -408,13 +427,21 @@ export class HomeCompanion extends Component<HomeCompanionProps, State> {
   }
   markProfile(changes: Partial<CompanionProfile>) {
     const fresh: Partial<CompanionProfile> = {};
-    for (const k of Object.keys(changes) as (keyof CompanionProfile)[]) {
-      if (changes[k] && !this.profile[k]) fresh[k] = true;
-    }
+    if (changes.onboarded && !this.profile.onboarded) fresh.onboarded = true;
+    if (changes.levelSeen != null && changes.levelSeen > this.profile.levelSeen) fresh.levelSeen = changes.levelSeen;
+    if (changes.seenXp != null && changes.seenXp !== this.profile.seenXp) fresh.seenXp = changes.seenXp;
     if (!Object.keys(fresh).length) return;
     this.profile = { ...this.profile, ...fresh };
     if (this.mounted) this.props.onMarkProfile(fresh);
     else Object.assign(this.unsavedProfile, fresh);
+  }
+  // Once nothing is waiting to be shown: the levels shown so far have been seen, and the total
+  // shown is the one to start from next time.
+  syncSeen() {
+    if (this.state.hatchFx || this.reactions().length || this.state.shownXp != null) return;
+    const xp = this.totalXp();
+    if (levelFor(xp) > this.profile.levelSeen) this.markProfile({ levelSeen: levelFor(xp) });
+    if (xp !== this.profile.seenXp) this.markProfile({ seenXp: xp });
   }
   flushSaves() {
     if (this.unsavedLedger) this.props.onSaveLedger(this.unsavedLedger);
@@ -463,6 +490,7 @@ export class HomeCompanion extends Component<HomeCompanionProps, State> {
   componentDidMount() {
     this.mounted = true;
     this.flushSaves();
+    this.syncSeen();
     window.addEventListener("resize", this.onResize);
     this.measureRoom();
     this.syncInert();
@@ -636,7 +664,7 @@ export class HomeCompanion extends Component<HomeCompanionProps, State> {
     const F = HATCH_FX;
     if (this.state.reduced) {
       // Without motion the egg fades into the Baby Dragon, who says so; the card follows.
-      this.markProfile({ hatchSeen: true });
+      this.markProfile({ levelSeen: levelFor(this.displayed().xp) });
       this.milestoneDue = true;
       Object.assign(step, { pose: "celebrate", hatchFx: "fade", line: LINES.hatched, sparkle: null } satisfies Patch);
       this.timers.push(setTimeout(() => this.apply({ hatchFx: null }), 1000));
@@ -648,7 +676,7 @@ export class HomeCompanion extends Component<HomeCompanionProps, State> {
     this.timers.push(
       setTimeout(() => {
         // It has hatched: from here on it never plays again, even on a refresh.
-        this.markProfile({ hatchSeen: true });
+        this.markProfile({ levelSeen: levelFor(this.displayed().xp) });
         this.milestoneDue = true;
         this.apply({ hatchFx: "burst", bursting: true, pose: "hello" });
       }, F.burst),
@@ -667,7 +695,7 @@ export class HomeCompanion extends Component<HomeCompanionProps, State> {
   drawnXp(xp?: number): number {
     if (xp == null) xp = this.displayed().xp;
     const fx = this.state.hatchFx;
-    return fx === "shake" || fx === "crack" ? Math.min(xp, STAGES[1].min - 1) : xp;
+    return fx === "shake" || fx === "crack" ? Math.min(xp, HATCH_XP - 1) : xp;
   }
 
   componentDidUpdate(prevProps: HomeCompanionProps) {
@@ -678,8 +706,7 @@ export class HomeCompanion extends Component<HomeCompanionProps, State> {
     if (this.state.lift === "prep") this.liftDone("prep");
     else if (this.state.lift === "jump" && this.state.clear == null) this.patch({ clear: this.clearFor() });
     this.syncInert();
-    // Shown XP past hatching some other way: nothing left to reveal.
-    if (!this.profile.hatchSeen && !this.state.hatchFx && this.displayed().xp >= STAGES[1].min) this.markProfile({ hatchSeen: true });
+    this.syncSeen();
     if (inputsChanged(this.props, prevProps)) this.syncProgress();
   }
 
@@ -688,6 +715,7 @@ export class HomeCompanion extends Component<HomeCompanionProps, State> {
     window.removeEventListener("resize", this.onResize);
     this.clearTimers();
     this.stopChip();
+    clearTimeout(this.levelTimer);
     this.stopLift();
     this.stopMilestone();
     clearTimeout(this.focusTimer);
@@ -837,12 +865,16 @@ export class HomeCompanion extends Component<HomeCompanionProps, State> {
   active(): GoalId[] {
     return activeGoals(this.props.settings);
   }
+  // Today, in the learner's established time zone.
+  today(): string {
+    return dayKeyIn(Date.now(), this.props.timeZone);
+  }
   progress(): Progress {
-    return this.props.progressDay === today() ? this.props.progress : NO_PROGRESS;
+    return this.props.progressDay === this.today() ? this.props.progress : NO_PROGRESS;
   }
   // Today's ledger. A page left open past midnight starts the new day with the next change.
   currentLedger(): Ledger {
-    return ledgerForDay(this.state.ledger, today());
+    return ledgerForDay(this.state.ledger, this.today());
   }
   baseXp(ledger?: Ledger): number {
     return (ledger || this.state.ledger).historyXp;
@@ -866,7 +898,7 @@ export class HomeCompanion extends Component<HomeCompanionProps, State> {
   // Today's dish for each active goal. The menu follows the ledger's day, so a page left open
   // past midnight keeps the menu that matches what it shows until the next action moves it on.
   menuFor(ledger: Ledger): Partial<Record<GoalId, MenuItem>> {
-    return assignMenu(menuForDay(this.userId(), ledger.day || today()), this.active(), ledger.items);
+    return assignMenu(menuForDay(this.userId(), ledger.day || this.today()), this.active(), ledger.items);
   }
   menu() {
     return this.menuFor(this.state.ledger);
@@ -960,7 +992,7 @@ export class HomeCompanion extends Component<HomeCompanionProps, State> {
       // Anything still waiting from the load is shown along with it.
       if (this.pendingXp) {
         const held = this.pendingXp.dx;
-        for (const id of Object.keys(held) as GoalId[]) dx[id] = (dx[id] || 0) + (held[id] || 0);
+        for (const id of Object.keys(held) as XpKey[]) dx[id] = (dx[id] || 0) + (held[id] || 0);
         this.pendingXp = null;
       }
       r = { kind: "progress", dx, done: 0, ready: fresh.length > 0, tierUp };
@@ -970,7 +1002,7 @@ export class HomeCompanion extends Component<HomeCompanionProps, State> {
     if (r && introUp) {
       // Nothing reacts behind the intro: the change waits and plays after Rồng Con's opening.
       const hold: Reaction = this.pendingXp || { kind: "progress", dx: {}, done: 0, quiet: true };
-      for (const id of Object.keys(r.dx) as GoalId[]) hold.dx[id] = (hold.dx[id] || 0) + (r.dx[id] || 0);
+      for (const id of Object.keys(r.dx) as XpKey[]) hold.dx[id] = (hold.dx[id] || 0) + (r.dx[id] || 0);
       hold.tierUp = sumDx(hold.dx) > 0;
       this.pendingXp = this.isEmpty(hold) ? null : hold;
       r = null;
@@ -989,7 +1021,7 @@ export class HomeCompanion extends Component<HomeCompanionProps, State> {
         if (quick) r = null;
         else if (tail && tail.kind === "progress") {
           // Two progress changes in a row (say 5 → 10 → 16 words) make one reaction.
-          for (const id of Object.keys(r.dx) as GoalId[]) tail.dx[id] = (tail.dx[id] || 0) + (r.dx[id] || 0);
+          for (const id of Object.keys(r.dx) as XpKey[]) tail.dx[id] = (tail.dx[id] || 0) + (r.dx[id] || 0);
           tail.ready = tail.ready || r.ready;
           tail.tierUp = sumDx(tail.dx) > 0 && !tail.ready;
         } else this.queue.push(r);
@@ -1007,7 +1039,7 @@ export class HomeCompanion extends Component<HomeCompanionProps, State> {
     // Act on what this page shows, then write it onto today's ledger.
     const shown = this.state.ledger;
     if (!this.active().includes(id)) return; // its goal is switched off in Goals
-    const want = !(shown.day === today() && !!shown.claims[id] && ok[id]);
+    const want = !(shown.day === this.today() && !!shown.claims[id] && ok[id]);
     if (want && !ok[id]) return; // feeding unlocks once the daily target is met
     const ledger = this.currentLedger();
     const xpWas = { ...ledger.xp };
@@ -1141,7 +1173,7 @@ export class HomeCompanion extends Component<HomeCompanionProps, State> {
     for (const prev of [this.cur, this.pendingXp]) {
       if (!prev || prev === r) continue;
       for (const d of [prev.dx, prev.pre || {}]) {
-        for (const id of Object.keys(d) as GoalId[]) into[id] = (into[id] || 0) + (d[id] || 0);
+        for (const id of Object.keys(d) as XpKey[]) into[id] = (into[id] || 0) + (d[id] || 0);
       }
       prev.dx = {};
       prev.pre = {};
@@ -1185,6 +1217,13 @@ export class HomeCompanion extends Component<HomeCompanionProps, State> {
     clearTimeout(this.freshTimer);
     this.chipFresh = false;
   }
+  // The level-up cue: "Level up! · Level 6" on the growth card for a moment. Its own timer, so
+  // the next reaction can't cut it short.
+  levelCue(level: number): Patch {
+    clearTimeout(this.levelTimer);
+    this.levelTimer = setTimeout(() => this.patch({ levelUp: null }), LEVEL_CUE_MS);
+    return { levelUp: level, levelUpSeq: this.state.levelUpSeq + 1 };
+  }
 
   playNow(r: Reaction) {
     if (this.cur !== r) return;
@@ -1201,7 +1240,10 @@ export class HomeCompanion extends Component<HomeCompanionProps, State> {
     const hatching = hatchFor(shown.xp + gain).state === "hatched" && hBefore !== "hatched";
     // The first time, hatching is the whole reveal (HATCH_FX), which nothing new cuts short. If
     // the XP dips and comes back later, Rồng Con just pops back out: no second celebration.
-    const reveal = hatching && !this.profile.hatchSeen;
+    const reveal = hatching && !hatchSeen(this.profile);
+    // XP from studying elsewhere, and whether it reaches a level not celebrated yet.
+    const studied = (r.dx.activity || 0) + ((r.pre || {}).activity || 0) > 0;
+    const levelled = levelFor(shown.xp + gain) > Math.max(levelFor(shown.xp), this.profile.levelSeen);
     const H = reveal && !s.reduced ? HATCH_FX.end : 2200;
     if (reveal) r.firm = true;
     // With reduced motion nothing flies, so there's nothing to wait for.
@@ -1221,8 +1263,9 @@ export class HomeCompanion extends Component<HomeCompanionProps, State> {
         const hb = hatchFor(from).state;
         const ha = hatchFor(from + add).state;
         const step: Patch = { ...extra };
-        if (ha === "hatched" && hb !== "hatched") {
-          if (!this.profile.hatchSeen) this.reveal(step);
+        const hatches = ha === "hatched" && hb !== "hatched";
+        if (hatches) {
+          if (!hatchSeen(this.profile)) this.reveal(step);
           else {
             Object.assign(step, { pose: "perk", hatchFx: "pop", sparkle: null } satisfies Patch);
             this.timers.push(setTimeout(() => this.apply({ hatchFx: null }), 900));
@@ -1232,6 +1275,13 @@ export class HomeCompanion extends Component<HomeCompanionProps, State> {
           step.nudge = this.nudgeFlip ? "a" : "b";
           step.chips = HATCH_ORDER[ha] > HATCH_ORDER[hb];
           this.timers.push(setTimeout(() => this.apply({ nudge: null, chips: false }), 950));
+        }
+        // A level reached for the first time gets its little cue on the growth card. (The
+        // hatching, Level 5, marks itself seen once the shell has burst.)
+        const lv = levelFor(from + add);
+        if (lv > levelFor(from) && lv > this.profile.levelSeen) {
+          Object.assign(step, this.levelCue(lv));
+          if (!hatches) this.markProfile({ levelSeen: lv });
         }
         const chip = this.chip(add + (r.now || 0));
         r[part] = {};
@@ -1322,8 +1372,8 @@ export class HomeCompanion extends Component<HomeCompanionProps, State> {
         lineAt = t;
         t += 3500;
       } else if (r.tierUp && gain > 0 && !r.quiet && !hatching) {
-        // More words after feeding: a small XP celebration, not another meal.
-        steps.push([t, { pose: "perk", line: LINES.tier }]);
+        // XP from studying (or a new level): a small celebration, not another meal.
+        steps.push([t, { pose: "perk", line: levelled ? LINES.levelUp : studied ? LINES.studied : LINES.tier }]);
         lineAt = t;
         t += 1500;
       }
@@ -1410,26 +1460,25 @@ export class HomeCompanion extends Component<HomeCompanionProps, State> {
       const flying = s.feeding === id && !s.reduced;
       // The real count, never capped at the target (18/5 is fine).
       const progressText = done + "/" + target + " " + plural(Math.max(done, target), d.one, d.many) + " " + d.verb;
-      // The status line, ready and fed. A locked card shows neither but keeps their space,
-      // worked out for the count it unlocks at, so ticking or feeding never resizes it.
-      const n = Math.max(done, target);
+      // The status line, ready and fed. A locked card shows neither but keeps their space, so
+      // ticking or feeding never resizes it.
       let readyText: string;
       let fedText: string;
       let checkLabel = "";
-      if (id === "vocab") {
-        const tier = vocabTier(n);
-        const nxt = nextVocabTier(n);
-        readyText = tier > 0 ? "Ready to feed · +" + tier + " XP" : "Ready to feed · 0 XP until 5 words";
-        if (tier === 0) fedText = "Fed · 0 XP" + (nxt ? " · " + nxt.more + " more " + plural(nxt.more, d.one, d.many) + " for +" + nxt.gain + " XP" : "");
-        else fedText = "+" + tier + " XP earned" + (nxt ? " · " + nxt.more + " more for +" + nxt.gain + " XP" : " · top reward today");
-        if (status === "ready") checkLabel = "Feed Rồng Con: mark " + d.section + " complete" + (tier > 0 ? " for " + tier + " XP" : ", 0 XP until 5 words");
-        else if (status === "fed") checkLabel = d.section + " fed, " + tier + " XP. Uncheck to undo.";
+      // The bonus is set by the goal's tier, from the target chosen in Goals (not by how much
+      // more was done): a Starter Vocab goal (under 5 words) feeds Rồng Con for no bonus.
+      const tier = goalTier(id, target);
+      const xpNow = status === "fed" ? s.ledger.xp[id] : tier.bonus;
+      if (tier.bonus > 0) {
+        readyText = "Ready to feed · +" + tier.bonus + " XP";
+        fedText = "+" + xpNow + " XP earned · " + tier.name + " goal";
+        if (status === "ready") checkLabel = "Feed Rồng Con: mark " + d.section + " complete for " + tier.bonus + " XP";
       } else {
-        readyText = "Ready to feed · +" + XP_PER_GOAL + " XP";
-        fedText = "+" + (status === "fed" ? s.ledger.xp[id] : XP_PER_GOAL) + " XP earned";
-        if (status === "ready") checkLabel = "Feed Rồng Con: mark " + d.section + " complete for " + XP_PER_GOAL + " XP";
-        else if (status === "fed") checkLabel = d.section + " fed, " + s.ledger.xp[id] + " XP. Uncheck to undo.";
+        readyText = "Ready to feed · Starter goal, no bonus";
+        fedText = "Fed · Starter goal, no bonus";
+        if (status === "ready") checkLabel = "Feed Rồng Con: mark " + d.section + " complete (Starter goal, no bonus XP)";
       }
+      if (status === "fed") checkLabel = d.section + " fed, " + xpNow + " XP. Uncheck to undo.";
       if (status === "locked") checkLabel = d.section + ": " + done + " of " + target + " " + plural(target, d.one, d.many) + " " + d.verb + ". Feeding unlocks at " + target + ".";
       const statusLines = [
         { text: readyText, cls: status === "ready" ? "on" : "off" },
@@ -1467,11 +1516,13 @@ export class HomeCompanion extends Component<HomeCompanionProps, State> {
     // The drawing, stage and bar follow the egg while the hatching shakes and cracks.
     const drawXp = this.drawnXp(xp);
     const hatchingNow = drawXp !== xp;
-    const st = stageFor(drawXp);
+    // The level (and so Rồng Con's evolution) and the bar toward the next level.
+    const lp = levelProgress(drawXp);
+    const ev = evolutionFor(lp.level);
     const hatch = hatchFor(drawXp);
     const hatched = hatch.state === "hatched";
     const scale = this.dragonScale(shownDone, drawXp);
-    const pct = st.next ? Math.min(100, Math.round(((drawXp - st.cur.min) / (st.next.min - st.cur.min)) * 100)) : 100;
+    const pct = Math.min(100, Math.floor(lp.fraction * 100));
     // The dialogue is up only while a big jump is about to start or running.
     const lifting = !s.reduced && s.pose === "celebrate" && liftsIn(s.lift, "rise", "jump");
 
@@ -1485,6 +1536,7 @@ export class HomeCompanion extends Component<HomeCompanionProps, State> {
       " eyes-" + (EYES[s.pose] || "open") +
       " mouth-" + (MOUTH[s.pose] || "smile") +
       " hatch-" + hatch.state +
+      (ev.fullBody ? " full-body" : "") +
       (craving ? "" : " sated") +
       (s.absorbing ? " absorbing" : "") +
       (hatch.wiggle ? " wiggle-" + hatch.wiggle : "") +
@@ -1575,15 +1627,18 @@ export class HomeCompanion extends Component<HomeCompanionProps, State> {
       hearts: active.map((id, i) => ({ fill: i < shownDone ? "#f15b48" : "none" })),
       heartsLabel: active.length ? "Happiness: " + shownDone + " of " + active.length : "No meals planned today",
       moodText: moodFor(shownDone, active.length),
-      stageLabel: st.cur.en + " · Stage " + (st.index + 1),
-      xpText: xp + " XP",
-      nextText: hatchingNow ? "Hatching now!" : st.next ? st.next.min - xp + " XP to " + st.next.en : "Fully grown",
+      stageLabel: "Level " + lp.level + " · " + ev.name,
+      xpText: fmt(xp) + " XP",
+      nextText: hatchingNow ? "Hatching now!" : lp.isMax ? "Top level!" : fmt(lp.to! - xp) + " XP to Level " + (lp.level + 1),
+      xpBarLabel: lp.isMax ? "Experience: Level 100, the top level" : "Experience toward Level " + (lp.level + 1),
+      levelCueClass: "level-cue" + (s.levelUp ? " on" + (s.levelUpSeq % 2 ? " level-cue-a" : " level-cue-b") : ""),
+      levelCueText: s.levelUp ? "Level up! · Level " + s.levelUp : "",
       hatchCueClass: "hatch-cue" + (hatch.soon ? " on" : ""),
       hatchCueText: hatch.soon ? "Almost ready to hatch!" : "",
       xpPct: pct + "%",
       xpPctNum: pct,
       nav: NAV,
-      ...this.guideVals(st.cur.en, !hatched),
+      ...this.guideVals(ev.name, !hatched),
     };
   }
 

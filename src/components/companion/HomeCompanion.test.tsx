@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { HomeCompanion, type HomeCompanionProps } from "./HomeCompanion";
 import { DEFAULT_GOAL_SETTINGS, type Progress } from "@/lib/companion/goals";
 import { localDayKey, type Ledger } from "@/lib/companion/ledger";
+import { HATCH_XP } from "@/lib/companion/growth";
 
 // Reduced motion keeps Rồng Con's reactions short and skips the timed opening, so these
 // tests check what the page does rather than how long each beat lasts.
@@ -22,23 +23,27 @@ function reduceMotion(on: boolean) {
 const today = () => localDayKey(new Date());
 const flags = (vocab = false, grammar = false, skills = false) => ({ vocab, grammar, skills });
 
-function savedLedger(over: Partial<Ledger> = {}, xpBeforeToday = 0) {
+function savedLedger(over: Partial<Ledger> = {}, xpBeforeToday = 0): Ledger {
   return {
-    v: 3,
+    v: 4,
     day: today(),
     claims: flags(),
     xp: { vocab: 0, grammar: 0, skills: 0 },
     items: {},
     announced: flags(true),
     greeted: true,
-    past: xpBeforeToday
-      ? { "2000-1-1": { claims: flags(), xp: { vocab: xpBeforeToday, grammar: 0, skills: 0 }, items: {}, announced: flags(), greeted: true } }
-      : {},
+    historyXp: xpBeforeToday,
     ...over,
   };
 }
+const totalOf = (l: unknown) => {
+  const o = l as Partial<Ledger> | null;
+  return o && o.v === 4 ? (o.historyXp ?? 0) + (o.xp ? o.xp.vocab + o.xp.grammar + o.xp.skills : 0) : 0;
+};
 
-function setup(opts: { progress?: Partial<Progress>; onboarded?: boolean; ledger?: unknown; hatchSeen?: boolean } = {}) {
+function setup(
+  opts: { progress?: Partial<Progress>; onboarded?: boolean; ledger?: unknown; levelSeen?: number; seenXp?: number | null } = {},
+) {
   const onSaveLedger = vi.fn<HomeCompanionProps["onSaveLedger"]>();
   const onMarkProfile = vi.fn<HomeCompanionProps["onMarkProfile"]>();
   const props: HomeCompanionProps = {
@@ -47,7 +52,12 @@ function setup(opts: { progress?: Partial<Progress>; onboarded?: boolean; ledger
     progress: { vocab: 0, grammar: 0, skills: 0, ...opts.progress },
     progressDay: today(),
     savedLedger: opts.ledger === undefined ? savedLedger() : opts.ledger,
-    profile: { onboarded: opts.onboarded ?? true, hatchSeen: opts.hatchSeen ?? false },
+    // By default Home has already shown the saved total, so nothing is waiting to land.
+    profile: {
+      onboarded: opts.onboarded ?? true,
+      levelSeen: opts.levelSeen ?? 1,
+      seenXp: opts.seenXp === undefined ? totalOf(opts.ledger === undefined ? savedLedger() : opts.ledger) : opts.seenXp,
+    },
     onSaveLedger,
     onMarkProfile,
   };
@@ -71,10 +81,10 @@ afterEach(() => {
 describe("HomeCompanion", () => {
   it("keeps the Vocab goal locked until today's word target is met", () => {
     const { onSaveLedger } = setup({ progress: { vocab: 2 } });
-    expect(screen.getByText("2/5 words studied")).toBeTruthy();
+    expect(screen.getByText("2/5 new words studied")).toBeTruthy();
     const check = vocabCheck();
     expect(check.getAttribute("aria-disabled")).toBe("true");
-    expect(check.getAttribute("aria-label")).toBe("Vocab SRS: 2 of 5 words studied. Feeding unlocks at 5.");
+    expect(check.getAttribute("aria-label")).toBe("Vocab SRS: 2 of 5 new words studied. Feeding unlocks at 5.");
     fireEvent.click(check);
     expect(lastLedger(onSaveLedger).claims.vocab).toBe(false);
   });
@@ -95,7 +105,7 @@ describe("HomeCompanion", () => {
       vi.advanceTimersByTime(10_000);
     });
     expect(vocabCheck().getAttribute("aria-checked")).toBe("true");
-    expect(screen.getByText(/\+10 XP earned/)).toBeTruthy();
+    expect(screen.getByText("+10 XP earned · Small goal")).toBeTruthy();
     expect(screen.getByText("10 XP")).toBeTruthy();
   });
 
@@ -143,7 +153,7 @@ describe("HomeCompanion", () => {
     expect(screen.getByText(/still snug inside its egg/)).toBeTruthy();
     unmount();
 
-    const hatched = setup({ onboarded: false, hatchSeen: true, ledger: savedLedger({}, 300) });
+    const hatched = setup({ onboarded: false, levelSeen: 5, ledger: savedLedger({}, HATCH_XP + 50) });
     expect(hatched.container.querySelector(".guide-companion")!.classList.contains("is-egg")).toBe(false);
     expect(hatched.container.querySelector("#jvDragonArt > g")!.classList.contains("hatch-hatched")).toBe(true);
     expect(hatched.container.querySelector(".guide-companion use")!.getAttribute("href")).toBe("#jvDragonArt");
@@ -155,19 +165,82 @@ describe("HomeCompanion", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
-  it("marks the hatching as seen once the egg reaches 250 XP", () => {
-    const { onMarkProfile } = setup({ progress: { vocab: 5 }, ledger: savedLedger({}, 240) });
-    expect(onMarkProfile).not.toHaveBeenCalled();
+  it("hatches Rồng Con at Level 5 (700 XP) and marks it seen", () => {
+    const { onMarkProfile } = setup({ progress: { vocab: 5 }, ledger: savedLedger({}, 690) });
+    expect(screen.getByText("Level 4 · Hatching")).toBeTruthy();
+    expect(screen.getByText("10 XP to Level 5")).toBeTruthy();
+    expect(onMarkProfile).not.toHaveBeenCalledWith({ levelSeen: 5 });
     fireEvent.click(vocabCheck());
     act(() => {
       vi.advanceTimersByTime(30_000);
     });
-    expect(onMarkProfile).toHaveBeenCalledWith({ hatchSeen: true });
-    expect(screen.getByText(/Baby Dragon · Stage 2/)).toBeTruthy();
+    expect(onMarkProfile).toHaveBeenCalledWith({ levelSeen: 5 });
+    expect(screen.getByText("Level 5 · Baby Dragon")).toBeTruthy();
+    expect(screen.getByText("700 XP")).toBeTruthy();
+  });
+
+  it("shows the level, total XP and what's left to the next level", () => {
+    setup({ ledger: savedLedger({}, 1312) });
+    expect(screen.getByText("Level 7 · Baby Dragon")).toBeTruthy();
+    expect(screen.getByText("1,312 XP")).toBeTruthy();
+    expect(screen.getByText("144 XP to Level 8")).toBeTruthy();
+    const bar = screen.getByRole("progressbar");
+    expect(bar.getAttribute("aria-label")).toBe("Experience toward Level 8");
+    expect(bar.getAttribute("aria-valuenow")).toBe("42");
+  });
+
+  it("handles Level 100 and XP past it", () => {
+    setup({ ledger: savedLedger({}, 260000), levelSeen: 100 });
+    expect(screen.getByText("Level 100 · Majestic Dragon")).toBeTruthy();
+    expect(screen.getByText("260,000 XP")).toBeTruthy();
+    expect(screen.getByText("Top level!")).toBeTruthy();
+    expect(screen.getByRole("progressbar").getAttribute("aria-valuenow")).toBe("100");
+  });
+
+  it("shows XP earned elsewhere landing, with a level-up cue the first time a level is reached", () => {
+    const { onMarkProfile } = setup({ ledger: savedLedger({}, 960), seenXp: 940, levelSeen: 5 });
+    expect(screen.getByText("940 XP")).toBeTruthy();
+    act(() => {
+      vi.advanceTimersByTime(1_000);
+    });
+    expect(screen.getByText("960 XP")).toBeTruthy();
+    expect(screen.getByText("Level 6 · Baby Dragon")).toBeTruthy();
+    expect(screen.getByText("Level up! · Level 6")).toBeTruthy();
+    expect(onMarkProfile).toHaveBeenCalledWith({ levelSeen: 6 });
+    act(() => {
+      vi.advanceTimersByTime(10_000);
+    });
+    expect(onMarkProfile).toHaveBeenCalledWith({ seenXp: 960 });
+  });
+
+  it("doesn't celebrate a level again after XP dips below it and comes back", () => {
+    const ledger = savedLedger({ claims: flags(true), xp: { vocab: 10, grammar: 0, skills: 0 }, items: { vocab: "miquang" } }, 950);
+    setup({ progress: { vocab: 5 }, ledger, levelSeen: 6 });
+    expect(screen.getByText("Level 6 · Baby Dragon")).toBeTruthy();
+    fireEvent.click(vocabCheck());
+    act(() => {
+      vi.advanceTimersByTime(10_000);
+    });
+    expect(screen.getByText("Level 5 · Baby Dragon")).toBeTruthy();
+    fireEvent.click(vocabCheck());
+    act(() => {
+      vi.advanceTimersByTime(10_000);
+    });
+    expect(screen.getByText("Level 6 · Baby Dragon")).toBeTruthy();
+    expect(screen.queryByText(/Level up!/)).toBeNull();
+  });
+
+  it("pays a goal's bonus by the tier of today's target", () => {
+    const { onSaveLedger } = setup({ progress: { vocab: 18 } });
+    // The default target is 5 words, a Small goal: +10 XP, however many more were studied.
+    expect(screen.getByText("18/5 new words studied")).toBeTruthy();
+    expect(screen.getByText("Ready to feed · +10 XP")).toBeTruthy();
+    fireEvent.click(vocabCheck());
+    expect(lastLedger(onSaveLedger).xp.vocab).toBe(10);
   });
 
   it("starts today from a fresh ledger when the saved one is unreadable", () => {
-    const { onSaveLedger } = setup({ progress: { vocab: 0 }, ledger: { junk: true } });
+    const { onSaveLedger } = setup({ progress: { vocab: 0 }, ledger: { junk: true }, seenXp: 0 });
     const saved = lastLedger(onSaveLedger);
     expect(saved.day).toBe(today());
     expect(saved.historyXp).toBe(0);
@@ -188,7 +261,7 @@ describe("HomeCompanion", () => {
           progress={{ vocab: 0, grammar: 0, skills: 0 }}
           progressDay={today()}
           savedLedger={savedLedger()}
-          profile={{ onboarded: true, hatchSeen: false }}
+          profile={{ onboarded: true, levelSeen: 1, seenXp: 0 }}
           onSaveLedger={onSaveLedger}
           onMarkProfile={vi.fn()}
         />

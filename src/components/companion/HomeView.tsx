@@ -661,6 +661,13 @@ export function HomeView({ v, at }: { v: HomeVals; at: HomeRefs }) {
                 </svg>
                 {v.hatchCueText}
               </span>
+              <span className={v.levelCueClass} aria-live="polite">
+                <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true">
+                  <circle cx="10" cy="10" r="8.5" fill="#f15b48" stroke="#5a3a28" strokeWidth="1.4" />
+                  <path d="M6.4 11.2 L10 7.4 L13.6 11.2" fill="none" stroke="#ffffff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                {v.levelCueText}
+              </span>
               <div style={css({ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "8px" })}>
                 <div style={css({ display: "flex", alignItems: "baseline", gap: "8px" })}>
                   <span lang="vi" style={css({ fontFamily: "var(--font-heading), sans-serif", fontSize: "22px", lineHeight: "28px", fontWeight: "800", color: "#4a2f22" })}>
@@ -684,7 +691,7 @@ export function HomeView({ v, at }: { v: HomeVals; at: HomeRefs }) {
                   <span style={css({ color: "#4a2f22" })}>{v.xpText}</span>
                   <span style={css({ color: "#6b4a38" })}>{v.nextText}</span>
                 </div>
-                <div role="progressbar" aria-label="Experience toward next growth stage" aria-valuemin={0} aria-valuemax={100} aria-valuenow={v.xpPctNum} style={css({ height: "12px", borderRadius: "9999px", background: "#f3e3d3", overflow: "hidden" })}>
+                <div role="progressbar" aria-label={v.xpBarLabel} aria-valuemin={0} aria-valuemax={100} aria-valuenow={v.xpPctNum} style={css({ height: "12px", borderRadius: "9999px", background: "#f3e3d3", overflow: "hidden" })}>
                   <div style={css({ height: "100%", borderRadius: "9999px", background: "#4f9a78", width: v.xpPct, transition: "width .6s ease" })} />
                 </div>
               </div>

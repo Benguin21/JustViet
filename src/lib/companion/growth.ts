@@ -1,25 +1,61 @@
 /**
- * Rồng Con's growth: stages by total XP, and how far along the egg's hatching is.
+ * Rồng Con's growth, which follows the learner's level (src/lib/xp/levels.ts): it hatches at
+ * Level 5 and evolves every 10 levels after that (Level 10, 20, 30 … 100). New artwork and names
+ * for the later evolutions slot into STAGES as they're drawn.
  *
- * Hatching runs in three looks that follow on from each other (the egg keeps one size):
- *   egg     0-112 XP  cracks spread over the shell
- *   peek  113-174 XP  a small hole opens on Rồng Con's two eyes, then step by step (REVEAL) more of its face
- *   almost 175-249 XP  a line of pecks runs round the egg from the hole; the shell goes flaky
- * It hatches at Baby Dragon (STAGES[1].min).
+ * Until it hatches, the egg runs through three looks that follow on from each other (the egg
+ * keeps one size). They were drawn on the egg's own scale of 0-250 (EGG_SPAN), which maps onto
+ * the XP from Level 1 to Level 5 (0-700 XP, see eggUnits):
+ *   egg     0-112   cracks spread over the shell
+ *   peek  113-174   a small hole opens on Rồng Con's two eyes, then step by step (REVEAL) more of its face
+ *   almost 175-249  a line of pecks runs round the egg from the hole; the shell goes flaky
+ * Every threshold below is on that egg scale.
  */
+import { levelFor, levelThreshold } from "@/lib/xp/levels";
 import { CHIPS, CRACKS, CRUMBS, FLAKES, LIFTS } from "./crackTables";
 
 export interface Stage {
   en: string;
-  min: number;
+  /** The level it starts at. */
+  level: number;
 }
 
+/** Named evolutions so far. Every 10 levels from Level 10 is an evolution; names for 30+ come with their art. */
 export const STAGES: readonly Stage[] = [
-  { en: "Hatching", min: 0 },
-  { en: "Baby Dragon", min: 250 },
-  { en: "Young Dragon", min: 600 },
-  { en: "Majestic Dragon", min: 1200 },
+  { en: "Hatching", level: 1 },
+  { en: "Baby Dragon", level: 5 },
+  { en: "Young Dragon", level: 10 },
+  { en: "Majestic Dragon", level: 20 },
 ];
+export const HATCH_LEVEL = 5;
+/** From here Rồng Con stands on its own, with the last bits of shell gone from round its feet. */
+export const FULL_BODY_LEVEL = 10;
+export const EVOLVE_EVERY = 10;
+export const HATCH_XP = levelThreshold(HATCH_LEVEL);
+export const EGG_SPAN = 250;
+
+/** Where the egg is on its own 0-250 scale at this much XP (EGG_SPAN once hatched). */
+export function eggUnits(xp: number): number {
+  const x = Math.max(0, Number.isFinite(xp) ? xp : 0);
+  return x >= HATCH_XP ? EGG_SPAN : (x * EGG_SPAN) / HATCH_XP;
+}
+
+/**
+ * Rồng Con's evolution at a level: 0 the egg, 1 hatched (Level 5), then one more every 10 levels
+ * (Level 10 is 2, Level 100 is 11). `name` is the latest named stage it has reached.
+ */
+export function evolutionFor(level: number): { index: number; name: string; fullBody: boolean } {
+  const index = level < HATCH_LEVEL ? 0 : level < FULL_BODY_LEVEL ? 1 : 1 + Math.floor(level / EVOLVE_EVERY);
+  let name = STAGES[0].en;
+  for (const st of STAGES) if (level >= st.level) name = st.en;
+  return { index, name, fullBody: level >= FULL_BODY_LEVEL };
+}
+
+/** The stage at this much XP (by its level). */
+export function stageFor(xp: number): { level: number; index: number; name: string; fullBody: boolean } {
+  const level = levelFor(xp);
+  return { level, ...evolutionFor(level) };
+}
 
 export type HatchState = "egg" | "peek" | "almost" | "hatched";
 export const PEEK_AT = 113;
@@ -33,12 +69,6 @@ export const CRACK_INK = { from: [184, 163, 146], to: [143, 108, 86] } as const;
 /** The two shell pieces that loosen while it is almost hatched. */
 export const FRAGS = { a: { from: 200 }, b: { from: 225 } } as const;
 
-export function stageFor(xp: number): { index: number; cur: Stage; next: Stage | null } {
-  let i = 0;
-  while (i + 1 < STAGES.length && xp >= STAGES[i + 1].min) i++;
-  return { index: i, cur: STAGES[i], next: STAGES[i + 1] ?? null };
-}
-
 const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
 
 /**
@@ -46,6 +76,7 @@ const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
  * cracks have spread overall (0 at the first, 1 when they're all done), which sets the ink.
  */
 export function crackProgress(xp: number): { strength: number; pieces: Record<string, number> } {
+  xp = eggUnits(xp);
   const early = CRACKS.filter((k) => !k.late);
   const first = early[0].from;
   const last = Math.max(...early.map((k) => k.to));
@@ -56,6 +87,8 @@ export function crackProgress(xp: number): { strength: number; pieces: Record<st
 
 /** The crack pieces that start between two XP totals (going up). */
 export function newCracks(from: number, to: number): string[] {
+  from = eggUnits(from);
+  to = eggUnits(to);
   return CRACKS.filter((k) => from < k.from && to >= k.from).map((k) => k.id);
 }
 
@@ -76,7 +109,7 @@ export interface Hatch {
 /**
  * The peek opens step by step instead of all at once, so every few days of study show a bit more
  * of Rồng Con: the hole's size (a scale of its outline) at each XP, straight lines between. It
- * never shows the whole head or body; that stays for the hatching at 250.
+ * never shows the whole head or body; that stays for the hatching (Level 5).
  */
 export const HOLE_STEPS: readonly (readonly [number, number])[] = [
   [113, 0.8], [130, 0.95], [150, 1.1], [174, 1.2], [175, 1.35], [195, 1.55], [215, 1.7], [249, 1.85],
@@ -99,7 +132,8 @@ function holeAt(xp: number): number {
 }
 
 export function hatchFor(xp: number): Hatch {
-  const top = STAGES[1].min;
+  xp = eggUnits(xp);
+  const top = EGG_SPAN;
   if (xp >= top) return { state: "hatched", hole: 0, reveal: 0, ready: false, wiggle: 0, soon: false, frag: { a: 0, b: 0 } };
   const h = clamp01(xp / top);
   const state: HatchState = xp < PEEK_AT ? "egg" : xp < ALMOST_AT ? "peek" : "almost";
@@ -132,6 +166,7 @@ export function crackInk(strength: number): string {
  * the flaked patches stay on the shell (the burst pieces carry them).
  */
 export function shellBitsFor(xp: number, hatched: boolean) {
+  xp = eggUnits(xp);
   const on = (list: readonly { id: string; at: number }[], keepWhenHatched: boolean) =>
     Object.fromEntries(list.map((k) => [k.id, xp >= k.at && (keepWhenHatched || !hatched)]));
   return {

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
+import { awardVocabReview } from "@/lib/xp/repository";
 import { friendlyFirestoreError } from "./firestore-errors";
 import * as repo from "./repository";
 import { withSettingsDefaults } from "./settings";
@@ -201,6 +202,10 @@ export function useVocabData(): UseVocabDataResult {
       if (!uid) throw new Error(NOT_SIGNED_IN);
       try {
         const { card: updated, log } = await repo.submitReview(uid, card, rating, settings);
+        // The review log is the verified completion its XP pays for (1 XP per card a day, up to
+        // 100 a day; see src/lib/xp). It goes out in the background so studying never waits on
+        // it; if it fails, Home pays any of today's reviews still unpaid when it next opens.
+        awardVocabReview(uid, log).catch((err) => console.warn("Couldn't record XP for that card yet.", err));
         setCards((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
         setReviewLogs((prev) => [log, ...prev]);
         return updated;
