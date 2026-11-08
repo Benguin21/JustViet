@@ -42,13 +42,20 @@ const totalOf = (l: unknown) => {
 };
 
 function setup(
-  opts: { progress?: Partial<Progress>; onboarded?: boolean; ledger?: unknown; levelSeen?: number; seenXp?: number | null } = {},
+  opts: {
+    progress?: Partial<Progress>;
+    onboarded?: boolean;
+    ledger?: unknown;
+    levelSeen?: number;
+    seenXp?: number | null;
+    settings?: HomeCompanionProps["settings"];
+  } = {},
 ) {
   const onSaveLedger = vi.fn<HomeCompanionProps["onSaveLedger"]>();
   const onMarkProfile = vi.fn<HomeCompanionProps["onMarkProfile"]>();
   const props: HomeCompanionProps = {
     userId: "learner-1",
-    settings: DEFAULT_GOAL_SETTINGS,
+    settings: opts.settings ?? DEFAULT_GOAL_SETTINGS,
     progress: { vocab: 0, grammar: 0, skills: 0, ...opts.progress },
     progressDay: today(),
     savedLedger: opts.ledger === undefined ? savedLedger() : opts.ledger,
@@ -105,7 +112,7 @@ describe("HomeCompanion", () => {
       vi.advanceTimersByTime(10_000);
     });
     expect(vocabCheck().getAttribute("aria-checked")).toBe("true");
-    expect(screen.getByText("+10 XP earned · Small goal")).toBeTruthy();
+    expect(screen.getByText("+10 XP earned")).toBeTruthy();
     expect(screen.getByText("10 XP")).toBeTruthy();
   });
 
@@ -237,6 +244,22 @@ describe("HomeCompanion", () => {
     expect(screen.getByText("Ready to feed · +10 XP")).toBeTruthy();
     fireEvent.click(vocabCheck());
     expect(lastLedger(onSaveLedger).xp.vocab).toBe(10);
+  });
+
+  it("shows only the XP on a goal card, +0 XP for a Starter Vocab goal", () => {
+    const settings = { ...DEFAULT_GOAL_SETTINGS, targets: { ...DEFAULT_GOAL_SETTINGS.targets, vocab: 3 } };
+    const { onSaveLedger } = setup({ progress: { vocab: 4 }, settings });
+    expect(screen.getByText("Ready to feed · +0 XP")).toBeTruthy();
+    expect(vocabCheck().getAttribute("aria-label")).toBe("Feed Rồng Con: mark Vocab SRS complete for 0 XP");
+    fireEvent.click(vocabCheck());
+    expect(lastLedger(onSaveLedger).claims.vocab).toBe(true);
+    act(() => {
+      vi.advanceTimersByTime(10_000);
+    });
+    expect(screen.getByText("+0 XP earned")).toBeTruthy();
+    // No difficulty on the cards, and no hearts on Rồng Con's card.
+    expect(screen.queryByText(/Starter|Small goal|Medium goal|Big goal/)).toBeNull();
+    expect(screen.queryByRole("img", { name: /Happiness/ })).toBeNull();
   });
 
   it("starts today from a fresh ledger when the saved one is unreadable", () => {

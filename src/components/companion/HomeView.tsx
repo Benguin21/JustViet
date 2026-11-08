@@ -675,15 +675,6 @@ export function HomeView({ v, at }: { v: HomeVals; at: HomeRefs }) {
                   </span>
                   <span style={css({ fontSize: "13px", lineHeight: "18px", fontWeight: "800", color: "#2f6b55" })}>{v.stageLabel}</span>
                 </div>
-                <div style={css({ display: "flex", gap: "4px" })} aria-label={v.heartsLabel} role="img">
-                  {v.hearts.map((h, hi) => (
-                    <Fragment key={hi}>
-                      <svg viewBox="0 0 20 18" width="22" height="20" aria-hidden="true">
-                        <path d="M10 17 C 4 12 1 9 1 6 C 1 3 3 1 6 1 C 8 1 9.5 2.2 10 3.5 C 10.5 2.2 12 1 14 1 C 17 1 19 3 19 6 C 19 9 16 12 10 17 Z" fill={h.fill} stroke="#f15b48" strokeWidth="2" strokeLinejoin="round" />
-                      </svg>
-                    </Fragment>
-                  ))}
-                </div>
               </div>
               <span style={css({ fontSize: "14px", lineHeight: "20px", fontWeight: "700", color: "#6b4a38" })}>{v.moodText}</span>
               <div style={css({ display: "flex", flexDirection: "column", gap: "6px" })}>

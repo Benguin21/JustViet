@@ -22,7 +22,7 @@ import {
   GOAL_IDS,
   activeGoals,
   checkEligibility,
-  goalTier,
+  goalBonus,
   sumXp,
   type GoalId,
   type GoalSettings,
@@ -887,7 +887,7 @@ export class HomeCompanion extends Component<HomeCompanionProps, State> {
     return claimCount(this.state.ledger, this.active());
   }
   // What the page shows now (see held()): the XP drawn in the egg and panel, and the goals fed
-  // (hearts, mood, count, the dragon's size), which catch up as reactions land.
+  // (mood, count, the dragon's size), which catch up as reactions land.
   displayed(): { xp: number; done: number } {
     const s = this.state;
     return { xp: s.shownXp != null ? s.shownXp : this.totalXp(), done: s.shownDone != null ? s.shownDone : this.doneCount() };
@@ -1335,7 +1335,7 @@ export class HomeCompanion extends Component<HomeCompanionProps, State> {
       if (pre || r.now) steps.push([0, land({}, "pre")]);
       steps.push([B.arrive, canEat ? { pose: "eat" } : { pose: "eat", absorbing: true }]);
       steps.push([at, land({})]);
-      // Eaten: the card's item turns into its finished drawing, the hearts fill, and a happy hop
+      // Eaten: the card's item turns into its finished drawing, and a happy hop
       // (unless the shell is still breaking, which is its own celebration).
       steps.push([
         B.settle,
@@ -1461,23 +1461,15 @@ export class HomeCompanion extends Component<HomeCompanionProps, State> {
       // The real count, never capped at the target (18/5 is fine).
       const progressText = done + "/" + target + " " + plural(Math.max(done, target), d.one, d.many) + " " + d.verb;
       // The status line, ready and fed. A locked card shows neither but keeps their space, so
-      // ticking or feeding never resizes it.
-      let readyText: string;
-      let fedText: string;
+      // ticking or feeding never resizes it. The bonus is set by the goal's tier, from the target
+      // chosen in Goals (not by how much more was done), but the card shows only the XP: a
+      // Starter Vocab goal (under 5 words) is "Ready to feed · +0 XP".
       let checkLabel = "";
-      // The bonus is set by the goal's tier, from the target chosen in Goals (not by how much
-      // more was done): a Starter Vocab goal (under 5 words) feeds Rồng Con for no bonus.
-      const tier = goalTier(id, target);
-      const xpNow = status === "fed" ? s.ledger.xp[id] : tier.bonus;
-      if (tier.bonus > 0) {
-        readyText = "Ready to feed · +" + tier.bonus + " XP";
-        fedText = "+" + xpNow + " XP earned · " + tier.name + " goal";
-        if (status === "ready") checkLabel = "Feed Rồng Con: mark " + d.section + " complete for " + tier.bonus + " XP";
-      } else {
-        readyText = "Ready to feed · Starter goal, no bonus";
-        fedText = "Fed · Starter goal, no bonus";
-        if (status === "ready") checkLabel = "Feed Rồng Con: mark " + d.section + " complete (Starter goal, no bonus XP)";
-      }
+      const bonus = goalBonus(id, target);
+      const xpNow = status === "fed" ? s.ledger.xp[id] : bonus;
+      const readyText = "Ready to feed · +" + bonus + " XP";
+      const fedText = "+" + xpNow + " XP earned";
+      if (status === "ready") checkLabel = "Feed Rồng Con: mark " + d.section + " complete for " + bonus + " XP";
       if (status === "fed") checkLabel = d.section + " fed, " + xpNow + " XP. Uncheck to undo.";
       if (status === "locked") checkLabel = d.section + ": " + done + " of " + target + " " + plural(target, d.one, d.many) + " " + d.verb + ". Feeding unlocks at " + target + ".";
       const statusLines = [
@@ -1624,8 +1616,6 @@ export class HomeCompanion extends Component<HomeCompanionProps, State> {
       hasXpChip: !!s.xpChip,
       xpChipText: s.xpChip ? s.xpChip.text : "",
       xpChipClass: "xp-chip " + (s.xpChip && s.xpChip.up ? "xp-up" : "xp-down") + (s.xpChipSeq % 2 ? " xp-chip-a" : " xp-chip-b"),
-      hearts: active.map((id, i) => ({ fill: i < shownDone ? "#f15b48" : "none" })),
-      heartsLabel: active.length ? "Happiness: " + shownDone + " of " + active.length : "No meals planned today",
       moodText: moodFor(shownDone, active.length),
       stageLabel: "Level " + lp.level + " · " + ev.name,
       xpText: fmt(xp) + " XP",
