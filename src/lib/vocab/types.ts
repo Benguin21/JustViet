@@ -84,6 +84,15 @@ export interface VocabCard extends SrsFields {
    */
   pronunciation?: string;
   notes?: string;
+  /**
+   * Link to a Dictionary headword (its headword key — the stable dictionary
+   * ID; see `src/lib/dictionary/types.ts`). Set when the card was added from
+   * the Dictionary or with "Also add this word to my Dictionary". Optional:
+   * older cards and cards added without the box don't have one, and are
+   * matched to the dictionary by their `front` instead
+   * (`src/lib/dictionary/srs-link.ts`). Never changed by editing the card.
+   */
+  dictionaryKey?: string;
   createdAt: number;
   updatedAt: number;
 }
@@ -97,6 +106,8 @@ export type NewVocabCardInput = {
   tags: string[];
   pronunciation?: string;
   notes?: string;
+  /** See `VocabCard.dictionaryKey`. Only used on create; edits never change the link. */
+  dictionaryKey?: string;
 };
 
 /** Fields the edit-card form can change; SRS progress is untouched. */

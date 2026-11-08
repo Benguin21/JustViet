@@ -63,10 +63,11 @@ client-only guarding is not a security boundary.
   password) toggled by local state, not separate routes; see
   `src/components/auth/*Form.tsx`.
 - `src/app/(app)/` — route group for everything behind `RequireAuth`:
-  `home/` (the 6-button dashboard) plus one stub page per nav section
-  (`goals/`, `grammar/`, `dictionary/`, `vocab-srs/`, `skills/`,
-  `community/`), each just rendering `<ComingSoon />` with its own
-  copy. Flesh these out in place as features land.
+  `home/` (the 6-button dashboard), the built features `vocab-srs/` and
+  `dictionary/` (see their sections below), and one stub page per
+  remaining nav section (`goals/`, `grammar/`, `skills/`, `community/`),
+  each just rendering `<ComingSoon />` with its own copy. Flesh these out
+  in place as features land.
 - `src/app/(app)/layout.tsx` renders `AppHeader` (logo + user greeting +
   logout) and wraps children in `RequireAuth`.
 
@@ -188,3 +189,128 @@ face). Also added two optional card fields for this, `pronunciation` and
 `notes` (both `string | undefined` — see the comment on `VocabCard` in
 `types.ts` for why they're optional even though newly-written cards always
 get a value).
+
+## Dictionary feature
+
+`src/app/(app)/dictionary/page.tsx`: browse in Vietnamese alphabetical
+order (with an A–Y jump bar), search Vietnamese or English, open a word,
+add it to the Vocab SRS, and add your own words. The same layering as the
+Vocab SRS: pure, unit-tested logic in `src/lib/dictionary/*`, one hook for
+the page, and Firestore in one repository file.
+
+**Three separate kinds of data, never merged into one record** (see the
+comment at the top of `src/lib/dictionary/types.ts`):
+
+1. **Shared entries.** The app-wide dataset, a static file
+   `public/dictionary/shared.json` (one entry per line), loaded once per
+   page load by `shared-source.ts`. It's read-only at runtime, so no user
+   can overwrite a shared definition, and it costs no Firestore reads. It's
+   generated from a spreadsheet by `npm run dictionary:import [file]`
+   (`scripts/import-dictionary.mts`; defaults to
+   `data/dictionary/just-viet-dictionary.xlsx`; also accepts .csv/.tsv).
+   Columns are matched by header name (`DATASET_HEADER_ALIASES` in
+   `dataset.ts`), and rows repeating a headword are merged into one entry
+   with several senses. To update the dictionary, edit the spreadsheet,
+   re-run the import, and commit both files. The script runs on plain
+   Node 24 (native TS type stripping) with no dependencies; it reads .xlsx
+   with `node:zlib`.
+2. **Personal entries.** `users/{uid}/dictionaryEntries/{docId}`
+   (`repository.ts`, the only dictionary file that imports
+   `firebase/firestore`; covered by the existing per-user rule in
+   `firestore.rules`, so no rules change). If a personal entry's headword
+   is also a shared word, it's an *overlay* ("My meanings" / notes) shown
+   under the shared entry, not a second copy of the word. Headwords can't
+   be renamed on edit, because the headword is the link key. To change a
+   spelling, delete the word and re-add it.
+3. **SRS cards.** These stay entirely in the Vocab SRS. A card links to a
+   dictionary word through the optional `VocabCard.dictionaryKey`.
+   Older cards, and cards added without the dictionary box, have no link
+   and are matched by their normalized `front` instead
+   (`srs-link.ts#findSrsCard`). That way an existing card is never
+   duplicated, and its progress is never touched.
+
+**The headword key is the stable dictionary ID** (`normalize.ts#headwordKey`):
+NFC, trimmed, single-spaced, and lowercased, with tone marks and other
+diacritics preserved. So "Xin Chào" = "xin chào" (in either Unicode
+encoding), but "ma" / "má" / "mà" are different words. Accent-insensitive
+matching (`foldDiacritics`) is only for search suggestions, never for
+duplicate detection. Known gap: old- vs new-style tone placement ("hoà"
+vs "hòa") produces different keys; normalizing that would need its own
+rule.
+
+**Duplicate prevention happens at two layers.** The forms check the
+loaded index as you type (`WordFormModal` shows "already in your
+dictionary", with *View entry* / *Add my meaning to it*). The persistence
+layer can't race, either:
+
+- Personal entry doc IDs are derived from the key
+  (`personalEntryDocId`), and creates run in a transaction that fails if
+  the doc exists (`DuplicateDictionaryEntryError`).
+- "Add to Vocabulary" cards use the doc ID `dict_<encoded key>`, created
+  transactionally (`vocab/repository.ts#createDictionaryCard`). A double
+  click, or two tabs, returns the existing card instead of writing.
+
+These paths are covered by `repository.test.ts` against an in-memory
+Firestore fake (`src/test/fake-firestore.ts`).
+
+**Ordering** (`collation.ts`): Vietnamese alphabet order (a ă â b c d đ
+e ê …), with tones breaking ties in the order ngang < huyền < hỏi < ngã <
+sắc < nặng. Words are compared syllable by syllable, so compounds group
+under their first syllable (ba < ba ba < bà < bà con). This is
+deliberately not `Intl.Collator("vi")`, which interleaves entries and
+varies across ICU versions.
+
+**The list is virtualized** (`DictionaryList.tsx`). Every row, letter
+headers included, is `ROW_HEIGHT` tall, and only the rows near the
+viewport are mounted. The visible window comes from a
+`useSyncExternalStore` scroll subscription whose snapshot is a primitive
+`"first:count"` string, so it stays stable between events (see the
+`useNow` note above).
+
+**Linking between Vocab and the Dictionary.** `/vocab-srs?card=<id>`
+opens a card's details, and `/dictionary?word=<headword>` opens a word.
+Both pages wrap their content in `<Suspense>`, which `useSearchParams`
+needs in production builds. The Vocab "Add Card" form has an "Also add
+this word to my Dictionary" box, unchecked by default. When checked,
+`dictionary/service.ts#ensureDictionaryEntryForCard` links the card to
+an existing shared or personal entry, or creates a personal one, and
+the card is saved with `dictionaryKey`. When unchecked, the Dictionary
+isn't touched.
+
+### Future: universal in-context lookup (not built yet)
+
+The plan: hover (desktop) or long-press (touch) any Vietnamese word in
+lessons to see a popup, with **no visual indicator on the text**. The
+pieces to build it on are already in place:
+
+- **One lookup service.** `DictionaryIndex` (`dictionary-index.ts`) is
+  pure and UI-independent. Use `get(text)` for exact lookup and
+  `matchesAt(text, offset)` for every entry covering a character
+  position, longest first. Hovering "học" in "học sinh" yields
+  ["học sinh", "học"], so the popup can lead with the compound and still
+  offer the single word. `segment(text)` does a greedy longest match over
+  a whole string. Matching works on syllable sequences up to
+  `maxSyllables` and never joins across punctuation. Don't split text on
+  spaces to find words.
+- **One data source.** Build the index from `loadSharedDictionary()`
+  (cached per page load) plus the user's personal entries. Never create a
+  second dictionary store for lessons.
+- **Reusable UI.** `EntryDetails` (presentational, no data or actions) and
+  `AddToVocabButton` (two-state, `size="sm"`) are what a compact popup or
+  mobile bottom sheet should render. "In SRS?" is
+  `findSrsCard(cards, key)`, and adding is `cardInputFromHeadword` +
+  `useVocabData().addDictionaryCard`.
+- **Suggested shape.** Lift the index into a `DictionaryProvider` in
+  `src/app/(app)/layout.tsx`, loaded lazily the first time a lookup
+  happens. Add a `<LookupText>` wrapper (or one delegated listener on a
+  lesson container) that maps the pointer to a text offset with
+  `document.caretPositionFromPoint` / `caretRangeFromPoint`, calls
+  `matchesAt`, and positions the popup. Use pointer events with a hold
+  timer that is cancelled on move/scroll for long-press, so scrolling,
+  text selection, and controls keep working. Provide a keyboard
+  alternative (e.g. select text, then press a shortcut) and an
+  `aria-live` region for screen readers. Wrapping text must not change
+  its styling.
+- **Onboarding.** Once this ships (and not before), add the
+  Cô Tươi / Thầy Vinh explanation and an interactive demo sentence to
+  first-run onboarding, since the words carry no visual cue.

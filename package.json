@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "dictionary:import": "node scripts/import-dictionary.mts"
   },
   "dependencies": {
     "firebase": "^12.19.0",

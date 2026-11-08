@@ -15,7 +15,11 @@ type CardFormModalProps = {
   /** Pass an existing card to edit it; omit to create a new one. */
   card?: VocabCard;
   onClose: () => void;
-  onSubmit: (input: NewVocabCardInput) => Promise<unknown>;
+  /**
+   * `options.addToDictionary` is the "Also add this word to my Dictionary"
+   * box (create mode only, unchecked by default).
+   */
+  onSubmit: (input: NewVocabCardInput, options: { addToDictionary: boolean }) => Promise<unknown>;
   onResetProgress?: () => Promise<void>;
 };
 
@@ -49,6 +53,7 @@ export function CardFormModal({ card, onClose, onSubmit, onResetProgress }: Card
   const [formError, setFormError] = useState<string | null>(null);
   const [confirmingReset, setConfirmingReset] = useState(false);
   const [resetting, setResetting] = useState(false);
+  const [addToDictionary, setAddToDictionary] = useState(false);
 
   function update<K extends keyof NewVocabCardInput>(key: K, value: NewVocabCardInput[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -69,7 +74,7 @@ export function CardFormModal({ card, onClose, onSubmit, onResetProgress }: Card
     if (!validate()) return;
     setSubmitting(true);
     try {
-      await onSubmit(form);
+      await onSubmit(form, { addToDictionary: !isEditing && addToDictionary });
       onClose(); // success: close immediately, the caller shows a toast
     } catch (err) {
       setFormError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
@@ -160,6 +165,25 @@ export function CardFormModal({ card, onClose, onSubmit, onResetProgress }: Card
               />
             </div>
           </details>
+
+          {!isEditing && (
+            <label className="flex cursor-pointer items-start gap-3 rounded-xl px-1 py-1">
+              <input
+                type="checkbox"
+                checked={addToDictionary}
+                onChange={(e) => setAddToDictionary(e.target.checked)}
+                className="mt-0.5 h-5 w-5 shrink-0 cursor-pointer rounded accent-red-500"
+              />
+              <span>
+                <span className="block font-bold text-ink-900">
+                  Also add this word to my Dictionary
+                </span>
+                <span className="block text-sm text-ink-500">
+                  If it&apos;s already there, your card is linked to the existing entry instead.
+                </span>
+              </span>
+            </label>
+          )}
 
           {formError && (
             <p className="rounded-xl bg-red-50 px-4 py-2 text-sm font-semibold text-red-600">

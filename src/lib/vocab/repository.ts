@@ -31,6 +31,7 @@ import {
   limit,
   orderBy,
   query,
+  runTransaction,
   setDoc,
   where,
   writeBatch,
@@ -104,6 +105,8 @@ function buildNewCardDoc(uid: string, input: NewVocabCardInput, now: number): Om
     tags: input.tags.map((t) => t.trim()).filter(Boolean),
     pronunciation: input.pronunciation?.trim() ?? "",
     notes: input.notes?.trim() ?? "",
+    // Omitted rather than `undefined` when unset — Firestore rejects undefined values.
+    ...(input.dictionaryKey && { dictionaryKey: input.dictionaryKey }),
     createdAt: now,
     updatedAt: now,
     ...createNewCardFields(new Date(now)),
@@ -115,6 +118,31 @@ export async function createCard(uid: string, input: NewVocabCardInput): Promise
   const card = buildNewCardDoc(uid, input, Date.now());
   await setDoc(ref, card);
   return { id: ref.id, ...card };
+}
+
+/**
+ * Creates the SRS card for a Dictionary word ("Add to Vocabulary"). The doc
+ * ID is derived from the headword key, and the create runs in a
+ * transaction that returns the existing card instead of writing if one is
+ * already there — so a double-click, or the same word added from two
+ * tabs, can never produce two cards (and never touches an existing card's
+ * SRS progress). Callers should still check the user's other cards first
+ * (`findSrsCard`), since manually created cards have random IDs.
+ */
+export async function createDictionaryCard(
+  uid: string,
+  input: NewVocabCardInput & { dictionaryKey: string },
+): Promise<{ card: VocabCard; created: boolean }> {
+  const ref = cardRef(uid, `dict_${encodeURIComponent(input.dictionaryKey)}`);
+  return runTransaction(requireDb(), async (tx) => {
+    const existing = await tx.get(ref);
+    if (existing.exists()) {
+      return { card: { id: existing.id, ...existing.data() } as VocabCard, created: false };
+    }
+    const card = buildNewCardDoc(uid, input, Date.now());
+    tx.set(ref, card);
+    return { card: { id: ref.id, ...card }, created: true };
+  });
 }
 
 /**
