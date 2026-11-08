@@ -1,67 +1,61 @@
-import { NavCard } from "@/components/NavCard";
+"use client";
 
-const SECTIONS = [
-  {
-    href: "/goals",
-    icon: "🎯",
-    label: "Goals",
-    description: "Set and track your learning targets",
-    tone: "red",
-  },
-  {
-    href: "/grammar",
-    icon: "📖",
-    label: "Grammar",
-    description: "Learn how Vietnamese sentences work",
-    tone: "yellow",
-  },
-  {
-    href: "/dictionary",
-    icon: "🔎",
-    label: "Dictionary",
-    description: "Look up words and their meanings",
-    tone: "red",
-  },
-  {
-    href: "/vocab-srs",
-    icon: "🧠",
-    label: "Vocab SRS",
-    description: "Review words with spaced repetition",
-    tone: "yellow",
-  },
-  {
-    href: "/skills",
-    icon: "🌟",
-    label: "Skills",
-    description: "Practice reading, listening, and speaking",
-    tone: "red",
-  },
-  {
-    href: "/community",
-    icon: "💬",
-    label: "Community",
-    description: "Connect with other learners",
-    tone: "yellow",
-  },
-] as const;
+import { useCallback } from "react";
+import { HomeCompanion } from "@/components/companion/HomeCompanion";
+import { Button } from "@/components/ui/Button";
+import { Toast } from "@/components/ui/Toast";
+import { useAuth } from "@/lib/auth-context";
+import { useCompanionData } from "@/lib/companion/useCompanionData";
+import { useToast } from "@/lib/useToast";
 
+/** Home: today's goals, Rồng Con the dragon companion, and the way into every section. */
 export default function HomePage() {
-  return (
-    <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 px-6 py-10">
-      <div>
-        <h1 className="font-heading text-3xl font-extrabold text-ink-900">
-          Chào mừng bạn! 👋
-        </h1>
-        <p className="mt-1 font-semibold text-ink-500">
-          Where do you want to learn today?
-        </p>
-      </div>
+  const { user } = useAuth();
+  const { message, showToast } = useToast(5000);
+  const onSaveError = useCallback(
+    (msg: string) => showToast(`Couldn’t save Rồng Con’s progress. ${msg}`),
+    [showToast],
+  );
+  const { data, error, retry, saveLedger, markProfile } = useCompanionData(onSaveError);
 
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        {SECTIONS.map((section) => (
-          <NavCard key={section.href} {...section} />
-        ))}
-      </div>
-    </main>
+  if (error) {
+    return (
+      <main className="flex flex-1 flex-col items-center justify-center gap-4 px-6">
+        <p className="max-w-sm text-center text-sm font-semibold text-red-600">{error}</p>
+        <Button fullWidth={false} onClick={retry}>
+          Try again
+        </Button>
+      </main>
+    );
+  }
+
+  if (!data || !user) {
+    return (
+      <main className="flex flex-1 flex-col items-center justify-center gap-4">
+        <span
+          className="h-10 w-10 animate-spin rounded-full border-4 border-red-300 border-t-red-500"
+          aria-hidden="true"
+        />
+        <span className="sr-only">Loading Rồng Con…</span>
+      </main>
+    );
+  }
+
+  return (
+    <>
+      <HomeCompanion
+        key={user.uid}
+        userId={user.uid}
+        settings={data.goalSettings}
+        progress={data.progress}
+        progressDay={data.progressDay}
+        timeZone={data.timeZone}
+        savedLedger={data.savedLedger}
+        profile={data.profile}
+        onSaveLedger={saveLedger}
+        onMarkProfile={markProfile}
+      />
+      {message && <Toast message={message} />}
+    </>
   );
 }

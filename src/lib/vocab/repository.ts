@@ -83,6 +83,15 @@ export async function fetchReviewLogs(uid: string): Promise<ReviewLogEntry[]> {
   return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as ReviewLogEntry);
 }
 
+/**
+ * The review log entries since `sinceMs` (say, local midnight), for Home's Vocab goal. A
+ * single-field range, so it needs no composite index.
+ */
+export async function fetchReviewLogsSince(uid: string, sinceMs: number): Promise<ReviewLogEntry[]> {
+  const snapshot = await getDocs(query(logsCol(uid), where("reviewedAt", ">=", sinceMs)));
+  return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as ReviewLogEntry);
+}
+
 export async function fetchSettings(uid: string): Promise<Partial<SrsSettings> | null> {
   const snapshot = await getDoc(settingsRef(uid));
   return snapshot.exists() ? (snapshot.data() as SrsSettings) : null;

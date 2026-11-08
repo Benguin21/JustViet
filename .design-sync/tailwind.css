@@ -1,0 +1,20 @@
+/* Tailwind compile input for the Claude Design bundle: the app's own theme
+   (globals.css) plus every class used by the synced components and previews.
+   next/font normally provides --font-baloo/--font-nunito; here they point at
+   the @font-face families shipped from .design-sync/fonts/. */
+@import "../src/app/globals.css";
+@source "../src/components";
+@source "./previews";
+
+:root {
+  --font-baloo: "Baloo 2";
+  --font-nunito: "Nunito";
+}
+
+/* Safelist the whole brand palette so designs built in Claude Design can use
+   any token as bg/text/border/ring (no Tailwind compiler runs there). */
+@source inline("{bg,text,border,ring}-{paper,surface,success,success-dark}");
+@source inline("{bg,text,border,ring}-yellow-{50,100,200,300,400,500,600}");
+@source inline("{bg,text,border,ring}-red-{50,100,200,300,400,500,600,700}");
+@source inline("{bg,text,border,ring}-ink-{300,500,700,900}");
+@source inline("font-{heading,body}");

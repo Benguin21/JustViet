@@ -1,0 +1,49 @@
+{
+  "shape": "package",
+  "pkg": "justviet-app",
+  "globalName": "JustViet",
+  "entry": "./.design-sync/pkg/index.ts",
+  "srcDir": "../../src/components",
+  "tsconfig": "../../tsconfig.json",
+  "buildCmd": "node .design-sync/build.mjs",
+  "cssEntry": "./.cache/tailwind.out.css",
+  "extraFonts": [
+    "../fonts/fonts.css"
+  ],
+  "overrides": {
+    "ConfirmDialog": {
+      "cardMode": "single",
+      "viewport": "640x420"
+    },
+    "Modal": {
+      "cardMode": "single",
+      "viewport": "720x520"
+    },
+    "Toast": {
+      "cardMode": "single",
+      "viewport": "480x200"
+    },
+    "NavCard": {
+      "cardMode": "column"
+    },
+    "RatingButtons": {
+      "cardMode": "column"
+    },
+    "Switch": {
+      "cardMode": "column"
+    },
+    "TagInput": {
+      "cardMode": "column"
+    },
+    "Textarea": {
+      "cardMode": "column"
+    },
+    "Tooltip": {
+      "cardMode": "column"
+    }
+  },
+  "dtsPropsFor": {
+    "RatingButtons": "/** Interval preview per rating, e.g. { again: { rating: \"again\", dueAt, scheduledDays: 0, label: \"10 min\" }, ... }. */\n  previews: Record<\"again\" | \"hard\" | \"good\" | \"easy\", { rating: \"again\" | \"hard\" | \"good\" | \"easy\"; dueAt: number; scheduledDays: number; label: string }>;\n  onRate: (rating: \"again\" | \"hard\" | \"good\" | \"easy\") => void;\n  disabled?: boolean;"
+  },
+  "readmeHeader": ".design-sync/conventions.md"
+}
