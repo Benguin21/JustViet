@@ -213,8 +213,16 @@ footer = '''    </div>
   );
 }
 '''
+view = header + "\n".join(body) + "\n" + footer
+# The intro's guide card shows Rồng Con through <use href="#jvDragonArt">. A <use> copy only
+# sees its own subtree, so the copy's root must carry .jv-root too, or none of the scoped
+# :where(.jv-root) rules (which parts show at which hatch stage) reach it. The board keeps the
+# dragon's state classes on the group just inside it.
+art_g = '<g id="jvDragonArt">'
+assert view.count(art_g) == 1, "jvDragonArt not found"
+view = view.replace(art_g, '<g id="jvDragonArt" className="jv-root">')
 with open(f"{out_dir}/HomeView.tsx", "w", encoding="utf-8") as f:
-    f.write(header + "\n".join(body) + "\n" + footer)
+    f.write(view)
 
 # ---------- styles ----------
 s0 = find(lambda l: l.strip() == "<style>", find(lambda l: l.strip() == "<helmet>"))

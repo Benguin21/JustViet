@@ -1,11 +1,12 @@
 /**
- * Claims and the XP recorded for each goal, per local date. Pure data; saving it is the
- * repository's job.
+ * What Home shows of the XP ledger for one day: each goal's claim and the bonus it holds, the
+ * dish it was fed and the lines already said, plus `historyXp`, all the learner's other XP
+ * (activity XP and earlier days' bonuses). The ledger itself is src/lib/xp: Home reads today
+ * from it (ledgerFromDay) and sends back only what changed (ledgerChanges), which the XP
+ * repository applies as claims and unclaims inside transactions.
  *
- * Today's entry is on top; earlier dates are filed under their own date in `past`, so a
- * date that comes round again (clock or timezone changes) keeps what it already recorded,
- * and `historyXp` is just their sum. Settling re-derives today's XP from progress and
- * claims and applies only the difference, so it is safe to call on every load or update.
+ * Settling re-derives today's bonuses from progress, claims and today's targets and returns
+ * only the difference, so it is safe to call on every load or update.
  */
 import {
   GOAL_IDS,
@@ -17,9 +18,13 @@ import {
   type Progress,
 } from "./goals";
 import { isMenuKey } from "./menu";
+import { claimsOf, type DayRecord } from "@/lib/xp/plan";
+
+export { localDayKey } from "@/lib/xp/day";
 
 export interface DayEntry {
   claims: PerGoal<boolean>;
+  /** The bonus XP each goal holds today. */
   xp: PerGoal<number>;
   /** The dish each goal was fed today, kept for the rest of the day. */
   items: Partial<Record<GoalId, string>>;
@@ -29,15 +34,10 @@ export interface DayEntry {
 }
 
 export interface Ledger extends DayEntry {
-  v: 3;
+  v: 4;
   day: string;
-  past: Record<string, DayEntry>;
+  /** All XP outside today's goal bonuses. */
   historyXp: number;
-}
-
-/** The local calendar day, as 'YYYY-M-D' (no padding; it's also the menu's seed). */
-export function localDayKey(date: Date): string {
-  return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
 }
 
 function flags(f: unknown): PerGoal<boolean> {
@@ -72,44 +72,48 @@ export function dayEntry(e?: unknown): DayEntry {
   };
 }
 
-function make(day: string, cur: DayEntry, past: Record<string, DayEntry>): Ledger {
-  let history = 0;
-  for (const d of Object.keys(past)) history += sumXp(past[d].xp);
-  return { v: 3, day, ...cur, past, historyXp: history };
-}
-
-export function blankLedger(day: string): Ledger {
-  return make(day, dayEntry(), {});
+export function blankLedger(day: string, historyXp = 0): Ledger {
+  return { v: 4, day, ...dayEntry(), historyXp };
 }
 
 function isLedger(l: unknown): l is Ledger {
   const o = l as Partial<Ledger> | null;
-  return !!o && o.v === 3 && typeof o.day === "string" && !!o.claims && !!o.xp && !!o.announced;
+  return !!o && o.v === 4 && typeof o.day === "string" && !!o.claims && !!o.xp && !!o.announced;
+}
+
+/** Home's ledger for a day, from the learner's XP total and that day's record. */
+export function ledgerFromDay(total: number, day: DayRecord): Ledger {
+  const xp = { ...day.bonus };
+  return {
+    v: 4,
+    day: day.day,
+    claims: claimsOf(day),
+    xp,
+    items: { ...day.items },
+    announced: { ...day.announced },
+    greeted: day.greeted,
+    historyXp: total - sumXp(xp),
+  };
 }
 
 /**
- * Bring a saved ledger (anything read back from storage) to `day`: file the old date
- * under its own key and pick up `day`'s own entry if it was seen before.
+ * Bring a ledger to `day`. On a new day (a page left open past midnight) yesterday's bonuses join
+ * the history and today starts blank.
  */
 export function ledgerForDay(saved: unknown, day: string): Ledger {
   if (!isLedger(saved)) return blankLedger(day);
-  const past: Record<string, DayEntry> = {};
-  for (const d of Object.keys(saved.past ?? {})) past[d] = dayEntry(saved.past[d]);
-  let cur = dayEntry(saved);
-  if (saved.day !== day) {
-    past[saved.day] = cur;
-    cur = past[day] ?? dayEntry();
-    delete past[day];
-  }
-  return make(day, cur, past);
+  const historyXp = typeof saved.historyXp === "number" && Number.isFinite(saved.historyXp) ? saved.historyXp : 0;
+  const cur = dayEntry(saved);
+  if (saved.day !== day) return blankLedger(day, historyXp + sumXp(cur.xp));
+  return { v: 4, day, ...cur, historyXp };
 }
 
 /**
- * Re-derive today's XP from progress and claims, record it, and return only the difference
- * from what was recorded before. Settling twice with the same inputs changes nothing. A
- * claim can't outlive its eligibility (say the daily target was raised). A goal switched
- * off keeps what it recorded today, untouched, until it is back on, so switching goals
- * never grants or takes back XP by itself.
+ * Re-derive today's bonuses from progress, claims and today's targets, record them, and return
+ * only the difference from what was recorded before. Settling twice with the same inputs changes
+ * nothing. A claim can't outlive its eligibility (say a card was deleted, and its review with
+ * it). A goal switched off keeps what it recorded today, untouched, until it is back on, so
+ * switching goals never grants or takes back XP by itself.
  */
 export function settleLedger(
   ledger: Ledger,
@@ -132,8 +136,27 @@ export function claimCount(ledger: Ledger, active: readonly GoalId[] = GOAL_IDS)
   return active.filter((id) => ledger.claims[id]).length;
 }
 
-/** All XP ever recorded: earlier days plus today. */
+/** All XP: everything earlier plus today's bonuses. */
 export function totalXp(ledger: Ledger): number {
   return ledger.historyXp + sumXp(ledger.xp);
 }
 
+export interface LedgerChanges {
+  day: string;
+  /** Goals whose claim changed, with the state wanted now, in order. */
+  claims: { goal: GoalId; want: boolean }[];
+  /** Home's bookkeeping, when any of it changed. */
+  extras: Pick<DayEntry, "items" | "announced" | "greeted"> | null;
+}
+
+/** What to send for a ledger Home has just worked out, compared with the last one sent. */
+export function ledgerChanges(prev: Ledger | null, next: Ledger): LedgerChanges {
+  const same = !!prev && prev.day === next.day;
+  const claims = GOAL_IDS.filter((id) => (same ? prev!.claims[id] : false) !== next.claims[id]).map((goal) => ({
+    goal,
+    want: next.claims[goal],
+  }));
+  const key = (l: Ledger) => JSON.stringify([GOAL_IDS.map((id) => l.items[id] ?? null), l.announced, l.greeted]);
+  const extras = !same || key(prev!) !== key(next) ? { items: { ...next.items }, announced: { ...next.announced }, greeted: next.greeted } : null;
+  return { day: next.day, claims, extras };
+}

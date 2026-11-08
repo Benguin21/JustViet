@@ -20,10 +20,10 @@
 :where(.jv-root) .steam{animation:jv-steam 2.4s ease-in-out infinite;visibility:var(--jv-steam,visible)}
 :where(.jv-root) .goal-card.is-ready{border-color:#f2c35b}
 :where(.jv-root) .check-btn{cursor:pointer;transition:transform .15s}
-:where(.jv-root) .check-btn.is-locked{cursor:default}
-:where(.jv-root) .check-btn:not(.is-locked):active{transform:scale(.94)}
+:where(.jv-root) .check-btn.is-locked,:where(.jv-root) .check-btn.is-fed{cursor:default}
+:where(.jv-root) .check-btn.is-ready:active{transform:scale(.94)}
 :where(.jv-root) .check-preview{opacity:0;transition:opacity .15s}
-@media (hover: hover){:where(.jv-root) .check-btn:not(.is-locked):hover{transform:scale(1.08)}:where(.jv-root) .check-btn.is-ready:hover .check-preview{opacity:.45}}
+@media (hover: hover){:where(.jv-root) .check-btn.is-ready:hover{transform:scale(1.08)}:where(.jv-root) .check-btn.is-ready:hover .check-preview{opacity:.45}}
 :where(.jv-root) .check-ring{transition:stroke .3s}
 :where(.jv-root) .check-btn.is-ready .check-ring{stroke:#4f9a78}
 :where(.jv-root) .ready-ring{opacity:0;transform-box:fill-box;transform-origin:50% 50%}
@@ -98,14 +98,27 @@
 :where(.jv-root) .egg-closed,:where(.jv-root) .egg-inside,:where(.jv-root) .shards,:where(.jv-root) .chip,:where(.jv-root) .burst,:where(.jv-root) .frag,:where(.jv-root) .crack-major,:where(.jv-root) .peek-happy{display:none}
 :where(.jv-root) .hatch-egg .egg-closed,:where(.jv-root) .hatch-peek .egg-closed,:where(.jv-root) .hatch-almost .egg-closed{display:inline}
 :where(.jv-root) .hatch-hatched .shards{display:inline}
-/* Until it hatches Rồng Con stays inside the shell: from 113 XP only its eye shows, through a
+/* From Level 10 Rồng Con has its full body: the last bits of shell round its feet are gone */
+:where(.jv-root) .dragon.full-body .shards{display:none}
+/* Until it hatches Rồng Con stays inside the shell: from 113 XP two small eyes peek out, through a
    hole that slowly grows. Almost hatched (175+), a line of pecks runs round the egg from the
    hole and two flakes of shell come loose. From HATCH_SOON (225) it gets restless. */
 :where(.jv-root) .limbs-hidden .dg-tail,:where(.jv-root) .limbs-hidden .dg-wing-l,:where(.jv-root) .limbs-hidden .dg-wing-r,:where(.jv-root) .limbs-hidden .dg-body,:where(.jv-root) .limbs-hidden .dg-head{display:none}
 :where(.jv-root) .hatch-peek .egg-inside,:where(.jv-root) .hatch-almost .egg-inside{display:inline}
 :where(.jv-root) .dragon.eyes-happy .peek-open{display:none}
 :where(.jv-root) .dragon.eyes-happy .peek-happy{display:inline}
-:where(.jv-root) .peek-eye{transform-origin:50% 50%;animation:jv-blink 4.6s infinite}
+:where(.jv-root) .pk-horns,:where(.jv-root) .pk-whiskers,:where(.jv-root) .pk-snout,:where(.jv-root) .pk-cheeks,:where(.jv-root) .pk-smile,:where(.jv-root) .pk-grin,:where(.jv-root) .pk-sparkle,:where(.jv-root) .pk-paws{display:none}
+/* The peek, step by step (see REVEAL): eyes 113, snout and cheeks 130, a smile 150, horn buds 175,
+   whiskers 195, little paws on the rim 215, an excited grin and sparkly eyes 235. */
+:where(.jv-root) .rv-2 .pk-snout,:where(.jv-root) .rv-2 .pk-cheeks,:where(.jv-root) .rv-3 .pk-smile,:where(.jv-root) .rv-4 .pk-horns,:where(.jv-root) .rv-5 .pk-whiskers,:where(.jv-root) .rv-6 .pk-paws,:where(.jv-root) .rv-7 .pk-sparkle{display:inline}
+:where(.jv-root) .rv-7 .pk-smile{display:none}
+:where(.jv-root) .rv-7 .pk-grin{display:inline}
+:where(.jv-root) .dragon.eyes-happy .pk-sparkle{display:none}
+:where(.jv-root) .pk-paws path{transition:transform .5s}
+:where(.jv-root) .rv-7 .pk-paws{animation:jv-paw-grip 1.6s ease-in-out infinite}
+:where(.jv-root) .wiggle-3.hatch-ready .egg-wobble{animation:jv-wiggle-4 3.4s ease-in-out infinite}
+:where(.jv-root) .rv-7 .peek-pupil{animation:jv-peek-look 3.2s ease-in-out infinite}
+:where(.jv-root) .peek-eye{transform-box:fill-box;transform-origin:50% 50%;animation:jv-blink 4.6s infinite}
 :where(.jv-root) .peek-pupil{animation:jv-peek-look 7s ease-in-out infinite}
 :where(.jv-root) .frag-a-on .frag-a,:where(.jv-root) .frag-b-on .frag-b{display:inline}
 :where(.jv-root) .frag-piece{transform-box:fill-box;transition:transform .8s cubic-bezier(.22,1,.36,1)}
@@ -209,6 +222,16 @@
 :where(.jv-root) .hatch-cue.on{opacity:1;transform:none}
 :where(.jv-root) .hatch-cue svg{flex-shrink:0}
 :where(.jv-root) .hatch-cue.on svg{animation:jv-twinkle 1.6s ease-in-out infinite}
+/* "Level up! · Level 6", the first time a level is reached: a pill in the same spot for a
+   moment (the two never show together: the hatching cue is gone once it has hatched at Level 5,
+   and the levels before that come before the cue) */
+:where(.jv-root) .level-cue{position:absolute;left:16px;top:-15px;display:inline-flex;align-items:center;gap:6px;border-radius:9999px;border:2px solid #f15b48;background:#ffece8;padding:2px 12px 2px 8px;font-size:13px;line-height:20px;font-weight:900;color:#a8321f;box-shadow:0 3px 0 rgba(74,47,34,.08);pointer-events:none;opacity:0;transform:translateY(6px) scale(.9);transition:opacity .4s,transform .45s cubic-bezier(.3,1.6,.5,1)}
+:where(.jv-root) .level-cue.on{opacity:1;transform:none}
+:where(.jv-root) .level-cue svg{flex-shrink:0}
+:where(.jv-root) .level-cue.on.level-cue-a svg{animation:jv-level-a .9s cubic-bezier(.3,1.5,.5,1) both}
+:where(.jv-root) .level-cue.on.level-cue-b svg{animation:jv-level-b .9s cubic-bezier(.3,1.5,.5,1) both}
+@keyframes jv-level-a{0%{scale:.3;rotate:-60deg}100%{scale:1;rotate:0deg}}
+@keyframes jv-level-b{0%{scale:.3;rotate:-60deg}100%{scale:1;rotate:0deg}}
 
 /* Teacher guide: one card for every teacher moment (the first-visit intro now, milestones such
    as hatching). The speaker's portrait, name and line, then the controls. Every step of a guide
@@ -241,7 +264,12 @@
 :where(.jv-root) .guide-chip{display:inline-flex;align-items:center;gap:6px;min-height:34px;padding:3px 12px 3px 4px;border-radius:9999px;background:#ffffff;border:2px solid #f3dcc8;font-size:14px;line-height:18px;font-weight:800;color:#4a2f22}
 :where(.jv-root) .guide-chip-icon{width:26px;height:26px;border-radius:9999px;display:flex;align-items:center;justify-content:center}
 :where(.jv-root) .guide-companion{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 10px 6px;border-radius:18px;background:#fff3e6;border:2px solid #f6dcc6}
-:where(.jv-root) .guide-companion svg{display:block;overflow:visible}
+:where(.jv-root) .guide-companion svg{display:block;overflow:visible;--in-guide:1}
+/* The guide card shows the plain egg (#jvEggShell) until Rồng Con hatches, then Rồng Con through
+   <use>, which copies #jvDragonArt (with the state classes on its inner group) but not the page
+   around it: no thought bubble or alert in there. The egg gives a little hop now and then. */
+:where(.jv-root) .dg-thought,:where(.jv-root) .dg-excl{opacity:calc(1 - var(--in-guide, 0))}
+:where(.jv-root) .guide-companion.is-egg svg{transform-origin:50% 100%;animation:jv-guide-hop 3.6s ease-in-out infinite}
 :where(.jv-root) .guide-companion-name{font-family:var(--font-heading),sans-serif;font-size:15px;line-height:18px;font-weight:800;color:#4a2f22}
 :where(.jv-root) .guide-companion-stage{font-size:12px;line-height:16px;font-weight:800;color:#2f6b55}
 :where(.jv-root) .guide-foot{display:flex;align-items:center;justify-content:space-between;gap:12px}
@@ -303,6 +331,8 @@
 @keyframes jv-feed-y-a{0%{opacity:0;transform:translateY(var(--fy)) scale(1.5);animation-timing-function:cubic-bezier(.2,.7,.4,1)}8%{opacity:1}20%{transform:translateY(calc(var(--fy) - 22px)) scale(1.35);animation-timing-function:cubic-bezier(.55,0,.75,.5)}56%{transform:translateY(0) scale(1);animation-timing-function:ease-out}66%{opacity:1;transform:translateY(-3px) scale(1.06);animation-timing-function:ease-in}100%{opacity:0;transform:translateY(6px) scale(.15)}}
 @keyframes jv-feed-y-b{0%{opacity:0;transform:translateY(var(--fy)) scale(1.5);animation-timing-function:cubic-bezier(.2,.7,.4,1)}8%{opacity:1}20%{transform:translateY(calc(var(--fy) - 22px)) scale(1.35);animation-timing-function:cubic-bezier(.55,0,.75,.5)}56%{transform:translateY(0) scale(1);animation-timing-function:ease-out}66%{opacity:1;transform:translateY(-3px) scale(1.06);animation-timing-function:ease-in}100%{opacity:0;transform:translateY(6px) scale(.15)}}
 @keyframes jv-glow{0%{opacity:0;scale:.92}35%{opacity:.75;scale:1.03}100%{opacity:0;scale:1.08}}
+@keyframes jv-guide-hop{0%,62%,100%{translate:0 0;scale:1 1}66%{translate:0 0;scale:1.04 .95}72%{translate:0 -6px;scale:.98 1.03}78%{translate:0 0;scale:1.03 .97}83%{translate:0 -2.5px;scale:1 1}88%{translate:0 0}}
+@keyframes jv-paw-grip{0%,100%{translate:0 0}50%{translate:0 -1px}}
 @keyframes jv-float{0%,100%{translate:0 0}50%{translate:0 -4px}}
 @keyframes jv-celebrate{0%,100%{translate:0 0;rotate:0deg}30%{translate:0 -26px;rotate:-8deg}60%{translate:0 -26px;rotate:8deg}}
 @keyframes jv-confetti{0%{opacity:0;transform:translate(0,0) rotate(0deg)}7%{opacity:1}30%{transform:translate(calc(var(--dx) * .5),calc(var(--up) * -1)) rotate(calc(var(--rot) * .3));animation-timing-function:cubic-bezier(.4,0,.8,.55)}82%{opacity:1}100%{opacity:0;transform:translate(var(--dx),var(--fall)) rotate(var(--rot))}}
@@ -347,4 +377,7 @@
 .jv-root .dragon.fx-fade .dg-all{animation:jv-fade-in .9s ease both !important}
 .jv-root .hatch-cue{opacity:0}
 .jv-root .hatch-cue.on{opacity:1;transform:none}
+.jv-root .level-cue{opacity:0;transition:none}
+.jv-root .level-cue.on{opacity:1;transform:none}
+.jv-root .level-cue svg{animation:none !important}
 }

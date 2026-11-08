@@ -2,17 +2,200 @@ rules_version = '2';
 
 // Everything the app writes lives under /users/{userId}/... . A signed-in
 // user may only read or write their own subtree — this is what keeps one
-// user's vocab cards, review logs, and SRS settings isolated from everyone
-// else's (see src/lib/vocab/repository.ts, which always scopes reads/writes
-// under the current auth uid).
+// user's vocab cards, review logs, settings and XP isolated from everyone
+// else's (every repository scopes its reads/writes under the current auth uid).
+//
+// The XP ledger (xp/total, xpEvents, days — see src/lib/xp/events.ts) gets
+// stricter rules on top: an event is written once and never changed or
+// deleted, its amount is fixed by its kind (or by the goal's tier), the total
+// only ever moves by the one new event written with it, flashcard XP stops at
+// 100 a day, a goal holds at most one bonus a day, and a day's locked targets
+// never change. So the browser can't mint XP by writing numbers directly.
+// These mirror src/lib/xp/plan.ts; test them with `npm run test:rules`.
 //
 // To apply: Firebase console → Firestore Database → Rules tab → paste this
 // file's contents → Publish. (Same idea as enabling the Email/Password
 // sign-in provider was for Authentication.)
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /users/{userId}/{document=**} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+    match /users/{userId} {
+      function owner() {
+        return request.auth != null && request.auth.uid == userId;
+      }
+      function totalPath() {
+        return /databases/$(database)/documents/users/$(userId)/xp/total;
+      }
+      function eventPath(id) {
+        return /databases/$(database)/documents/users/$(userId)/xpEvents/$(id);
+      }
+      function dayPath(d) {
+        return /databases/$(database)/documents/users/$(userId)/days/$(d);
+      }
+      function logPath(id) {
+        return /databases/$(database)/documents/users/$(userId)/reviewLogs/$(id);
+      }
+
+      // The event this write is for: xp/total names it, and it must be new.
+      function lastEvent() {
+        return getAfter(totalPath()).data.last;
+      }
+      function isNewEvent(id) {
+        return id is string && !exists(eventPath(id)) && existsAfter(eventPath(id));
+      }
+
+      function zeros() {
+        return {'vocab': 0, 'grammar': 0, 'skills': 0};
+      }
+      function blankLedger() {
+        return {'targets': {}, 'seq': zeros(), 'bonus': zeros(), 'flash': 0, 'done': {'grammar': 0, 'skills': 0}};
+      }
+      // A day as it was before this write (blank if it didn't exist).
+      function dayBefore(d) {
+        return exists(dayPath(d)) ? get(dayPath(d)).data : blankLedger();
+      }
+
+      // The bonus a goal's target is worth (goalTier in src/lib/companion/goals.ts).
+      function tierBonus(goal, t) {
+        return goal == 'vocab'
+          ? (t >= 15 ? 30 : (t >= 10 ? 20 : (t >= 5 ? 10 : 0)))
+          : (t >= 3 ? 30 : (t == 2 ? 20 : 10));
+      }
+
+      function intIn(v, lo, hi) {
+        return v is int && v >= lo && v <= hi;
+      }
+      function targetsOk(t) {
+        return t.keys().hasOnly(['vocab', 'grammar', 'skills'])
+          && (!('vocab' in t) || intIn(t.vocab, 1, 50))
+          && (!('grammar' in t) || intIn(t.grammar, 1, 5))
+          && (!('skills' in t) || intIn(t.skills, 1, 5));
+      }
+
+      // The user's own document, and everything that isn't the XP ledger.
+      allow read, write: if owner();
+      match /{col}/{rest=**} {
+        allow read: if owner();
+        allow write: if owner() && !(col in ['xp', 'xpEvents', 'days']);
+      }
+
+      // ----- xp/total: moves by exactly the one new event written with it -----
+      match /xp/{docId} {
+        allow read: if owner();
+        allow create, update: if owner() && docId == 'total' && totalOk();
+      }
+      function totalOk() {
+        let next = request.resource.data;
+        let prev = resource == null ? {'total': 0, 'rev': 0} : resource.data;
+        return next.keys().hasOnly(['total', 'rev', 'last', 'updatedAt'])
+          && next.rev == prev.rev + 1
+          && isNewEvent(next.last)
+          && next.total == prev.total + getAfter(eventPath(next.last)).data.amount
+          && next.updatedAt == request.time;
+      }
+
+      // ----- xpEvents: written once, never changed or deleted -----
+      match /xpEvents/{id} {
+        allow read: if owner();
+        allow create: if owner() && eventOk(id, request.resource.data);
+      }
+      function eventOk(id, e) {
+        return e.keys().hasOnly(['uid', 'kind', 'amount', 'day', 'source', 'card', 'lesson', 'activity', 'goal', 'seq', 'reverses', 'at'])
+          && e.uid == userId
+          && e.at == request.time
+          && e.day is string && e.day.matches('^[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}$')
+          && e.source is string
+          && lastEvent() == id
+          && kindOk(id, e, dayBefore(e.day), getAfter(dayPath(e.day)).data);
+      }
+      // Besides what the event itself moves, a day's ledger fields stay as they were.
+      function same(a, b, field) {
+        return a[field] == b[field];
+      }
+      function kindOk(id, e, a, b) {
+        return (e.kind == 'vocab.card' && vocabOk(id, e, a, b))
+          || (e.kind == 'grammar.new' && grammarOk(id, e, a, b, 50, 'grammar-new_' + e.lesson))
+          || (e.kind == 'grammar.review' && grammarOk(id, e, a, b, 10, 'grammar-review_' + e.day + '_' + e.lesson) && reviewOk(e))
+          || (e.kind == 'skills.reading' && skillOk(id, e, a, b, 'reading_'))
+          || (e.kind == 'skills.listening' && skillOk(id, e, a, b, 'listening_'))
+          || (e.kind == 'goal.claim' && claimOk(id, e, a, b))
+          || (e.kind == 'goal.unclaim' && unclaimOk(id, e, a, b));
+      }
+      // 1 XP per card per day, paying for a review log that exists, at most 100 a day.
+      function vocabOk(id, e, a, b) {
+        return e.amount == 1
+          && e.card is string
+          && id == 'vocab_' + e.day + '_' + e.card
+          && exists(logPath(e.source))
+          && get(logPath(e.source)).data.cardId == e.card
+          && b.flash == a.flash + 1 && b.flash <= 100
+          && same(a, b, 'seq') && same(a, b, 'bonus') && same(a, b, 'done');
+      }
+      function grammarOk(id, e, a, b, amount, expected) {
+        return e.amount == amount
+          && e.lesson is string && e.source == e.lesson
+          && id == expected
+          && b.done.grammar == a.done.grammar + 1 && b.done.skills == a.done.skills
+          && same(a, b, 'flash') && same(a, b, 'seq') && same(a, b, 'bonus');
+      }
+      // A review is of a lesson first finished on an earlier day.
+      function reviewOk(e) {
+        return exists(eventPath('grammar-new_' + e.lesson))
+          && get(eventPath('grammar-new_' + e.lesson)).data.day != e.day;
+      }
+      function skillOk(id, e, a, b, prefix) {
+        return e.amount == 30
+          && e.activity is string && e.source == e.activity
+          && id == prefix + e.day + '_' + e.activity
+          && b.done.skills == a.done.skills + 1 && b.done.grammar == a.done.grammar
+          && same(a, b, 'flash') && same(a, b, 'seq') && same(a, b, 'bonus');
+      }
+      function claimIdOk(id, e) {
+        return e.goal in ['vocab', 'grammar', 'skills']
+          && e.source == e.goal
+          && e.seq is int
+          && id == 'goal_' + e.day + '_' + e.goal + '_' + string(e.seq);
+      }
+      function otherGoalsSame(e, a, b) {
+        return same(a, b, 'flash') && same(a, b, 'done')
+          && a.seq.diff(b.seq).affectedKeys().hasOnly([e.goal])
+          && a.bonus.diff(b.bonus).affectedKeys().hasOnly([e.goal]);
+      }
+      // Claiming pays the tier of the goal's target locked for the day.
+      function claimOk(id, e, a, b) {
+        return claimIdOk(id, e)
+          && e.seq % 2 == 1
+          && a.seq[e.goal] == e.seq - 1 && b.seq[e.goal] == e.seq
+          && e.goal in b.targets
+          && e.amount == tierBonus(e.goal, b.targets[e.goal])
+          && b.bonus[e.goal] == e.amount
+          && otherGoalsSame(e, a, b);
+      }
+      // Unclaiming takes back exactly what the claim held.
+      function unclaimOk(id, e, a, b) {
+        return claimIdOk(id, e)
+          && e.seq % 2 == 0 && e.seq >= 2
+          && a.seq[e.goal] == e.seq - 1 && b.seq[e.goal] == e.seq
+          && e.amount == 0 - a.bonus[e.goal]
+          && b.bonus[e.goal] == 0
+          && e.reverses == 'goal_' + e.day + '_' + e.goal + '_' + string(e.seq - 1)
+          && otherGoalsSame(e, a, b);
+      }
+
+      // ----- days/{day}: targets lock once; XP fields only move with an event -----
+      match /days/{d} {
+        allow read: if owner();
+        allow create, update: if owner() && dayOk(d);
+      }
+      function dayOk(d) {
+        let next = request.resource.data;
+        let prev = resource == null ? blankLedger() : resource.data;
+        return next.day == d
+          && next.targets is map && targetsOk(next.targets)
+          && next.targets.diff(prev.targets).removedKeys().size() == 0
+          && next.targets.diff(prev.targets).changedKeys().size() == 0
+          && ((same(prev, next, 'seq') && same(prev, next, 'bonus') && same(prev, next, 'flash') && same(prev, next, 'done'))
+              || (isNewEvent(lastEvent()) && getAfter(eventPath(lastEvent())).data.day == d));
+      }
     }
   }
 }

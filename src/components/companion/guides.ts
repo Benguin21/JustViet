@@ -1,17 +1,13 @@
 /**
  * Teachers and guides: copy and characters only, no goal or XP rules in here.
  *
- * Cô Tươi welcomes and encourages; Thầy Vinh explains how things work. Rồng Con stays the
- * learner's companion. Each teacher is drawn once in the page's sprite (jvT-{who}-back, -body,
+ * Cô Tươi and Thầy Vinh are equal Vietnamese teachers (see src/lib/lessons/teachers.ts, which
+ * also decides who teaches each lesson). Rồng Con stays the learner's companion. Each teacher is drawn once in the page's sprite (jvT-{who}-back, -body,
  * -face-{expr}, -arms-{expr}) with four expressions: neutral, welcome, explain, encourage.
  */
-export type TeacherId = "tuoi" | "vinh";
-export type Expression = "neutral" | "welcome" | "explain" | "encourage";
+import { TEACHERS, type Expression, type TeacherId } from "@/lib/lessons/teachers";
 
-export const TEACHERS: Record<TeacherId, { name: string; role: string; tint: string; ink: string }> = {
-  tuoi: { name: "Cô Tươi", role: "Your Vietnamese teacher", tint: "#fdf0cf", ink: "#8a5a12" },
-  vinh: { name: "Thầy Vinh", role: "Your study guide", tint: "#e6f2ea", ink: "#2f6b55" },
-};
+export { TEACHERS, type Expression, type TeacherId };
 
 /** The learning sections, as Home's "Let’s học!" cards and the intro's chips show them. */
 export const NAV = [
@@ -28,6 +24,8 @@ export interface GuideStep {
   expr: Expression;
   lead?: string;
   text: string;
+  /** Said instead of `text` while Rồng Con is still in its egg. */
+  textEgg?: string;
   /** Learning sections to show as chips, by NAV href. */
   chips?: readonly string[];
   /** Show Rồng Con as it is right now. */
@@ -51,9 +49,9 @@ export const GUIDES: Record<GuideSet, Guide> = {
     label: "Welcome to JustViet",
     modal: true,
     steps: [
-      { who: "tuoi", expr: "welcome", lead: "Xin chào!", text: "Welcome to JustViet! I’m Cô Tươi, your Vietnamese teacher. We’re so happy you’re here! Let’s learn Vietnamese together!" },
-      { who: "vinh", expr: "welcome", lead: "Xin chào!", text: "I’m Thầy Vinh. Here, you can practice vocabulary, grammar, and language skills at your own pace. You can explore our lessons anytime!", chips: ["/vocab-srs", "/grammar", "/skills"] },
-      { who: "tuoi", expr: "explain", text: "And here’s Rồng Con, your little learning companion! Complete your daily learning goals, then return Home to feed Rồng Con and help your companion grow!", companion: true },
+      { who: "tuoi", expr: "welcome", lead: "Xin chào!", text: "I’m Cô Tươi, one of your Vietnamese teachers! Welcome to JustViet!" },
+      { who: "vinh", expr: "welcome", text: "And I’m Thầy Vinh, your other Vietnamese teacher! We’ll take turns teaching you vocabulary, grammar, and language skills!", chips: ["/vocab-srs", "/grammar", "/skills"] },
+      { who: "tuoi", expr: "explain", text: "And here’s Rồng Con, your little learning companion! Complete your daily learning goals, then return Home to feed Rồng Con and help your companion grow!", textEgg: "And this is Rồng Con, your little learning companion, still snug inside its egg! Complete your daily learning goals, then return Home to feed Rồng Con and help it hatch!", companion: true },
       { who: "vinh", expr: "encourage", text: "First, let’s choose your daily learning goals. Once you’ve finished studying, come back Home to check off your completed goals and feed Rồng Con!", cta: "Set Up My Goals" },
     ],
   },

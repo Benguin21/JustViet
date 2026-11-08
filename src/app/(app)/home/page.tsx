@@ -49,6 +49,7 @@ export default function HomePage() {
         settings={data.goalSettings}
         progress={data.progress}
         progressDay={data.progressDay}
+        timeZone={data.timeZone}
         savedLedger={data.savedLedger}
         profile={data.profile}
         onSaveLedger={saveLedger}

@@ -23,6 +23,11 @@ Firestore).
 - `npx tsc --noEmit` — type-check only, faster than a full build
 - `npm run test` — Vitest, run once (`npm run test:watch` for watch mode).
   Run a single file with `npx vitest run path/to/file.test.ts`.
+- `npm run test:rules` — `firestore.rules` against the Firestore emulator
+  (`test/rules/`, its own Vitest config; needs Java, fetches
+  `firebase-tools` through npx). Run it after any change to the rules or to
+  `src/lib/xp/repository.ts`. If it hangs, a stale emulator may hold port
+  8080: `pkill -f cloud-firestore-emulator`.
 
 ## Environment / Firebase setup
 
@@ -63,10 +68,10 @@ client-only guarding is not a security boundary.
   password) toggled by local state, not separate routes; see
   `src/components/auth/*Form.tsx`.
 - `src/app/(app)/` — route group for everything behind `RequireAuth`:
-  `home/` (Rồng Con's homepage, see below) plus one stub page per nav section
-  (`goals/`, `grammar/`, `dictionary/`, `vocab-srs/`, `skills/`,
-  `community/`), each just rendering `<ComingSoon />` with its own
-  copy. Flesh these out in place as features land.
+  `home/` (Rồng Con's homepage), `goals/` (the Goals tab) and `vocab-srs/`
+  (all below), plus a stub page per remaining nav section (`grammar/`,
+  `dictionary/`, `skills/`, `community/`), each just rendering
+  `<ComingSoon />` with its own copy. Flesh these out in place as features land.
 - `src/app/(app)/layout.tsx` renders `AppHeader` (logo + user greeting +
   logout) and wraps children in `RequireAuth`.
 
@@ -191,33 +196,34 @@ get a value).
 
 ## Homepage: Rồng Con
 
-`/home` is a dragon companion that grows as the learner finishes daily
-goals: today's goal cards (each shows a Vietnamese dish), an egg that
-cracks with XP and hatches into a Baby Dragon at 250 XP, speech bubbles,
+`/home` is a dragon companion that grows with the learner's level (see XP
+and levels below): today's goal cards (each shows a Vietnamese dish), an
+egg that cracks with XP and hatches into a Baby Dragon at Level 5, speech bubbles,
 and two teachers (Cô Tươi, Thầy Vinh) who run a first-visit intro and the
 hatching milestone. It was designed on the JustViet Design canvas
 (https://claude.ai/artifact/5LFnFo85BXbFJk6swP39kQ, board "HomeDraft")
 and ported one to one.
 
 - `src/lib/companion/` — the rules, pure and unit tested
-  (`companion.test.ts`): `goals.ts` (settings, eligibility, XP tiers,
-  `progressFromReviews`), `ledger.ts` (one doc per learner: today's claims
-  and XP plus past days; `settleLedger` re-derives today's XP from
-  progress so re-settling never double-counts), `menu.ts` (each goal's dish
-  for the day, seeded by date), `growth.ts` + `crackTables.ts` (stages,
-  cracks, flakes), `lines.ts` (what Rồng Con says), `profile.ts`.
-- `src/lib/companion/repository.ts` — the homepage's only
-  `firebase/firestore` importer: `users/{uid}/companion/ledger`,
-  `users/{uid}/companion/profile` (`onboarded`, `hatchSeen`; merge
-  writes) and `users/{uid}/settings/goals` (read only for now; the Goals
-  page will write it, and until then the default is Vocab only, 5 words).
-  `firestore.rules` already covers these (everything under `users/{uid}`).
-- `src/lib/companion/useCompanionData.ts` — loads the above plus today's
-  Vocab review logs (`fetchReviewLogsSince` in the vocab repository, from
-  local midnight) once per sign-in. Vocab progress is the number of
-  distinct cards reviewed today. Grammar and Skills report 0 until those
-  pages exist. If the load fails the page shows a retry button and never
-  renders from a blank ledger, so a failed read can't overwrite saved XP.
+  (`companion.test.ts`): `goals.ts` (settings, eligibility, tiers and
+  bonuses, `progressFromReviews`), `ledger.ts` (Home's view of today in the
+  XP ledger: claims, bonuses held, dishes and lines said, plus `historyXp`;
+  `settleLedger` re-derives today's bonuses from progress so re-settling
+  never double-counts, `ledgerChanges` is what Home sends back), `menu.ts`
+  (each goal's dish for the day, seeded by date), `growth.ts` +
+  `crackTables.ts` (stages by level, cracks, flakes), `lines.ts` (what Rồng
+  Con says), `profile.ts`.
+- `src/lib/companion/repository.ts` — only Rồng Con's profile,
+  `users/{uid}/companion/profile` (`onboarded`, `levelSeen`, `seenXp`;
+  saved in a transaction so `onboarded` only turns on and `levelSeen` only
+  goes up). Everything about XP, goals and claims is the XP ledger's.
+- `src/lib/companion/useCompanionData.ts` — loads, once per sign-in: the
+  goals and established time zone, the XP total and today's day record,
+  today's XP events and Vocab review logs, and the profile. It pays any of
+  today's Vocab reviews whose award failed (safe to repeat). Vocab progress
+  is the number of distinct new cards studied today; Grammar and Skills
+  come from the day record's completion counts. If the load fails the page
+  shows a retry button and never renders from a blank ledger.
 - `src/components/companion/HomeCompanion.tsx` — the engine: a class
   component that ports the board's logic (timed beats, feeding flights,
   the reactions queue, the dialogue's position, the teacher guide). It
@@ -233,5 +239,100 @@ and ported one to one.
   drawings as SVG `<defs>`). To bring in a newer board, download
   `HomeDraft.dc.html` from the canvas, re-run the script and port any
   logic changes into `HomeCompanion.tsx` by hand.
+- A goal card's check feeds Rồng Con once the goal is ready; a fed goal
+  stays checked for the rest of the day and can't be unticked. Only losing
+  its eligibility (say a reviewed card was deleted) takes the claim and its
+  bonus back, through the ledger's unclaim. The cards show only the XP
+  ("Ready to feed · +10 XP", "+10 XP earned"), never the tier name.
+- Home shows the level, total XP and XP to the next level on Rồng Con's
+  card, and a small "Level up!" cue the first time a level is reached
+  (`levelSeen`). XP earned elsewhere since Home last showed it (`seenXp`)
+  lands when Home opens. Rồng Con hatches at Level 5 and grows its full
+  body (no shell pieces) at Level 10; it evolves every 10 levels
+  (`evolutionFor` in `growth.ts`), with art for later evolutions to come.
+  Before Level 5 the egg's cracks run on the board's 0 to 250 scale,
+  converted from XP by `eggUnits`.
 - Both fonts load the `vietnamese` subset (root layout), or letters such
   as ợ and ỗ fall back to another font.
+- Until Rồng Con hatches, the intro's card shows just the whole egg
+  (`#jvEggShell`, no cracks or peek). After that it shows Rồng Con through
+  `<use href="#jvDragonArt">`. A `<use>` copy only sees its own subtree, so
+  `#jvDragonArt` carries `jv-root` (added by the script) and the dragon's
+  state classes sit on the group just inside it.
+- The peek (hole, face, cracks, flakes) is drawn around x=131 and shifted
+  21px left (`translate(-21 0)`) so it sits on the egg's centre line; the
+  cracks are clipped to the shell (`#jvShellClip`). What shows through the
+  hole steps up with XP (`HOLE_STEPS`, `REVEAL` in `growth.ts`).
+
+## XP and levels
+
+One XP ledger for the whole app, in `src/lib/xp/` (pure and tested in
+`plan.test.ts`, `levels.test.ts`; rules in `test/rules/`):
+
+- `levels.ts` — 100 levels, cumulative thresholds interpolated linearly
+  between the benchmarks (Level 5 700 XP, 10 1,960 … 100 252,000).
+  `levelFor`, `levelProgress` (XP into the level, to the next, fraction).
+  XP keeps counting past Level 100.
+- `events.ts` — activity XP (Vocab card 1, new Grammar lesson 50, Grammar
+  review 10, Reading 30, Listening 30), the 100 a day flashcard cap, and
+  each event's deterministic id: `vocab_{day}_{card}`,
+  `grammar-new_{lesson}`, `grammar-review_{day}_{lesson}`,
+  `reading_{day}_{id}`, `listening_{day}_{id}`, `goal_{day}_{goal}_{seq}`.
+  The id is what makes every award idempotent.
+- `plan.ts` — the pure planner: given the total, the day record and the
+  goals, what one award or claim writes (or null). A Vocab card pays once
+  per card per day until the cap; a lesson pays 50 the first time and 10 as
+  a review on a later day (once a day); a goal claim pays its tier's bonus
+  and an unclaim takes back exactly what it paid (`seq` odd = claimed).
+- `repository.ts` — the XP system's only `firebase/firestore` importer.
+  Data: `users/{uid}/xp/total` (`total`, `rev`, `last`),
+  `users/{uid}/days/{day}` (targets locked for the day, claim `seq`,
+  `bonus`, flashcard count, Grammar/Skills completions, Home's dishes and
+  lines) and `users/{uid}/xpEvents/{id}` (uid, kind, amount, day, source,
+  ids, `reverses`, server timestamp). Every award is one transaction that
+  writes the event, the total and the day together. `awardVocabReview` is
+  called by the Vocab page after each review; `completeGrammarLesson` and
+  `completeSkill` are for the Grammar and Skills screens to call when a
+  lesson or activity is finished (not opened).
+- `day.ts` — days are the learner's established local calendar day: the
+  time zone saved in `settings/goals` on first use, so a refresh or another
+  device can't start a new day (or reset the cap) early.
+- `firestore.rules` repeats the planner's checks for every write to
+  `xp`, `xpEvents` and `days`, so the browser alone can't set a total,
+  pay an event twice, change a locked target or claim the wrong bonus. It
+  must be published in the Firebase console after changing.
+- Goal bonuses come from the chosen target's tier (`goalTier` in
+  `src/lib/companion/goals.ts`): Grammar and Skills 1 Small (+10), 2 Medium
+  (+20), 3 to 5 Big (+30); Vocab 1 to 4 Starter (+0), 5 to 9 Small, 10 to 14
+  Medium, 15 to 50 Big. A goal's target locks for the day at its first
+  activity or claim (`days/{day}.targets`); a new target for it starts the
+  next day, so switching tiers mid-day earns nothing extra.
+- XP restarted at 0 with this system (no migration): the old
+  `companion/ledger` doc and the profile's `hatchSeen` are no longer read.
+
+## Goals tab
+
+`src/app/(app)/goals/page.tsx` → `GoalsForm` (`src/components/goals/`): a
+card per goal (Grammar, Vocab, Skills) with its on/off switch and a native
+range slider (whole steps; mouse, touch and keyboard for free). Beside each
+slider: the target ("15 new flashcards per day") and its tier ("Big · +30
+XP"); the selected track darkens with difficulty (`goalSliders.ts`,
+`goal-slider.css`). Nothing is saved until Save goals, which writes
+`settings/goals` through `useGoalSettings` and never awards XP; the page
+then says when each change applies (today, or tomorrow for a goal already
+underway).
+
+## Teachers and lessons
+
+Cô Tươi and Thầy Vinh are equal Vietnamese teachers: either one teaches
+any lesson type, they differ only in personality and look.
+`src/lib/lessons/teachers.ts` holds both (names, card colours, short voice
+lines for a lesson to use around its own content) and
+`teacherForLesson({ order, teacher? })`: teachers take turns by whole
+lesson in a course's order (lesson 1 Cô Tươi, 2 Thầy Vinh, 3 Cô Tươi…),
+so reopening or resuming a lesson always gets the same teacher. A lesson
+can pin `teacher` if a course is ever reordered. Lesson content never
+names its teacher; the Grammar/Skills lesson screens, when built, should
+call `teacherForLesson` once per lesson and keep that teacher through every
+explanation, exercise and piece of feedback. `guides.ts` re-exports
+`TEACHERS` for the homepage intro.

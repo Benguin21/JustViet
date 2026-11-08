@@ -3,27 +3,36 @@ import {
   DEFAULT_GOAL_SETTINGS,
   activeGoals,
   checkEligibility,
-  nextVocabTier,
   normalizeGoalSettings,
   progressFromReviews,
-  vocabTier,
   xpEntitlement,
 } from "./goals";
-import { blankLedger, claimCount, ledgerForDay, localDayKey, settleLedger, totalXp } from "./ledger";
+import { blankLedger, claimCount, ledgerChanges, ledgerForDay, ledgerFromDay, localDayKey, settleLedger, totalXp } from "./ledger";
+import { blankDay } from "@/lib/xp/plan";
 import { ART_BOX, MENU_KINDS, MENU_LIBRARY, THOUGHT, assignMenu, dayNumber, menuForDay, pickDish, thoughtFit } from "./menu";
 import { CRACKS, FLAKES } from "./crackTables";
-import { crackInk, crackProgress, hatchFor, newCracks, shellBitsFor, stageFor } from "./growth";
+import { EGG_SPAN, HATCH_XP, crackInk, crackProgress, eggUnits, evolutionFor, hatchFor, newCracks, shellBitsFor, stageFor } from "./growth";
 import { EAT_LINES, LINES, MOODS, eatLine, moodFor } from "./lines";
 
 const TARGETS = { vocab: 5, grammar: 1, skills: 1 };
 const progress = (vocab = 0, grammar = 0, skills = 0) => ({ vocab, grammar, skills });
 const claims = (vocab = false, grammar = false, skills = false) => ({ vocab, grammar, skills });
 
-describe("today's progress from Vocab reviews", () => {
-  it("counts each card reviewed today once, however many times it was rated", () => {
-    const logs = [{ cardId: "a" }, { cardId: "b" }, { cardId: "a" }, { cardId: "c" }, { cardId: "a" }];
-    expect(progressFromReviews(logs)).toEqual({ vocab: 3, grammar: 0, skills: 0 });
+describe("today's progress", () => {
+  it("counts each new card studied today once, however many times it was rated, and not reviews of older cards", () => {
+    const logs = [
+      { cardId: "a", priorState: "new" },
+      { cardId: "b", priorState: "new" },
+      { cardId: "a", priorState: "learning" },
+      { cardId: "c", priorState: "review" },
+      { cardId: "a", priorState: "learning" },
+    ];
+    expect(progressFromReviews(logs)).toEqual({ vocab: 2, grammar: 0, skills: 0 });
     expect(progressFromReviews([])).toEqual({ vocab: 0, grammar: 0, skills: 0 });
+  });
+
+  it("takes Grammar and Skills from the day's completions", () => {
+    expect(progressFromReviews([], { grammar: 2, skills: 3 })).toEqual({ vocab: 0, grammar: 2, skills: 3 });
   });
 });
 
@@ -32,44 +41,42 @@ describe("goal settings", () => {
     expect(activeGoals(DEFAULT_GOAL_SETTINGS)).toEqual(["vocab"]);
   });
 
-  it("fills in and clamps saved settings", () => {
-    const s = normalizeGoalSettings({ enabled: { grammar: true }, targets: { vocab: 500, skills: "x" } });
+  it("fills in and clamps saved settings to the sliders' ranges", () => {
+    const s = normalizeGoalSettings({ enabled: { grammar: true }, targets: { vocab: 500, grammar: 9, skills: "x" } });
     expect(s.enabled).toEqual({ vocab: true, grammar: true, skills: false });
-    expect(s.targets).toEqual({ vocab: 50, grammar: 1, skills: 1 });
+    expect(s.targets).toEqual({ vocab: 50, grammar: 5, skills: 1 });
+    expect(normalizeGoalSettings({ targets: { vocab: 0, grammar: 2.6 } }).targets).toEqual({ vocab: 1, grammar: 3, skills: 1 });
     expect(activeGoals(s)).toEqual(["vocab", "grammar"]);
   });
 });
 
-describe("XP rules", () => {
-  it("tiers vocab at 5/10/16 words to 10/15/20 XP, max 20", () => {
-    expect([0, 3, 4, 5, 9, 10, 15, 16, 18, 40].map(vocabTier)).toEqual([0, 0, 0, 10, 10, 15, 15, 20, 20, 20]);
-    expect(nextVocabTier(3)).toEqual({ more: 2, gain: 10 });
-    expect(nextVocabTier(12)).toEqual({ more: 4, gain: 5 });
-    expect(nextVocabTier(16)).toBeNull();
-  });
-
-  it("only counts a claim while its goal is eligible", () => {
+describe("goal bonuses", () => {
+  it("come from the target's tier, not from how much more was done, and only while eligible", () => {
     const ent = (target: number, words: number, claimed: boolean) =>
       xpEntitlement({ ...TARGETS, vocab: target }, progress(words), claims(claimed)).vocab;
-    expect(ent(3, 3, true)).toBe(0);
-    expect(ent(3, 5, true)).toBe(10);
+    expect(ent(3, 3, true)).toBe(0); // Starter
+    expect(ent(3, 30, true)).toBe(0);
     expect(ent(5, 5, true)).toBe(10);
-    expect(ent(10, 10, true)).toBe(15);
+    expect(ent(5, 18, true)).toBe(10); // a Small goal stays Small however many cards
+    expect(ent(10, 10, true)).toBe(20);
+    expect(ent(15, 15, true)).toBe(30);
     expect(ent(5, 18, false)).toBe(0);
     expect(ent(5, 4, true)).toBe(0);
+    const g = (target: number, done: number) => xpEntitlement({ ...TARGETS, grammar: target }, progress(0, done), claims(false, true)).grammar;
+    expect([g(1, 3), g(2, 2), g(3, 3), g(2, 1)]).toEqual([10, 20, 30, 0]);
     expect(checkEligibility(TARGETS, progress(5, 0, 2))).toEqual({ vocab: true, grammar: false, skills: true });
   });
 });
 
 describe("ledger", () => {
   it("applies only the difference and is idempotent", () => {
-    const l0 = blankLedger("2026-10-18");
+    const l0 = blankLedger("2026-10-18", 40);
     l0.claims.vocab = true;
     const s1 = settleLedger(l0, TARGETS, progress(12));
     const s2 = settleLedger(s1.ledger, TARGETS, progress(12));
-    expect(s1.delta).toBe(15);
+    expect(s1.delta).toBe(10);
     expect(s2.delta).toBe(0);
-    expect(totalXp(s2.ledger)).toBe(15);
+    expect(totalXp(s2.ledger)).toBe(50);
   });
 
   it("drops a claim when the target is raised above progress", () => {
@@ -94,24 +101,43 @@ describe("ledger", () => {
     expect(claimCount(s2.ledger, ["vocab", "grammar"])).toBe(1);
   });
 
-  it("files a new day's yesterday under its date, and a revisited date keeps its own entry", () => {
-    const l0 = blankLedger("2026-10-18");
+  it("moves yesterday's bonuses into the history on a new day", () => {
+    const l0 = blankLedger("2026-10-18", 100);
     l0.claims.vocab = true;
     const day1 = settleLedger(l0, TARGETS, progress(10)).ledger;
     const day2 = ledgerForDay(JSON.parse(JSON.stringify(day1)), "2026-10-19");
     expect(day2.claims.vocab).toBe(false);
-    expect(day2.historyXp).toBe(15);
-    expect(totalXp(day2)).toBe(15);
-    const back = ledgerForDay(day2, "2026-10-18");
-    expect(back.claims.vocab).toBe(true);
-    expect(back.xp.vocab).toBe(15);
-    expect(back.historyXp).toBe(0);
-    expect(totalXp(back)).toBe(15);
+    expect(day2.historyXp).toBe(110);
+    expect(totalXp(day2)).toBe(110);
+  });
+
+  it("reads today from the XP ledger's day record", () => {
+    const d = blankDay("2026-11-8");
+    d.seq.vocab = 3;
+    d.bonus.vocab = 20;
+    d.items.vocab = "pho";
+    const l = ledgerFromDay(345, d);
+    expect(l.claims).toEqual({ vocab: true, grammar: false, skills: false });
+    expect(l.xp.vocab).toBe(20);
+    expect(l.historyXp).toBe(325);
+    expect(totalXp(l)).toBe(345);
+  });
+
+  it("sends only what changed: claims to pay or take back, and Home's bookkeeping", () => {
+    const a = ledgerFromDay(0, blankDay("2026-11-8"));
+    expect(ledgerChanges(a, a)).toEqual({ day: "2026-11-8", claims: [], extras: null });
+    const b = { ...a, claims: { ...a.claims, vocab: true }, items: { vocab: "pho" } };
+    expect(ledgerChanges(a, b)).toEqual({
+      day: "2026-11-8",
+      claims: [{ goal: "vocab", want: true }],
+      extras: { items: { vocab: "pho" }, announced: a.announced, greeted: false },
+    });
+    expect(ledgerChanges(b, a).claims).toEqual([{ goal: "vocab", want: false }]);
   });
 
   it("starts blank from anything unreadable, and drops unknown dishes", () => {
     expect(ledgerForDay(null, "2026-1-1")).toEqual(blankLedger("2026-1-1"));
-    expect(ledgerForDay({ v: 2 }, "2026-1-1")).toEqual(blankLedger("2026-1-1"));
+    expect(ledgerForDay({ v: 3 }, "2026-1-1")).toEqual(blankLedger("2026-1-1"));
     const saved = { ...blankLedger("2026-1-1"), items: { vocab: "pho", grammar: "pizza" } };
     expect(ledgerForDay(saved, "2026-1-1").items).toEqual({ vocab: "pho" });
   });
@@ -194,8 +220,12 @@ describe("daily menu", () => {
 });
 
 describe("growth", () => {
-  it("has stages at 0/250/600/1200", () => {
-    expect([0, 249, 250, 599, 600, 1199, 1200].map((x) => stageFor(x).cur.en)).toEqual([
+  // The egg's looks are drawn on its own 0-250 scale; this is the XP where one starts.
+  const at = (units: number) => Math.ceil((units * HATCH_XP) / EGG_SPAN);
+
+  it("follows the level: egg to Level 4, hatched at Level 5, full body from Level 10, an evolution every 10 levels", () => {
+    expect(HATCH_XP).toBe(700);
+    expect([0, 699, 700, 1959, 1960, 4199, 4200, 252000].map((x) => stageFor(x).name)).toEqual([
       "Hatching",
       "Hatching",
       "Baby Dragon",
@@ -203,12 +233,17 @@ describe("growth", () => {
       "Young Dragon",
       "Young Dragon",
       "Majestic Dragon",
+      "Majestic Dragon",
     ]);
-    expect(stageFor(1500).next).toBeNull();
+    expect([1, 4, 5, 9, 10, 19, 20, 30, 99, 100].map((l) => evolutionFor(l).index)).toEqual([0, 0, 1, 1, 2, 2, 3, 4, 10, 11]);
+    expect([9, 10].map((l) => evolutionFor(l).fullBody)).toEqual([false, true]);
+    expect([699, 700].map((x) => hatchFor(x).state)).toEqual(["almost", "hatched"]);
+    expect(eggUnits(350)).toBe(125);
+    expect(eggUnits(5000)).toBe(EGG_SPAN);
   });
 
   it("hatches through egg, peek and almost, with wiggle bands at 75 and 150", () => {
-    expect([112, 113, 174, 175, 249, 250].map((x) => hatchFor(x).state)).toEqual([
+    expect([at(113) - 1, at(113), at(175) - 1, at(175), 699, 700].map((x) => hatchFor(x).state)).toEqual([
       "egg",
       "peek",
       "peek",
@@ -216,28 +251,34 @@ describe("growth", () => {
       "almost",
       "hatched",
     ]);
-    expect([0, 74, 75, 149, 150, 249].map((x) => hatchFor(x).wiggle)).toEqual([1, 1, 2, 2, 3, 3]);
-    expect(hatchFor(113).hole).toBe(0.55);
-    expect(hatchFor(249).hole).toBe(1.1);
-    expect([224, 225].map((x) => hatchFor(x).soon)).toEqual([false, true]);
-    expect(hatchFor(199).frag.a).toBe(0);
-    expect(hatchFor(200).frag.a).toBeCloseTo(0.3);
+    expect([0, at(75) - 1, at(75), at(150) - 1, at(150), 699].map((x) => hatchFor(x).wiggle)).toEqual([1, 1, 2, 2, 3, 3]);
+    expect(hatchFor(at(113)).hole).toBe(0.8);
+    expect(hatchFor(699).hole).toBe(1.85);
+    // The reveal keeps going right up to hatching: early peeks show far less than late ones.
+    expect([112, 113, 130, 150, 175, 195, 215, 235].map((u) => hatchFor(at(u)).reveal)).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
+    expect(hatchFor(at(130) - 1).reveal).toBe(1);
+    expect(hatchFor(700).reveal).toBe(0);
+    expect(hatchFor(at(240)).hole - hatchFor(at(120)).hole).toBeGreaterThan(0.8);
+    expect([at(235) - 1, at(235), 700].map((x) => hatchFor(x).ready)).toEqual([false, true, false]);
+    expect([at(225) - 1, at(225)].map((x) => hatchFor(x).soon)).toEqual([false, true]);
+    expect(hatchFor(at(200) - 1).frag.a).toBe(0);
+    expect(hatchFor(at(200)).frag.a).toBeCloseTo(0.3, 1);
   });
 
-  it("keeps the shell whole to 19 XP, then only grows its cracks; the pip is done by 112", () => {
+  it("keeps the shell whole to 19 on the egg's scale, then only grows its cracks; the pip is done by 112", () => {
     const early = CRACKS.filter((k) => !k.late).map((k) => k.id);
-    expect(early.every((k) => crackProgress(19).pieces[k] === 0)).toBe(true);
+    expect(early.every((k) => crackProgress(at(19)).pieces[k] === 0)).toBe(true);
     let prev = crackProgress(0).pieces;
-    for (let xp = 1; xp <= 249; xp++) {
+    for (let xp = 1; xp <= 699; xp++) {
       const now = crackProgress(xp).pieces;
       for (const k of Object.keys(now)) expect(now[k]).toBeGreaterThanOrEqual(prev[k]);
       prev = now;
     }
-    expect(early.every((k) => crackProgress(112).pieces[k] === 1)).toBe(true);
-    expect(crackProgress(19).strength).toBe(0);
-    expect(crackProgress(112).strength).toBe(1);
-    expect(newCracks(15, 21)).toEqual(["r2a"]);
-    expect(newCracks(60, 40)).toEqual([]);
+    expect(early.every((k) => crackProgress(at(112)).pieces[k] === 1)).toBe(true);
+    expect(crackProgress(at(19)).strength).toBe(0);
+    expect(crackProgress(at(112)).strength).toBe(1);
+    expect(newCracks(at(15), at(21))).toEqual(["r2a"]);
+    expect(newCracks(at(60), at(40))).toEqual([]);
   });
 
   it("draws cracks in a warm brown that never gets as dark as the outline", () => {
@@ -245,12 +286,12 @@ describe("growth", () => {
     expect(crackInk(1)).toBe("#8f6c56");
   });
 
-  it("turns flaky from 150 XP; curled flakes and crumbs go when it hatches, flaked patches stay", () => {
-    expect(Object.values(shellBitsFor(149, false).flakes).some(Boolean)).toBe(false);
-    const at249 = shellBitsFor(249, false);
-    expect(Object.values(at249.flakes).every(Boolean)).toBe(true);
-    expect(Object.values(at249.crumbs).every(Boolean)).toBe(true);
-    const hatched = shellBitsFor(300, true);
+  it("turns flaky from 150 on the egg's scale; curled flakes and crumbs go when it hatches, flaked patches stay", () => {
+    expect(Object.values(shellBitsFor(at(150) - 1, false).flakes).some(Boolean)).toBe(false);
+    const late = shellBitsFor(699, false);
+    expect(Object.values(late.flakes).every(Boolean)).toBe(true);
+    expect(Object.values(late.crumbs).every(Boolean)).toBe(true);
+    const hatched = shellBitsFor(900, true);
     expect(Object.values(hatched.flakes).filter(Boolean).length).toBe(FLAKES.length);
     expect(Object.values(hatched.crumbs).some(Boolean)).toBe(false);
     expect(Object.values(hatched.lifts).some(Boolean)).toBe(false);

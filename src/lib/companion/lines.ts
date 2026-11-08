@@ -15,6 +15,8 @@ export const LINES = {
   ready: { vi: "Giỏi quá!", en: "You did it! Let’s celebrate with a little nom nom!" },
   eat: { vi: "Ngon quá!", en: "That was delicious!" },
   tier: { vi: "Giỏi quá! Thêm XP nè!", en: "Great job! Bonus XP!" },
+  studied: { vi: "Chăm học ghê!", en: "Look at all that studying! More XP!" },
+  levelUp: { vi: "Lên cấp rồi!", en: "Level up! We’re growing!" },
   oops: { vi: "Không sao đâu!", en: "No worries!" },
   hatched: { vi: "Mình nở rồi!", en: "I hatched!" },
   celebrate: { vi: "No quá!", en: "Thank you! See you tomorrow!" },

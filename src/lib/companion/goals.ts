@@ -1,16 +1,15 @@
 /**
- * Daily learning goals and the XP they earn — business rules only, no UI.
+ * Daily learning goals and their bonus XP: business rules only, no UI.
  *
  * Four things are kept apart on purpose:
- *   1. Progress     what the learner actually did today (Vocab SRS reviews, finished
- *                   lessons). Read-only here; nothing on Home can change it.
- *   2. Eligibility  whether that progress meets the learner's own daily target.
- *                   This is what unlocks feeding Rồng Con.
- *   3. Claims       whether they ticked an eligible goal to feed Rồng Con. Unticking
- *                   only drops the claim; progress is never touched.
- *   4. XP ledger    the XP recorded for each goal today (see `ledger.ts`). It is always
- *                   re-derived from 1–3 and only the difference is applied, so clicks,
- *                   refreshes and animations can never mint XP on their own.
+ *   1. Progress     what the learner actually did today (new Vocab cards studied, Grammar
+ *                   lessons and reviews, Reading and Listening). Read-only here.
+ *   2. Eligibility  whether that progress meets today's target. This unlocks feeding Rồng Con.
+ *   3. Claims       whether they ticked an eligible goal to feed Rồng Con. Unticking only drops
+ *                   the claim; progress is never touched.
+ *   4. Bonus XP     what a claimed goal is worth: set by the target's difficulty tier (goalTier),
+ *                   never by how much more was done. Activity XP (a card, a lesson) is separate
+ *                   and lives in src/lib/xp.
  *
  * Ported from the HomeDraft prototype on the JustViet design canvas.
  */
@@ -31,16 +30,9 @@ export interface GoalDef {
 }
 
 export const GOAL_DEFS: PerGoal<GoalDef> = {
-  vocab: { id: "vocab", section: "Vocab SRS", href: "/vocab-srs", one: "word", many: "words", verb: "studied" },
+  vocab: { id: "vocab", section: "Vocab SRS", href: "/vocab-srs", one: "new word", many: "new words", verb: "studied" },
   grammar: { id: "grammar", section: "Grammar", href: "/grammar", one: "lesson", many: "lessons", verb: "completed" },
-  skills: {
-    id: "skills",
-    section: "Skills",
-    href: "/skills",
-    one: "practice session",
-    many: "practice sessions",
-    verb: "completed",
-  },
+  skills: { id: "skills", section: "Skills", href: "/skills", one: "activity", many: "activities", verb: "completed" },
 };
 
 /** Which goals the learner switched on, and their own daily targets. */
@@ -49,10 +41,11 @@ export interface GoalSettings {
   targets: PerGoal<number>;
 }
 
-const TARGET_LIMITS: PerGoal<{ fallback: number; min: number; max: number }> = {
+/** Each goal's daily target range (the Goals tab's sliders), in whole steps. */
+export const TARGET_LIMITS: PerGoal<{ fallback: number; min: number; max: number }> = {
   vocab: { fallback: 5, min: 1, max: 50 },
-  grammar: { fallback: 1, min: 1, max: 10 },
-  skills: { fallback: 1, min: 1, max: 10 },
+  grammar: { fallback: 1, min: 1, max: 5 },
+  skills: { fallback: 1, min: 1, max: 5 },
 };
 
 /**
@@ -88,15 +81,23 @@ export function activeGoals(settings: GoalSettings): GoalId[] {
   return GOAL_IDS.filter((id) => settings.enabled[id]);
 }
 
-/** Today's verified progress per goal (vocab = unique cards reviewed today). */
+/**
+ * Today's verified progress per goal: Vocab counts the new cards studied (a card's first ever
+ * review), Grammar its lessons and reviews, Skills its Reading and Listening activities.
+ */
 export type Progress = PerGoal<number>;
 
 /**
- * Today's progress from today's Vocab SRS review log: the number of unique cards reviewed, so
- * re-rating the same card never counts twice. Grammar and Skills have no lessons yet.
+ * Vocab progress from today's Vocab SRS review log: the cards that were new when reviewed, each
+ * once, so re-rating a card through its learning steps never counts twice and reviews of older
+ * cards don't count. Grammar and Skills come from their own completion counts.
  */
-export function progressFromReviews(todaysLogs: readonly { cardId: string }[]): Progress {
-  return { vocab: new Set(todaysLogs.map((l) => l.cardId)).size, grammar: 0, skills: 0 };
+export function progressFromReviews(
+  todaysLogs: readonly { cardId: string; priorState?: string }[],
+  done: { grammar: number; skills: number } = { grammar: 0, skills: 0 },
+): Progress {
+  const fresh = new Set(todaysLogs.filter((l) => l.priorState === "new").map((l) => l.cardId));
+  return { vocab: fresh.size, grammar: done.grammar, skills: done.skills };
 }
 
 export function checkEligibility(targets: PerGoal<number>, progress: Progress): PerGoal<boolean> {
@@ -107,39 +108,38 @@ export function checkEligibility(targets: PerGoal<number>, progress: Progress): 
   };
 }
 
+export type TierName = "Starter" | "Small" | "Medium" | "Big";
+export interface GoalTier {
+  name: TierName;
+  bonus: number;
+}
+
+export const TIER_BONUS: Record<TierName, number> = { Starter: 0, Small: 10, Medium: 20, Big: 30 };
+
 /**
- * Grammar and Skills are worth 10 XP when claimed. Vocab is tiered by unique words
- * studied, whatever the learner's target: under 5 words earns 0 XP even when feeding is
- * unlocked, then 10, 15 and 20 XP (the daily max). Tiers are totals, not stacking bonuses.
+ * A goal's difficulty, from the target the learner chose (not from what they went on to do):
+ *   Grammar, Skills  1 Small, 2 Medium, 3-5 Big
+ *   Vocab            1-4 Starter (no bonus), 5-9 Small, 10-14 Medium, 15-50 Big
+ * firestore.rules repeats this table to check every bonus written.
  */
-export const XP_PER_GOAL = 10;
-export const VOCAB_TIERS: readonly { at: number; total: number }[] = [
-  { at: 5, total: 10 },
-  { at: 10, total: 15 },
-  { at: 16, total: 20 },
-];
-
-export function vocabTier(words: number): number {
-  let total = 0;
-  for (const t of VOCAB_TIERS) if (words >= t.at) total = t.total;
-  return total;
+export function goalTier(id: GoalId, target: number): GoalTier {
+  const t = Math.floor(target);
+  let name: TierName;
+  if (id === "vocab") name = t >= 15 ? "Big" : t >= 10 ? "Medium" : t >= 5 ? "Small" : "Starter";
+  else name = t >= 3 ? "Big" : t === 2 ? "Medium" : "Small";
+  return { name, bonus: TIER_BONUS[name] };
 }
 
-/** How many more words reach the next vocab tier, and how much XP it adds; null at the top. */
-export function nextVocabTier(words: number): { more: number; gain: number } | null {
-  const now = vocabTier(words);
-  for (const t of VOCAB_TIERS) if (words < t.at) return { more: t.at - words, gain: t.total - now };
-  return null;
+export function goalBonus(id: GoalId, target: number): number {
+  return goalTier(id, target).bonus;
 }
 
-/** Today's XP per goal, from progress and claims only. A claim counts only while eligible. */
+/** Today's bonus XP per goal, from targets, progress and claims. A claim counts only while eligible. */
 export function xpEntitlement(targets: PerGoal<number>, progress: Progress, claims: PerGoal<boolean>): PerGoal<number> {
   const ok = checkEligibility(targets, progress);
-  return {
-    vocab: claims.vocab && ok.vocab ? vocabTier(progress.vocab) : 0,
-    grammar: claims.grammar && ok.grammar ? XP_PER_GOAL : 0,
-    skills: claims.skills && ok.skills ? XP_PER_GOAL : 0,
-  };
+  const out = {} as PerGoal<number>;
+  for (const id of GOAL_IDS) out[id] = claims[id] && ok[id] ? goalBonus(id, targets[id]) : 0;
+  return out;
 }
 
 export function sumXp(x: PerGoal<number>): number {
