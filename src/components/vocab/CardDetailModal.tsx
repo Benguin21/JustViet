@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
@@ -31,6 +32,8 @@ type CardDetailModalProps = {
   onDelete: () => Promise<void>;
   onToggleSuspend: () => Promise<void>;
   onStudyNow: () => void;
+  /** Link to this card's Dictionary entry, when it's linked to one. */
+  dictionaryHref?: string;
 };
 
 export function CardDetailModal({
@@ -41,6 +44,7 @@ export function CardDetailModal({
   onDelete,
   onToggleSuspend,
   onStudyNow,
+  dictionaryHref,
 }: CardDetailModalProps) {
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -99,6 +103,14 @@ export function CardDetailModal({
               </p>
             )}
             {card.notes && <p className="mt-2 text-sm text-ink-500">{card.notes}</p>}
+            {dictionaryHref && (
+              <Link
+                href={dictionaryHref}
+                className="mt-2 inline-block text-sm font-bold text-red-500 underline-offset-2 hover:underline"
+              >
+                🔎 View in Dictionary →
+              </Link>
+            )}
           </div>
 
           <dl className="grid grid-cols-2 gap-3 rounded-2xl bg-paper p-4 sm:grid-cols-3">

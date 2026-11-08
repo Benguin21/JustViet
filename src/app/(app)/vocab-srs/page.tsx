@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { VocabPageHeader, type VocabTab } from "@/components/vocab/VocabPageHeader";
 import { VocabDashboard } from "@/components/vocab/VocabDashboard";
 import { CardList } from "@/components/vocab/CardList";
@@ -16,9 +17,40 @@ import { buildStudyQueue, computeTodayStats } from "@/lib/vocab/scheduler";
 import { startOfDay } from "@/lib/vocab/srs";
 import { useNow } from "@/lib/useNow";
 import { useToast } from "@/lib/useToast";
-import type { VocabCard } from "@/lib/vocab/types";
+import { useAuth } from "@/lib/auth-context";
+import { ensureDictionaryEntryForCard } from "@/lib/dictionary/service";
+import { friendlyFirestoreError } from "@/lib/vocab/firestore-errors";
+import type { NewVocabCardInput, VocabCard } from "@/lib/vocab/types";
 
 export default function VocabSrsPage() {
+  // useSearchParams (for ?card= links from the Dictionary) needs a Suspense
+  // boundary in production builds — see
+  // node_modules/next/dist/docs/01-app/03-api-reference/04-functions/use-search-params.md
+  return (
+    <Suspense fallback={<PageSpinner />}>
+      <VocabSrsPageContent />
+    </Suspense>
+  );
+}
+
+function PageSpinner() {
+  return (
+    <main className="flex flex-1 flex-col items-center justify-center gap-4">
+      <span
+        className="h-10 w-10 animate-spin rounded-full border-4 border-red-300 border-t-red-500"
+        aria-hidden="true"
+      />
+    </main>
+  );
+}
+
+function VocabSrsPageContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const cardParam = searchParams.get("card");
+  const [dismissedCardParam, setDismissedCardParam] = useState<string | null>(null);
+  const { user } = useAuth();
+
   const {
     cards,
     reviewLogs,
@@ -58,6 +90,47 @@ export default function VocabSrsPage() {
     () => buildStudyQueue(cards, settings, { now, todaysLogs }),
     [cards, settings, todaysLogs, now],
   );
+
+  // A ?card= link (e.g. "View in Vocab" from the Dictionary) opens that card's details.
+  const linkedCard =
+    cardParam && cardParam !== dismissedCardParam ? cards.find((c) => c.id === cardParam) : undefined;
+  const detailCard = viewingCard ?? linkedCard ?? null;
+
+  function closeDetail() {
+    setViewingCard(null);
+    if (cardParam) {
+      setDismissedCardParam(cardParam);
+      router.replace("/vocab-srs", { scroll: false });
+    }
+  }
+
+  /**
+   * Creates a card, optionally also adding the word to the Dictionary first
+   * ("Also add this word to my Dictionary"): an existing shared or personal
+   * entry is linked rather than duplicated; otherwise a personal entry is
+   * created from the card's fields. With the box unchecked, the Dictionary
+   * isn't touched at all.
+   */
+  async function handleCreateCard(input: NewVocabCardInput, addToDictionary: boolean) {
+    if (!addToDictionary) {
+      await addCard(input);
+      showToast("Card created");
+      return;
+    }
+    if (!user) throw new Error("You need to be signed in to do that.");
+    let link: Awaited<ReturnType<typeof ensureDictionaryEntryForCard>>;
+    try {
+      link = await ensureDictionaryEntryForCard(user.uid, input);
+    } catch (err) {
+      throw new Error(friendlyFirestoreError(err));
+    }
+    await addCard({ ...input, dictionaryKey: link.key });
+    showToast(
+      link.outcome === "created"
+        ? "Card created and added to your Dictionary"
+        : "Card created and linked to its Dictionary entry",
+    );
+  }
 
   function startStudying(card?: VocabCard) {
     setSingleCardQueue(card ? [card] : null);
@@ -152,10 +225,7 @@ export default function VocabSrsPage() {
       {showAddModal && (
         <CardFormModal
           onClose={() => setShowAddModal(false)}
-          onSubmit={async (input) => {
-            await addCard(input);
-            showToast("Card created");
-          }}
+          onSubmit={(input, { addToDictionary }) => handleCreateCard(input, addToDictionary)}
         />
       )}
 
@@ -182,24 +252,29 @@ export default function VocabSrsPage() {
         />
       )}
 
-      {viewingCard && (
+      {detailCard && (
         <CardDetailModal
-          card={cards.find((c) => c.id === viewingCard.id) ?? viewingCard}
-          reviewHistory={reviewLogs.filter((log) => log.cardId === viewingCard.id)}
-          onClose={() => setViewingCard(null)}
+          card={cards.find((c) => c.id === detailCard.id) ?? detailCard}
+          reviewHistory={reviewLogs.filter((log) => log.cardId === detailCard.id)}
+          onClose={closeDetail}
           onEdit={() => {
-            setEditingCard(viewingCard);
-            setViewingCard(null);
+            setEditingCard(detailCard);
+            closeDetail();
           }}
           onDelete={async () => {
-            await removeCard(viewingCard.id);
-            setViewingCard(null);
+            await removeCard(detailCard.id);
+            closeDetail();
           }}
-          onToggleSuspend={() => setSuspended(viewingCard.id, !viewingCard.suspended)}
+          onToggleSuspend={() => setSuspended(detailCard.id, !detailCard.suspended)}
           onStudyNow={() => {
-            setViewingCard(null);
-            startStudying(viewingCard);
+            closeDetail();
+            startStudying(detailCard);
           }}
+          dictionaryHref={
+            detailCard.dictionaryKey
+              ? `/dictionary?word=${encodeURIComponent(detailCard.dictionaryKey)}`
+              : undefined
+          }
         />
       )}
 

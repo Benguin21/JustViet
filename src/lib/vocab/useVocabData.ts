@@ -26,6 +26,12 @@ export interface UseVocabDataResult {
 
   addCard: (input: NewVocabCardInput) => Promise<string>;
   addCards: (inputs: NewVocabCardInput[]) => Promise<string[]>;
+  /**
+   * Adds a Dictionary word to the SRS without ever duplicating it (see
+   * `repository.createDictionaryCard`). Resolves to the card — the existing
+   * one if it was already there.
+   */
+  addDictionaryCard: (input: NewVocabCardInput & { dictionaryKey: string }) => Promise<VocabCard>;
   editCard: (cardId: string, edit: VocabCardEdit) => Promise<void>;
   removeCard: (cardId: string) => Promise<void>;
   setSuspended: (cardId: string, suspended: boolean) => Promise<void>;
@@ -53,7 +59,16 @@ const NOT_SIGNED_IN = "You need to be signed in to do that.";
  * `friendlyFirestoreError` so callers can just catch and display
  * `err.message`.
  */
-export function useVocabData(): UseVocabDataResult {
+export interface UseVocabDataOptions {
+  /**
+   * Skip fetching review history — for pages that only need the card list
+   * (e.g. the Dictionary, which shows "already in your vocab" states).
+   * Defaults to true.
+   */
+  includeReviewLogs?: boolean;
+}
+
+export function useVocabData({ includeReviewLogs = true }: UseVocabDataOptions = {}): UseVocabDataResult {
   const { user } = useAuth();
   const uid = user?.uid ?? null;
 
@@ -66,7 +81,7 @@ export function useVocabData(): UseVocabDataResult {
   const load = useCallback(async (currentUid: string) => {
     const [cardsResult, logsResult, settingsResult] = await Promise.allSettled([
       repo.fetchCards(currentUid),
-      repo.fetchReviewLogs(currentUid),
+      includeReviewLogs ? repo.fetchReviewLogs(currentUid) : Promise.resolve([]),
       repo.fetchSettings(currentUid),
     ]);
 
@@ -87,7 +102,7 @@ export function useVocabData(): UseVocabDataResult {
     } else {
       setError(friendlyFirestoreError(settingsResult.reason));
     }
-  }, []);
+  }, [includeReviewLogs]);
 
   useEffect(() => {
     if (!uid) return;
@@ -133,6 +148,20 @@ export function useVocabData(): UseVocabDataResult {
         const created = await repo.createCards(uid, inputs);
         setCards((prev) => [...prev, ...created]);
         return created.map((c) => c.id);
+      } catch (err) {
+        throw new Error(friendlyFirestoreError(err));
+      }
+    },
+    [uid],
+  );
+
+  const addDictionaryCard = useCallback(
+    async (input: NewVocabCardInput & { dictionaryKey: string }) => {
+      if (!uid) throw new Error(NOT_SIGNED_IN);
+      try {
+        const { card } = await repo.createDictionaryCard(uid, input);
+        setCards((prev) => (prev.some((c) => c.id === card.id) ? prev : [...prev, card]));
+        return card;
       } catch (err) {
         throw new Error(friendlyFirestoreError(err));
       }
@@ -250,6 +279,7 @@ export function useVocabData(): UseVocabDataResult {
     refresh,
     addCard,
     addCards,
+    addDictionaryCard,
     editCard,
     removeCard,
     setSuspended,
