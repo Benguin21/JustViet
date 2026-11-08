@@ -1,0 +1,103 @@
+/*
+ * The Goals tab's sliders: native range inputs (so mouse, touch and keyboard all work and snap
+ * to whole steps), restyled. The track's colours come from the element's --goal-track
+ * (see trackBackground in src/lib/companion/goalSliders.ts) and the thumb's from --goal-thumb.
+ * The input is 44px tall so it is easy to grab; the track drawn inside it is 12px.
+ */
+.jv-goal-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  display: block;
+  width: 100%;
+  height: 44px;
+  margin: 0;
+  background: transparent;
+  border-radius: 14px;
+  cursor: pointer;
+}
+
+.jv-goal-slider:focus {
+  outline: none;
+}
+
+.jv-goal-slider:focus-visible {
+  outline: 3px solid var(--color-yellow-500);
+  outline-offset: 2px;
+}
+
+.jv-goal-slider::-webkit-slider-runnable-track {
+  height: 12px;
+  border-radius: 9999px;
+  background: var(--goal-track);
+  box-shadow: inset 0 1px 2px rgb(74 47 34 / 0.12);
+}
+
+.jv-goal-slider::-moz-range-track {
+  height: 12px;
+  border-radius: 9999px;
+  background: var(--goal-track);
+  box-shadow: inset 0 1px 2px rgb(74 47 34 / 0.12);
+}
+
+.jv-goal-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  box-sizing: border-box;
+  width: 28px;
+  height: 28px;
+  margin-top: -8px;
+  border: 4px solid #fff;
+  border-radius: 50%;
+  background: var(--goal-thumb);
+  box-shadow:
+    0 0 0 1px rgb(147 113 92 / 0.45),
+    0 3px 0 var(--color-ink-300),
+    0 3px 8px rgb(74 47 34 / 0.2);
+  transition: transform 0.1s ease-out;
+}
+
+.jv-goal-slider::-moz-range-thumb {
+  box-sizing: border-box;
+  width: 28px;
+  height: 28px;
+  border: 4px solid #fff;
+  border-radius: 50%;
+  background: var(--goal-thumb);
+  box-shadow:
+    0 0 0 1px rgb(147 113 92 / 0.45),
+    0 3px 0 var(--color-ink-300),
+    0 3px 8px rgb(74 47 34 / 0.2);
+  transition: transform 0.1s ease-out;
+}
+
+.jv-goal-slider:active::-webkit-slider-thumb {
+  transform: scale(1.1);
+}
+
+.jv-goal-slider:active::-moz-range-thumb {
+  transform: scale(1.1);
+}
+
+.jv-goal-slider:focus-visible::-webkit-slider-thumb {
+  box-shadow:
+    0 0 0 1px rgb(147 113 92 / 0.45),
+    0 0 0 6px var(--color-yellow-300),
+    0 3px 8px rgb(74 47 34 / 0.2);
+}
+
+.jv-goal-slider:focus-visible::-moz-range-thumb {
+  box-shadow:
+    0 0 0 1px rgb(147 113 92 / 0.45),
+    0 0 0 6px var(--color-yellow-300),
+    0 3px 8px rgb(74 47 34 / 0.2);
+}
+
+/* Each browser's thumb gets its own rule: one selector list naming both is dropped whole. */
+@media (prefers-reduced-motion: reduce) {
+  .jv-goal-slider::-webkit-slider-thumb {
+    transition: none;
+  }
+  .jv-goal-slider::-moz-range-thumb {
+    transition: none;
+  }
+}
