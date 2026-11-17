@@ -1,11 +1,11 @@
 # JustViet design backup
 
 A copy of the JustViet design work that lives in Claude artifacts, kept in the
-repo in case those links ever stop working. Snapshot taken 2026-11-17.
+repo in case those links ever stop working. Snapshot taken 2026-11-17 (canvas refreshed after the Goals and Dictionary boards were added).
 
 | Folder | Source artifact | What it is |
 | --- | --- | --- |
-| `canvas/` | [JustViet Design canvas](https://claude.ai/artifact/5LFnFo85BXbFJk6swP39kQ) (version `1794107780-4a26`) | The design canvas: grammar lesson board and the Rồng Con homepage boards |
+| `canvas/` | [JustViet Design canvas](https://claude.ai/artifact/5LFnFo85BXbFJk6swP39kQ) (version `1794893953-ae65`) | The design canvas: grammar lesson board and the Rồng Con homepage boards |
 | `design-system/` | [JustViet design system](https://claude.ai/artifact/86tE99EjtveFPJRE2Ke47K) (version `1794082418-249b`) | Components, colour/type/spacing tokens and the brand guide |
 | `screenshots/` | rendered from `canvas/` | What each board looks like, viewable anywhere |
 
@@ -21,6 +21,8 @@ copied here.
 - `HomeDraft.dc.html` — the Rồng Con homepage design (1280×1320). This is the
   source `scripts/home-board-to-app.py` turns into `src/components/companion/`.
 - `HomePhone.dc.html` — the same homepage embedded at phone width (390×2100).
+- `Goals.dc.html` — the Goals tab: a card per goal with its switch, slider and tier (1280×1320).
+- `Dictionary.dc.html` — the Dictionary tab: A–Y browse, search and Add to Vocabulary (1280×1320).
 - `ds/justviet/` — the copy of the design system the canvas was built with.
 
 **To view:** open the screenshots in `screenshots/`. To restore an editable
@@ -28,7 +30,7 @@ canvas, create a new Design artifact in Claude and upload these files with the
 same paths (or ask Claude to "rebuild the canvas from `design/canvas/`").
 The boards are HTML files driven by the Design runtime: each one loads
 `./support.js`, which the Design artifact supplies. With a copy of that runtime
-saved as `canvas/support.js`, `Main`, `Home` and `HomeDraft` also open directly
+saved as `canvas/support.js`, every board except `HomePhone` also open directly
 in a browser; `HomePhone` needs the canvas itself, because it imports
 `HomeDraft` through the canvas.
 
@@ -46,5 +48,6 @@ restore it, create a new Design System artifact and upload these files with the
 same paths, or rebuild from the app's code with `.design-sync/` (see
 `.design-sync/NOTES.md`), which is how this design system was made.
 
+`screenshots/Dictionary.png` shows the top of the list only.
 `screenshots/design-system-components.png` is a sheet of the component
 previews from the first sync (2026-10-15).
