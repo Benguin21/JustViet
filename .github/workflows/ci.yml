@@ -1,0 +1,59 @@
+# Runs on every pull request (and every push to main) so a broken change
+# shows a red X on the PR before it's merged. Two checks:
+#   1. "Build, lint and test": ESLint, the Vitest unit tests, and a full
+#      production build (`next build` also type-checks).
+#   2. "Firestore rules": firestore.rules against the Firestore emulator.
+# No secrets are needed: without NEXT_PUBLIC_FIREBASE_* the app builds with
+# Firebase switched off (see src/lib/firebase.ts).
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# A newer push to the same PR cancels the older, now-pointless run.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  app:
+    name: Build, lint and test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Unit tests
+        run: npm test
+      - name: Build (includes type-check)
+        run: npm run build
+
+  rules:
+    name: Firestore rules
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      # The Firestore emulator is a Java program.
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: npm ci
+      - name: Rules tests (Firestore emulator)
+        run: npm run test:rules
