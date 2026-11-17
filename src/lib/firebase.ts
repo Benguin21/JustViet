@@ -1,10 +1,27 @@
 import { type FirebaseApp, getApps, initializeApp } from "firebase/app";
 import { type Auth, getAuth } from "firebase/auth";
 import { type Firestore, getFirestore, initializeFirestore } from "firebase/firestore";
+import { SITE } from "@/lib/site";
+
+/**
+ * The domain Firebase Auth uses for Google sign-in (its `/__/auth/handler`
+ * page). On the live site we use the site's own domain, which Firebase
+ * Hosting serves those pages on: Google's screen then says "continue to
+ * learnjustviet.com", and the redirect fallback works in browsers that
+ * block third-party storage (Safari, Firefox, newer Chrome). Everywhere
+ * else (localhost, just-viet.web.app) keeps the configured
+ * `<project>.firebaseapp.com`. Requires
+ * `https://learnjustviet.com/__/auth/handler` in the OAuth client's
+ * authorized redirect URIs (Google Cloud → Credentials) — see AGENTS.md.
+ */
+function authDomainForThisSite(): string | undefined {
+  if (typeof window !== "undefined" && window.location.hostname === SITE.domain) return SITE.domain;
+  return process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN;
+}
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  authDomain: authDomainForThisSite(),
   projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,

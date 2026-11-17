@@ -155,9 +155,7 @@ free trial (the Pricing section and Terms §8 describe it as future; when
 it ships, update both, add the payment processor to the Privacy Policy,
 and consider a cross-platform subscription service so web, iOS and
 Android share one entitlement), and native mobile apps (same Firebase
-account; Terms already mention app-store billing). The site's own domain
-should also become the Firebase `authDomain` (see the redirect note under
-Accounts and sign-in).
+account; Terms already mention app-store billing).
 
 ## Accounts and sign-in
 
@@ -174,11 +172,13 @@ falling back to a full-page redirect only if the popup is blocked
 (`completeGoogleRedirect()` finishes it on the login and settings pages).
 Redirect sign-in relies on third-party storage that Safari, Firefox and
 Chrome increasingly block when the site isn't on the same domain as
-`authDomain`. So in production either host on Firebase Hosting with the
-custom domain as `authDomain`, proxy `/__/auth/` to
-`<project>.firebaseapp.com`, or accept that the fallback may not work in
-those browsers (the popup is the main path). See
-https://firebase.google.com/docs/auth/web/redirect-best-practices.
+`authDomain`, so on the live site `authDomain` is the site's own domain:
+`src/lib/firebase.ts` uses `learnjustviet.com` when the page is served
+there (Firebase Hosting serves `/__/auth/handler` on it), and the
+configured `<project>.firebaseapp.com` everywhere else (localhost,
+just-viet.web.app). This needs `https://learnjustviet.com/__/auth/handler`
+in the OAuth client's authorized redirect URIs (see console settings
+below). See https://firebase.google.com/docs/auth/web/redirect-best-practices.
 
 **One account per email address.** Google and password sign-in for the
 same email are the same account (same uid, same data):
@@ -241,9 +241,15 @@ Community Phase 3.
 
 All under Authentication in the Firebase console:
 - **Sign-in method → Google:** enabled, with a support email.
-- **Settings → Authorized domains:** `localhost` is there by default; add
-  the production domain before launch (Google sign-in and email links fail
-  on unlisted domains).
+- **Settings → Authorized domains:** `localhost` and the project's
+  `web.app`/`firebaseapp.com` domains are there by default; `learnjustviet.com`
+  must be listed too (Google sign-in and email links fail on unlisted
+  domains).
+- **Google Cloud console → APIs & Services → Credentials → OAuth 2.0
+  Client IDs → "Web client (auto created by Google Service)" → Authorized
+  redirect URIs:** must include `https://learnjustviet.com/__/auth/handler`
+  (alongside the existing `https://just-viet.firebaseapp.com/__/auth/handler`),
+  or Google sign-in on learnjustviet.com fails with `redirect_uri_mismatch`.
 - **Settings → Password policy:** set the minimum length to 10, leave the
   character requirements off, set enforcement to **Require**, and leave
   **Force upgrade on sign-in** off (otherwise existing users with shorter
@@ -253,7 +259,7 @@ All under Authentication in the Firebase console:
   it.
 - **Templates:** for Password reset, Email address verification and Email
   address change, set the sender name and, under "Customize action URL",
-  `https://<your domain>/auth/action` (for local testing,
+  `https://learnjustviet.com/auth/action` (for local testing,
   `http://localhost:3000/auth/action`). One action URL applies to all
   templates. Until it's set, links use Firebase's default page, which
   works but doesn't apply JustViet's password rules on reset.
