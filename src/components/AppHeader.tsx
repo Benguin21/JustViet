@@ -15,20 +15,26 @@ export function AppHeader() {
   }
 
   return (
-    <header className="flex items-center justify-between border-b-2 border-ink-300/30 bg-surface px-6 py-4">
-      <Link href="/home">
+    <header className="flex items-center justify-between gap-3 border-b-2 border-ink-300/30 bg-surface px-4 py-4 sm:px-6">
+      <Link href="/home" className="rounded-xl focus:outline-none focus-visible:ring-4 focus-visible:ring-yellow-200">
         <Logo />
       </Link>
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2 sm:gap-4">
         {user && (
-          <span className="hidden text-sm font-bold text-ink-700 sm:inline">
+          <span className="hidden text-sm font-bold text-ink-700 md:inline">
             Xin chào, {user.displayName || user.email}!
           </span>
         )}
+        <Link
+          href="/settings"
+          className="rounded-xl border-2 border-ink-300/60 px-3 py-2 text-sm font-bold text-ink-700 hover:bg-yellow-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-yellow-200 sm:px-4"
+        >
+          <span aria-hidden="true">⚙️ </span>Settings
+        </Link>
         <button
           type="button"
           onClick={handleLogOut}
-          className="rounded-xl border-2 border-ink-300/60 px-4 py-2 text-sm font-bold text-ink-700 hover:bg-yellow-50"
+          className="rounded-xl border-2 border-ink-300/60 px-3 py-2 text-sm font-bold text-ink-700 hover:bg-yellow-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-yellow-200 sm:px-4"
         >
           Log Out
         </button>

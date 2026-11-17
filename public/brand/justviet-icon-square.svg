@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120">
+  <title>JustViet</title>
+  <rect width="120" height="120" fill="#f15b48"/>
+  <polygon points="60.00,28.00 69.40,50.06 93.29,52.18 75.22,67.94 80.57,91.32 60.00,79.00 39.43,91.32 44.78,67.94 26.71,52.18 50.60,50.06" fill="#dc9a12" stroke="#dc9a12" stroke-width="10" stroke-linejoin="round"/>
+  <polygon points="60.00,28.00 69.40,50.06 93.29,52.18 75.22,67.94 80.57,91.32 60.00,79.00 39.43,91.32 44.78,67.94 26.71,52.18 50.60,50.06" fill="#fdc63a" stroke="#fdc63a" stroke-width="6" stroke-linejoin="round"/>
+</svg>

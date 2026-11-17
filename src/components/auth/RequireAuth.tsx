@@ -3,11 +3,13 @@
 import { useEffect, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
+import { loginPathFor } from "@/lib/auth/next-path";
 
 /**
  * Client-side route guard: redirects to /login when there's no signed-in
  * user, and renders nothing until we know either way (avoids a flash of
- * protected content).
+ * protected content). The login URL carries `?next=` so the user lands
+ * back on this page after signing in.
  */
 export function RequireAuth({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
@@ -15,7 +17,9 @@ export function RequireAuth({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!loading && !user) {
-      router.replace("/login");
+      // Read the location here (not via useSearchParams) so this guard
+      // doesn't need a Suspense boundary around every page.
+      router.replace(loginPathFor(`${window.location.pathname}${window.location.search}`));
     }
   }, [loading, user, router]);
 

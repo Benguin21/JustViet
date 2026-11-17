@@ -18,7 +18,11 @@ Firestore).
 
 - `npm run dev` — start the dev server (Turbopack) at localhost:3000
 - `npm run build` — production build; also type-checks (`next build` runs
-  `tsc` as part of the build)
+  `tsc` as part of the build). If Turbopack fails with "Can't resolve
+  '@vercel/turbopack-next/internal/font/google/font'", it couldn't download
+  the Google Fonts on this network (its downloader doesn't share Node's
+  network settings); `npx next build --webpack` builds the same app and
+  downloads fonts through Node.
 - `npm run lint` — ESLint (flat config, `eslint.config.mjs`)
 - `npx tsc --noEmit` — type-check only, faster than a full build
 - `npm run test` — Vitest, run once (`npm run test:watch` for watch mode).
@@ -43,21 +47,30 @@ The Firebase console needs: the **Email/Password** sign-in provider enabled
 (Authentication → Sign-in method) for signup/login/password-reset, and a
 **Firestore Database** created (Build → Firestore Database → Create
 database) with `firestore.rules`'s contents published (Firestore →
-Rules tab) — that file is what isolates each user's data by uid.
+Rules tab) — that file is what isolates each user's data by uid. The
+account system needs more console settings; see "Firebase console settings
+for sign-in" under Accounts and sign-in below.
 
 ## Architecture
 
 **Auth flow.** `src/lib/auth-context.tsx` holds the single Firebase `auth`
-subscription (`AuthProvider`, mounted in the root layout) plus the
-`signUp` / `logIn` / `logOut` / `resetPassword` action functions — this is
-the one place that touches `firebase/auth`. Pages/components read state via
-the `useAuth()` hook, never `onAuthStateChanged` directly.
+subscription (`AuthProvider`, mounted in the root layout) plus every auth
+action function (sign-up, login, Google, password reset, email links,
+settings changes) — this is the one place that touches `firebase/auth`.
+Pages/components read state via the `useAuth()` hook (`user`, `loading`,
+`emailVerified`, `providers.password` / `providers.google`), never
+`onAuthStateChanged` directly. Firebase mutates the `User` object in place,
+so each action calls `notifyUserChanged()` and the provider bumps a
+version to re-render consumers. Details in "Accounts and sign-in" below.
 
 **Route protection is client-side only.** There's no server session/cookie
 — `src/components/auth/RequireAuth.tsx` wraps the `(app)` route group's
-layout, watches `useAuth()`, and redirects to `/login` once loading
-finishes with no user (rendering nothing in the meantime to avoid a
-content flash). `/` itself (`src/app/page.tsx`) just redirects to `/home`
+layout, watches `useAuth()`, and redirects to `/login?next=<current path>`
+once loading finishes with no user (rendering nothing in the meantime to
+avoid a content flash); after signing in, the login page sends them back
+there. `next` is untrusted input, so `safeNextPath`
+(`src/lib/auth/next-path.ts`) only accepts a same-site path starting with
+a single "/" and falls back to /home otherwise (no open redirects). `/` itself (`src/app/page.tsx`) just redirects to `/home`
 or `/login` based on the same hook. If a real backend/session is added
 later, route protection should move to `proxy.ts` (Next 16 renamed
 `middleware.ts` → `proxy.ts`) backed by a Firebase session cookie —
@@ -93,6 +106,105 @@ instead of `Date.now()` in render code. Don't call `Date.now()` inside
 store-change notifications, or React sees "torn" state and re-renders in
 an infinite loop (this bit us once during development; see the comment in
 that file).
+
+## Accounts and sign-in
+
+Login, signup and "forgot password" share `src/app/login/page.tsx`
+(`?view=signup|forgot` opens a tab; `?next=` is where to go afterwards,
+except that a brand-new account — email signup, or a first Google sign-in
+per `getAdditionalUserInfo(...).isNewUser` — always lands on /home, where
+Rồng Con's intro runs).
+Account settings are `src/app/(app)/settings/page.tsx`; Firebase's email
+links land on `src/app/auth/action/page.tsx`.
+
+**Sign-in methods: email + password, and Google.** Google uses a popup,
+falling back to a full-page redirect only if the popup is blocked
+(`completeGoogleRedirect()` finishes it on the login and settings pages).
+Redirect sign-in relies on third-party storage that Safari, Firefox and
+Chrome increasingly block when the site isn't on the same domain as
+`authDomain`. So in production either host on Firebase Hosting with the
+custom domain as `authDomain`, proxy `/__/auth/` to
+`<project>.firebaseapp.com`, or accept that the fallback may not work in
+those browsers (the popup is the main path). See
+https://firebase.google.com/docs/auth/web/redirect-best-practices.
+
+**One account per email address.** Google and password sign-in for the
+same email are the same account (same uid, same data):
+- Signing in with Google on an email that has a password account throws
+  `auth/account-exists-with-different-credential` when Google isn't
+  authoritative for that address. The login page keeps the Google
+  credential (`pendingGoogleLinkFromError`), asks for the password once,
+  then links Google (`linkPendingGoogle`).
+- Google *is* authoritative for Gmail addresses, so there Firebase links or
+  merges on its own. Caveat: if the password account's email was never
+  verified, Firebase replaces the password sign-in with Google (same uid,
+  so no data is lost, but the password stops working). Settings explains
+  this to unverified password users, and they can set a password again.
+- Settings can connect/disconnect Google (never the last sign-in method)
+  and give a Google-only account a password. That uses the reset-link
+  email, because with email enumeration protection on, Firebase rejects
+  `linkWithCredential` with an email credential from the browser.
+
+**Passwords** (`src/lib/auth/password-rules.ts`, `breach-check.ts`,
+`new-password.ts`; tested): at least 10 characters, max 128; not a common
+password or obvious pattern (built-in list plus sequence/repeat/keyboard
+checks, after undoing letter swaps like p@ssw0rd and trailing digits); not
+in a known breach (Have I Been Pwned range API, k-anonymity: only the
+first 5 hex characters of the SHA-1 leave the browser, with
+`Add-Padding`). If the breach check can't run, the password is allowed.
+No forced symbol/number/case mix; the strength meter rewards length.
+`validateNewPassword` is the one check used by signup, settings and the
+reset-link page. Existing accounts with shorter passwords still sign in.
+
+**Email verification.** Signup sends a verification email (Google accounts
+start verified). Learning features don't require it; `VerifyEmailBanner`
+(in the `(app)` layout) reminds, offers Resend, can be dismissed for the
+browser session, and re-checks on tab focus. `refreshUser()` reloads the
+user and, when the email just became verified, refreshes the ID token so
+Firestore rules checking `request.auth.token.email_verified` (the
+Community will) see it immediately.
+
+**Email links (`/auth/action`).** Handles `resetPassword` (applies the
+password rules, then signs the user in), `verifyEmail`,
+`verifyAndChangeEmail` (signs out afterwards, since Firebase ends sessions
+on an email change) and `recoverEmail` (restoring is a button press, then
+it offers a password reset). Expired and used links get clear messages.
+Each one-time code is used at most once per page load (`once()`), because
+StrictMode runs effects twice in development.
+
+**Error messages** (`src/lib/auth-errors.ts`, tested): written for email
+enumeration protection, so wrong email and wrong password read the same,
+and password-reset requests always "succeed". Firebase still reports
+`auth/email-already-in-use` at signup (enumeration protection doesn't
+cover sign-up), so that message is worded gently; hiding it fully would
+need a server.
+
+**Not possible without a server:** "sign out of all devices" (it needs the
+Admin SDK to revoke refresh tokens). Changing the password or email does
+end other sessions, because Firebase revokes tokens on those changes.
+"Delete my account" is a placeholder on the settings page, built in
+Community Phase 3.
+
+### Firebase console settings for sign-in
+
+All under Authentication in the Firebase console:
+- **Sign-in method → Google:** enabled, with a support email.
+- **Settings → Authorized domains:** `localhost` is there by default; add
+  the production domain before launch (Google sign-in and email links fail
+  on unlisted domains).
+- **Settings → Password policy:** set the minimum length to 10, leave the
+  character requirements off, set enforcement to **Require**, and leave
+  **Force upgrade on sign-in** off (otherwise existing users with shorter
+  passwords are locked out). It was 6 (the default) when this was built.
+- **Settings → User actions → Email enumeration protection:** on (the
+  default for projects created after 15 Sep 2023). The app is written for
+  it.
+- **Templates:** for Password reset, Email address verification and Email
+  address change, set the sender name and, under "Customize action URL",
+  `https://<your domain>/auth/action` (for local testing,
+  `http://localhost:3000/auth/action`). One action URL applies to all
+  templates. Until it's set, links use Firebase's default page, which
+  works but doesn't apply JustViet's password rules on reset.
 
 ## Vocab SRS feature
 

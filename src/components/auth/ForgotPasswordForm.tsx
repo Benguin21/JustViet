@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { TextField } from "@/components/ui/TextField";
 import { Button } from "@/components/ui/Button";
-import { resetPassword } from "@/lib/auth-context";
+import { requestPasswordReset } from "@/lib/auth-context";
 import { friendlyAuthError } from "@/lib/auth-errors";
 
 type ForgotPasswordFormProps = {
@@ -11,34 +11,33 @@ type ForgotPasswordFormProps = {
   onBackToLogin: () => void;
 };
 
-export function ForgotPasswordForm({
-  initialEmail = "",
-  onBackToLogin,
-}: ForgotPasswordFormProps) {
+/**
+ * "Forgot password?" — always ends on the same message whether or not the
+ * email has an account, so this form can't be used to find out who's
+ * registered (see `requestPasswordReset`).
+ */
+export function ForgotPasswordForm({ initialEmail = "", onBackToLogin }: ForgotPasswordFormProps) {
   const [email, setEmail] = useState(initialEmail);
+  const [fieldError, setFieldError] = useState<string | undefined>();
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [sent, setSent] = useState(false);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
+    if (submitting) return;
     setError(null);
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setFieldError("Enter the email address you signed up with.");
+      return;
+    }
+    setFieldError(undefined);
     setSubmitting(true);
     try {
-      await resetPassword(email);
+      await requestPasswordReset(email);
       setSent(true);
     } catch (err) {
-      // Don't reveal whether an email is registered — show the same
-      // success state for unknown accounts as for real ones.
-      if (
-        err instanceof Error &&
-        "code" in err &&
-        (err as { code?: string }).code === "auth/user-not-found"
-      ) {
-        setSent(true);
-      } else {
-        setError(friendlyAuthError(err));
-      }
+      setError(friendlyAuthError(err, "reset-request"));
     } finally {
       setSubmitting(false);
     }
@@ -46,13 +45,16 @@ export function ForgotPasswordForm({
 
   if (sent) {
     return (
-      <div className="flex flex-col items-center gap-4 text-center">
+      <div className="flex flex-col items-center gap-4 text-center" role="status">
         <span className="text-4xl" aria-hidden="true">
           📬
         </span>
         <p className="font-semibold text-ink-700">
-          If an account exists for <span className="text-ink-900">{email}</span>,
-          a password reset link is on its way. Check your inbox!
+          If an account exists for <span className="text-ink-900">{email.trim()}</span>, we&apos;ve sent a link to
+          reset the password. Check your inbox (and your spam folder).
+        </p>
+        <p className="text-sm text-ink-500">
+          Signed up with Google? You can keep using &ldquo;Continue with Google&rdquo; — no password needed.
         </p>
         <Button type="button" variant="outline" onClick={onBackToLogin}>
           Back to Log In
@@ -62,21 +64,23 @@ export function ForgotPasswordForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
       <p className="text-sm font-semibold text-ink-500">
-        Enter your email and we&apos;ll send you a link to reset your
-        password.
+        Enter your email and we&apos;ll send you a link to reset your password.
       </p>
       <TextField
         label="Email"
         type="email"
         autoComplete="email"
+        inputMode="email"
         required
+        autoFocus
         value={email}
         onChange={(e) => setEmail(e.target.value)}
+        error={fieldError}
       />
       {error && (
-        <p className="rounded-xl bg-red-50 px-4 py-2 text-sm font-semibold text-red-600">
+        <p role="alert" className="rounded-xl bg-red-50 px-4 py-2 text-sm font-semibold text-red-600">
           {error}
         </p>
       )}
@@ -86,7 +90,7 @@ export function ForgotPasswordForm({
       <button
         type="button"
         onClick={onBackToLogin}
-        className="text-sm font-bold text-ink-500 hover:text-red-500"
+        className="rounded text-sm font-bold text-ink-500 hover:text-red-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-yellow-100"
       >
         Back to Log In
       </button>
