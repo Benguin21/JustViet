@@ -40,20 +40,21 @@ export function HeaderCtas() {
   const { user, loading } = useAuth();
   if (!loading && user) {
     return (
-      <ButtonLink href="/home" size="sm" className="px-4 py-2">
+      <ButtonLink href="/home" size="sm" className="shrink-0 px-4 py-2 whitespace-nowrap">
         Open JustViet
       </ButtonLink>
     );
   }
   return (
-    <div className="flex items-center gap-2 sm:gap-3">
+    <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+      {/* Hidden on the narrowest phones; the hero has its own Log In button. */}
       <Link
         href="/login"
-        className="rounded-xl px-2 py-2 text-sm font-bold text-ink-700 hover:text-red-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-yellow-200 sm:px-3"
+        className="hidden rounded-xl px-2 py-2 text-sm font-bold whitespace-nowrap text-ink-700 hover:text-red-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-yellow-200 min-[360px]:inline-block sm:px-3"
       >
         Log in
       </Link>
-      <ButtonLink href="/login?view=signup" size="sm" className="px-4 py-2">
+      <ButtonLink href="/login?view=signup" size="sm" className="px-4 py-2 whitespace-nowrap">
         Start Free
       </ButtonLink>
     </div>

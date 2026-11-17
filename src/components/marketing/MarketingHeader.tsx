@@ -13,8 +13,8 @@ export function MarketingHeader() {
   return (
     <header className="sticky top-0 z-30 border-b-2 border-ink-300/20 bg-paper/90 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
-        <Link href="/" aria-label="JustViet home" className="rounded-xl focus:outline-none focus-visible:ring-4 focus-visible:ring-yellow-200">
-          <Logo className="origin-left scale-90 sm:scale-100" />
+        <Link href="/" aria-label="JustViet home" className="min-w-0 rounded-xl focus:outline-none focus-visible:ring-4 focus-visible:ring-yellow-200">
+          <Logo className="justify-start" />
         </Link>
         <nav aria-label="Main" className="hidden md:block">
           <ul className="flex items-center gap-1">
