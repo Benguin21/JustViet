@@ -1,0 +1,11 @@
+<!-- @dsCard group="Actions" height=260 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>RatingButtons — preview</title>
+<style>body{margin:0;padding:20px;background:var(--color-paper);color:var(--color-ink-900);font-family:var(--font-body),sans-serif}</style></head>
+<body>
+<div id="root"></div>
+<script>(()=>{var f=Object.create;var r=Object.defineProperty;var b=Object.getOwnPropertyDescriptor;var h=Object.getOwnPropertyNames;var D=Object.getPrototypeOf,R=Object.prototype.hasOwnProperty;var p=(e,a)=>()=>{try{return a||e((a={exports:{}}).exports,a),a.exports}catch(t){throw a=0,t}},j=(e,a)=>{for(var t in a)r(e,t,{get:a[t],enumerable:!0})},A=(e,a,t,s)=>{if(a&&typeof a=="object"||typeof a=="function")for(let d of h(a))!R.call(e,d)&&d!==t&&r(e,d,{get:()=>a[d],enumerable:!(s=b(a,d))||s.enumerable});return e};var l=(e,a,t)=>(t=e!=null?f(D(e)):{},A(a||!e||!e.__esModule?r(t,"default",{value:e,enumerable:!0}):t,e));var m=p((B,y)=>{y.exports=window.JustViet});var g=p((F,w)=>{var v=window.React;function c(e,a,t){var s=Object.assign({},a);return t!==void 0&&(s.key=t),v.createElement(e,s)}w.exports={jsx:c,jsxs:c,jsxDEV:c,Fragment:v.Fragment}});var i={};j(i,{Default:()=>E,Disabled:()=>N});var u=l(m()),n=l(g()),x={again:{rating:"again",dueAt:0,scheduledDays:0,label:"10 min"},hard:{rating:"hard",dueAt:0,scheduledDays:1,label:"1 day"},good:{rating:"good",dueAt:0,scheduledDays:4,label:"4 days"},easy:{rating:"easy",dueAt:0,scheduledDays:12,label:"12 days"}},E=()=>(0,n.jsx)("div",{style:{width:640},children:(0,n.jsx)(u.RatingButtons,{previews:x,onRate:()=>{}})}),N=()=>(0,n.jsx)("div",{style:{width:640},children:(0,n.jsx)(u.RatingButtons,{previews:x,onRate:()=>{},disabled:!0})});var o=window.React.createElement,O=Object.keys(i).map(function(e){return o("div",{key:e,className:"flex flex-col gap-2"},o("div",{className:"text-xs font-bold tracking-wide uppercase text-ink-500"},e.replace(/([a-z])([A-Z])/g,"$1 $2")),o(i[e]))});window.ReactDOM.createRoot(document.getElementById("root")).render(o("div",{className:"flex flex-col gap-6"},O));})();
+</script>
+</body>
+</html>

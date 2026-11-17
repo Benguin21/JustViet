@@ -1,0 +1,11 @@
+<!-- @dsCard group="Overlays" height=880 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>ConfirmDialog — preview</title>
+<style>body{margin:0;padding:20px;background:var(--color-paper);color:var(--color-ink-900);font-family:var(--font-body),sans-serif}</style></head>
+<body>
+<div id="root"></div>
+<script>(()=>{var g=Object.create;var s=Object.defineProperty;var y=Object.getOwnPropertyDescriptor;var R=Object.getOwnPropertyNames;var b=Object.getPrototypeOf,D=Object.prototype.hasOwnProperty;var p=(e,t)=>()=>{try{return t||e((t={exports:{}}).exports,t),t.exports}catch(r){throw t=0,r}},C=(e,t)=>{for(var r in t)s(e,r,{get:t[r],enumerable:!0})},N=(e,t,r,a)=>{if(t&&typeof t=="object"||typeof t=="function")for(let o of R(t))!D.call(e,o)&&o!==r&&s(e,o,{get:()=>t[o],enumerable:!(a=y(t,o))||a.enumerable});return e};var l=(e,t,r)=>(r=e!=null?g(b(e)):{},N(t||!e||!e.__esModule?s(r,"default",{value:e,enumerable:!0}):r,e));var v=p((k,w)=>{w.exports=window.JustViet});var m=p((I,h)=>{var x=window.React;function d(e,t,r){var a=Object.assign({},t);return r!==void 0&&(a.key=r),x.createElement(e,a)}h.exports={jsx:d,jsxs:d,jsxDEV:d,Fragment:x.Fragment}});var i={};C(i,{DeleteCard:()=>j,NonDestructive:()=>F});var f=l(v()),n=l(m()),u=({children:e})=>(0,n.jsx)("div",{style:{position:"relative",width:600,height:380,transform:"translateZ(0)",overflow:"hidden"},children:e}),j=()=>(0,n.jsx)(u,{children:(0,n.jsx)(f.ConfirmDialog,{title:"Delete this card?",description:`"xin ch\xE0o" and its full review history will be permanently deleted. This can't be undone.`,confirmLabel:"Delete",onConfirm:()=>{},onCancel:()=>{}})}),F=()=>(0,n.jsx)(u,{children:(0,n.jsx)(f.ConfirmDialog,{title:"Reschedule existing cards?",description:"This updates the next-review date for every review-state card to match your current desired retention. It won't affect new or learning cards.",confirmLabel:"Reschedule",danger:!1,onConfirm:()=>{},onCancel:()=>{}})});var c=window.React.createElement,E=Object.keys(i).map(function(e){return c("div",{key:e,className:"flex flex-col gap-2"},c("div",{className:"text-xs font-bold tracking-wide uppercase text-ink-500"},e.replace(/([a-z])([A-Z])/g,"$1 $2")),c(i[e]))});window.ReactDOM.createRoot(document.getElementById("root")).render(c("div",{className:"flex flex-col gap-6"},E));})();
+</script>
+</body>
+</html>

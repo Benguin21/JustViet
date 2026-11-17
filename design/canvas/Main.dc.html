@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Grammar lesson: word order</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/justviet/components/bundle.css">
+<script src="ds/justviet/components/bundle.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+</style>
+</helmet>
+<main class="bg-paper text-ink-900 font-body" style="width: 390px; height: 844px; box-sizing: border-box; padding: 20px 20px 24px; display: flex; flex-direction: column; gap: 20px">
+<div style="display: flex; align-items: center; gap: 12px">
+<button type="button" aria-label="Leave lesson" class="font-heading text-ink-500" style="width: 44px; height: 44px; border: 0; background: transparent; font-size: 28px; line-height: 1; cursor: pointer; padding: 0">×</button>
+<div role="progressbar" aria-label="Lesson progress" aria-valuenow="{{progressNow}}" aria-valuemin="0" aria-valuemax="100" class="bg-yellow-100" style="flex-grow: 1; height: 14px; border-radius: 9999px; overflow: hidden">
+<div class="bg-yellow-400" style="height: 100%; border-radius: 9999px; width: {{progressWidth}}"></div>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; gap: 8px">
+<x-import component-from-global-scope="JustViet.Badge" tone="yellow">Grammar</x-import>
+<x-import component-from-global-scope="JustViet.Badge" tone="blue">New</x-import>
+</div>
+<h1 class="font-heading text-ink-900" style="margin: 0; font-size: 30px; line-height: 36px; font-weight: 800">Word order</h1>
+<p class="text-ink-700" style="margin: 0; font-size: 16px; line-height: 24px">Vietnamese sentences follow the same order as English: who does it, what they do, then what to.</p>
+</div>
+
+<div class="bg-surface border-2 border-yellow-200" style="border-radius: 24px; padding: 20px; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; gap: 8px; flex-wrap: wrap">
+<div class="bg-red-50 border-2 border-red-200" style="border-radius: 16px; padding: 6px 12px; display: flex; flex-direction: column; align-items: center">
+<span class="font-heading text-ink-900" style="font-size: 22px; line-height: 28px; font-weight: 800">Tôi</span>
+<span class="text-red-600" style="font-size: 12px; font-weight: 700; letter-spacing: 0.025em; text-transform: uppercase">Subject</span>
+</div>
+<div class="bg-yellow-50 border-2 border-yellow-200" style="border-radius: 16px; padding: 6px 12px; display: flex; flex-direction: column; align-items: center">
+<span class="font-heading text-ink-900" style="font-size: 22px; line-height: 28px; font-weight: 800">ăn</span>
+<span class="text-ink-700" style="font-size: 12px; font-weight: 700; letter-spacing: 0.025em; text-transform: uppercase">Verb</span>
+</div>
+<div class="bg-sky-100" style="border-radius: 16px; padding: 8px 14px; display: flex; flex-direction: column; align-items: center">
+<span class="font-heading text-ink-900" style="font-size: 22px; line-height: 28px; font-weight: 800">phở</span>
+<span class="text-sky-700" style="font-size: 12px; font-weight: 700; letter-spacing: 0.025em; text-transform: uppercase">Object</span>
+</div>
+</div>
+<p class="text-ink-500" style="margin: 0; font-size: 14px; line-height: 20px; font-weight: 700">I eat phở.</p>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 10px; flex-grow: 1">
+<h2 class="font-heading text-ink-900" style="margin: 0; font-size: 20px; line-height: 28px; font-weight: 800">How do you say “I drink coffee”?</h2>
+<sc-for list="{{options}}" as="opt" hint-placeholder-count="3">
+<button type="button" onClick="{{opt.pick}}" aria-pressed="{{opt.pressed}}" class="{{opt.cls}}" style="min-height: 52px; border-radius: 16px; border-width: 2px 2px 4px; border-style: solid; padding: 10px 16px; text-align: left; font-family: inherit; font-size: 17px; font-weight: 700; cursor: pointer">{{opt.text}}</button>
+</sc-for>
+</div>
+
+<sc-if value="{{showCorrect}}" hint-placeholder-val="{{false}}">
+<div role="status" class="bg-success/15 text-success-dark" style="border-radius: 16px; padding: 12px 16px; font-size: 16px; font-weight: 800">Đúng rồi! That’s right: Tôi uống cà phê.</div>
+</sc-if>
+<sc-if value="{{showWrong}}" hint-placeholder-val="{{false}}">
+<div role="status" class="bg-red-100 text-red-600" style="border-radius: 16px; padding: 12px 16px; font-size: 16px; font-weight: 800">Not quite. Subject first: Tôi uống cà phê.</div>
+</sc-if>
+
+<sc-if value="{{checked}}" hint-placeholder-val="{{false}}">
+<x-import component-from-global-scope="JustViet.Button" variant="{{continueVariant}}" onClick="{{reset}}">Continue</x-import>
+</sc-if>
+<sc-if value="{{notChecked}}" hint-placeholder-val="{{true}}">
+<x-import component-from-global-scope="JustViet.Button" disabled="{{noPick}}" onClick="{{check}}">Check</x-import>
+</sc-if>
+</main>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;progress&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:0,&quot;min&quot;:0,&quot;max&quot;:100,&quot;step&quot;:5,&quot;unit&quot;:&quot;%&quot;},&quot;$preview&quot;:{&quot;width&quot;:390,&quot;height&quot;:844}}">
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { picked: null, checked: false };
+  }
+  renderVals() {
+    const answers = [
+      { id: 'a', text: 'Tôi uống cà phê.' },
+      { id: 'b', text: 'Cà phê uống tôi.' },
+      { id: 'c', text: 'Uống tôi cà phê.' }
+    ];
+    const { picked, checked } = this.state;
+    const correct = picked === 'a';
+    const options = answers.map((o) => {
+      let cls = 'bg-surface border-ink-300 text-ink-900';
+      if (picked === o.id) cls = 'bg-yellow-50 border-yellow-500 text-ink-900';
+      if (checked && o.id === 'a') cls = 'bg-success/15 border-success text-success-dark';
+      if (checked && picked === o.id && !correct) cls = 'bg-red-50 border-red-500 text-red-600';
+      return {
+        ...o,
+        cls,
+        pressed: picked === o.id ? 'true' : 'false',
+        pick: () => { if (!this.state.checked) this.setState({ picked: o.id }); }
+      };
+    });
+    const progress = this.props.progress ?? 40;
+    return {
+      options,
+      progressNow: progress,
+      progressWidth: progress + '%',
+      checked,
+      notChecked: !checked,
+      noPick: picked === null,
+      showCorrect: checked && correct,
+      showWrong: checked && !correct,
+      continueVariant: correct ? 'primary' : 'secondary',
+      check: () => this.setState({ checked: true }),
+      reset: () => this.setState({ picked: null, checked: false })
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+<!-- @dsCard group="Forms" height=440 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>TextField — preview</title>
+<style>body{margin:0;padding:20px;background:var(--color-paper);color:var(--color-ink-900);font-family:var(--font-body),sans-serif}</style></head>
+<body>
+<div id="root"></div>
+<script>(()=>{var u=Object.create;var n=Object.defineProperty;var b=Object.getOwnPropertyDescriptor;var y=Object.getOwnPropertyNames;var g=Object.getPrototypeOf,E=Object.prototype.hasOwnProperty;var x=(e,t)=>()=>{try{return t||e((t={exports:{}}).exports,t),t.exports}catch(a){throw t=0,a}},j=(e,t)=>{for(var a in t)n(e,a,{get:t[a],enumerable:!0})},R=(e,t,a,r)=>{if(t&&typeof t=="object"||typeof t=="function")for(let i of y(t))!E.call(e,i)&&i!==a&&n(e,i,{get:()=>t[i],enumerable:!(r=b(t,i))||r.enumerable});return e};var c=(e,t,a)=>(a=e!=null?u(g(e)):{},R(t||!e||!e.__esModule?n(a,"default",{value:e,enumerable:!0}):a,e));var f=x((D,v)=>{v.exports=window.JustViet});var p=x(($,w)=>{var h=window.React;function m(e,t,a){var r=Object.assign({},t);return a!==void 0&&(r.key=a),h.createElement(e,r)}w.exports={jsx:m,jsxs:m,jsxDEV:m,Fragment:h.Fragment}});var o={};j(o,{Filled:()=>F,Labeled:()=>V,Unlabeled:()=>O,WithError:()=>N});var d=c(f()),l=c(p()),V=()=>(0,l.jsx)("div",{style:{width:320},children:(0,l.jsx)(d.TextField,{label:"Vietnamese",placeholder:"xin ch\xE0o"})}),F=()=>(0,l.jsx)("div",{style:{width:320},children:(0,l.jsx)(d.TextField,{label:"English",defaultValue:"hello"})}),N=()=>(0,l.jsx)("div",{style:{width:320},children:(0,l.jsx)(d.TextField,{label:"Email",type:"email",defaultValue:"ben@",error:"Please enter a valid email address."})}),O=()=>(0,l.jsx)("div",{style:{width:320},children:(0,l.jsx)(d.TextField,{placeholder:"Search your cards\u2026","aria-label":"Search cards"})});var s=window.React.createElement,S=Object.keys(o).map(function(e){return s("div",{key:e,className:"flex flex-col gap-2"},s("div",{className:"text-xs font-bold tracking-wide uppercase text-ink-500"},e.replace(/([a-z])([A-Z])/g,"$1 $2")),s(o[e]))});window.ReactDOM.createRoot(document.getElementById("root")).render(s("div",{className:"flex flex-col gap-6"},S));})();
+</script>
+</body>
+</html>

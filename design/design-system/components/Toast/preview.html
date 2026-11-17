@@ -1,0 +1,11 @@
+<!-- @dsCard group="Overlays" height=360 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Toast — preview</title>
+<style>body{margin:0;padding:20px;background:var(--color-paper);color:var(--color-ink-900);font-family:var(--font-body),sans-serif}</style></head>
+<body>
+<div id="root"></div>
+<script>(()=>{var h=Object.create;var d=Object.defineProperty;var u=Object.getOwnPropertyDescriptor;var y=Object.getOwnPropertyNames;var j=Object.getPrototypeOf,R=Object.prototype.hasOwnProperty;var v=(e,t)=>()=>{try{return t||e((t={exports:{}}).exports,t),t.exports}catch(a){throw t=0,a}},E=(e,t)=>{for(var a in t)d(e,a,{get:t[a],enumerable:!0})},b=(e,t,a,r)=>{if(t&&typeof t=="object"||typeof t=="function")for(let s of y(t))!R.call(e,s)&&s!==a&&d(e,s,{get:()=>t[s],enumerable:!(r=u(t,s))||r.enumerable});return e};var c=(e,t,a)=>(a=e!=null?h(j(e)):{},b(t||!e||!e.__esModule?d(a,"default",{value:e,enumerable:!0}):a,e));var x=v((k,f)=>{f.exports=window.JustViet});var m=v((D,w)=>{var g=window.React;function l(e,t,a){var r=Object.assign({},t);return a!==void 0&&(r.key=a),g.createElement(e,r)}w.exports={jsx:l,jsxs:l,jsxDEV:l,Fragment:g.Fragment}});var i={};E(i,{Imported:()=>N,Saved:()=>I});var p=c(x()),o=c(m()),I=()=>(0,o.jsx)("div",{style:{position:"relative",width:440,height:140,transform:"translateZ(0)"},children:(0,o.jsx)(p.Toast,{message:"Card added \u2713"})}),N=()=>(0,o.jsx)("div",{style:{position:"relative",width:440,height:140,transform:"translateZ(0)"},children:(0,o.jsx)(p.Toast,{message:"Imported 24 cards"})});var n=window.React.createElement,O=Object.keys(i).map(function(e){return n("div",{key:e,className:"flex flex-col gap-2"},n("div",{className:"text-xs font-bold tracking-wide uppercase text-ink-500"},e.replace(/([a-z])([A-Z])/g,"$1 $2")),n(i[e]))});window.ReactDOM.createRoot(document.getElementById("root")).render(n("div",{className:"flex flex-col gap-6"},O));})();
+</script>
+</body>
+</html>

@@ -1,0 +1,33 @@
+{
+  "v": 3,
+  "layout": "files",
+  "createdOnFiles": {
+    "v": 1,
+    "at": "2026-10-15T20:17:54Z"
+  },
+  "title": "JustViet",
+  "namespace": "JustViet",
+  "libraries": [
+    {
+      "name": "react",
+      "version": "18"
+    },
+    {
+      "name": "react-dom",
+      "version": "18"
+    }
+  ],
+  "sections": {},
+  "groups": [],
+  "assetGroups": {},
+  "blobs": {},
+  "docs": {
+    "sections": []
+  },
+  "lastChange": {
+    "by": "Ben",
+    "at": "2026-11-07T20:20:00Z",
+    "via": "GitHub · Benguin21/JustViet@9231777",
+    "note": "Re-sync: components unchanged; stylesheet adds Nunito 900 and a grid/gap layout scale."
+  }
+}

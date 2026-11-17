@@ -1,0 +1,11 @@
+<!-- @dsCard group="Forms" height=260 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Switch — preview</title>
+<style>body{margin:0;padding:20px;background:var(--color-paper);color:var(--color-ink-900);font-family:var(--font-body),sans-serif}</style></head>
+<body>
+<div id="root"></div>
+<script>(()=>{var O=Object.create;var c=Object.defineProperty;var R=Object.getOwnPropertyDescriptor;var j=Object.getOwnPropertyNames;var E=Object.getPrototypeOf,S=Object.prototype.hasOwnProperty;var d=(e,t)=>()=>{try{return t||e((t={exports:{}}).exports,t),t.exports}catch(a){throw t=0,a}},k=(e,t)=>{for(var a in t)c(e,a,{get:t[a],enumerable:!0})},D=(e,t,a,n)=>{if(t&&typeof t=="object"||typeof t=="function")for(let o of j(t))!S.call(e,o)&&o!==a&&c(e,o,{get:()=>t[o],enumerable:!(n=R(t,o))||n.enumerable});return e};var s=(e,t,a)=>(a=e!=null?O(E(e)):{},D(t||!e||!e.__esModule?c(a,"default",{value:e,enumerable:!0}):a,e));var x=d(($,f)=>{f.exports=window.JustViet});var g=d((q,u)=>{u.exports=window.React});var m=d((z,b)=>{var v=window.React;function p(e,t,a){var n=Object.assign({},t);return a!==void 0&&(n.key=a),v.createElement(e,n)}b.exports={jsx:p,jsxs:p,jsxDEV:p,Fragment:v.Fragment}});var r={};k(r,{LabelOnly:()=>F,Off:()=>A,On:()=>N});var h=s(x()),y=s(g()),i=s(m()),w=({initial:e,label:t,description:a})=>{let[n,o]=(0,y.useState)(e);return(0,i.jsx)("div",{style:{width:380},children:(0,i.jsx)(h.Switch,{checked:n,onChange:o,label:t,description:a})})},N=()=>(0,i.jsx)(w,{initial:!0,label:"Mix new cards with reviews",description:"When off, all due reviews are shown before any new cards."}),A=()=>(0,i.jsx)(w,{initial:!1,label:"Add slight randomness to intervals",description:"Spreads cards out so they don't all clump onto the same day."}),F=()=>(0,i.jsx)(w,{initial:!0,label:"Play audio automatically"});var l=window.React.createElement,M=Object.keys(r).map(function(e){return l("div",{key:e,className:"flex flex-col gap-2"},l("div",{className:"text-xs font-bold tracking-wide uppercase text-ink-500"},e.replace(/([a-z])([A-Z])/g,"$1 $2")),l(r[e]))});window.ReactDOM.createRoot(document.getElementById("root")).render(l("div",{className:"flex flex-col gap-6"},M));})();
+</script>
+</body>
+</html>
