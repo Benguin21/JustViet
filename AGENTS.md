@@ -23,6 +23,14 @@ Firestore).
   the Google Fonts on this network (its downloader doesn't share Node's
   network settings); `npx next build --webpack` builds the same app and
   downloads fonts through Node.
+- `npm run deploy` — publishes the site to Firebase Hosting (project
+  `just-viet`, live at https://learnjustviet.com and
+  https://just-viet.web.app). It runs `next build --webpack` (the app is a
+  static export, `output: "export"` → `out/`), then
+  `scripts/fix-export-segments.mjs` (fixes a Next.js static-export bug on
+  Windows that misnames prefetch files), then `firebase deploy --only
+  hosting`. Hosting config (clean URLs, security headers, caching) is in
+  `firebase.json`. Firestore rules are still published by hand.
 - `npm run lint` — ESLint (flat config, `eslint.config.mjs`)
 - `npx tsc --noEmit` — type-check only, faster than a full build
 - `npm run test` — Vitest, run once (`npm run test:watch` for watch mode).
@@ -74,9 +82,13 @@ a single "/" and falls back to /home otherwise (no open redirects). `/` itself (
 or `/login` based on the same hook. If a real backend/session is added
 later, route protection should move to `proxy.ts` (Next 16 renamed
 `middleware.ts` → `proxy.ts`) backed by a Firebase session cookie —
-client-only guarding is not a security boundary.
+client-only guarding is not a security boundary. (`/` is the public
+landing page, not a redirect.)
 
 **Routing layout:**
+- `src/app/(marketing)/` — the public website, server-rendered and visible
+  without signing in: `/` (landing page), `/privacy`, `/terms`. See "Public
+  website" below.
 - `src/app/login/page.tsx` — single page, three modes (login/signup/forgot
   password) toggled by local state, not separate routes; see
   `src/components/auth/*Form.tsx`.
@@ -106,6 +118,46 @@ instead of `Date.now()` in render code. Don't call `Date.now()` inside
 store-change notifications, or React sees "torn" state and re-renders in
 an infinite loop (this bit us once during development; see the comment in
 that file).
+
+## Public website
+
+The marketing site lives in the same Next.js app and on the same domain as
+the study app (Google's OAuth branding requires the home page and privacy
+policy to be on the app's own verified domain). Route group
+`src/app/(marketing)/` with its own header and footer
+(`src/components/marketing/`):
+
+- `/` — landing page. **Copy rule:** describe only features that exist
+  today; anything planned is labelled "Coming soon". Calls to action are
+  auth-aware (`HeroCtas`/`HeaderCtas`): signed-in visitors get "Continue
+  learning" → /home.
+- `/privacy` and `/terms` — drafts written to match what the app actually
+  does (Firebase Auth + Firestore only, no analytics or ads, the Have I
+  Been Pwned check, one sessionStorage flag). **Whenever data collection or
+  a processor changes** (Community, payments, mobile apps, analytics, a new
+  host), update the Privacy Policy and its date in `src/lib/site.ts`
+  first. They need legal review before launch.
+- `src/lib/site.ts` — the business facts used everywhere: operator
+  ("JustViet LLC", Utah — update to the registered name once formed),
+  contact email, governing law, document dates, and the site URL from
+  `NEXT_PUBLIC_SITE_URL` (set it to the real domain in production; it
+  drives `metadataBase`, the sitemap and robots.txt).
+- SEO and icons: `src/app/robots.ts` (public pages allowed, app routes
+  disallowed), `sitemap.ts`, `icon.png`, `apple-icon.png`, `favicon.ico`
+  and `opengraph-image.png` (made from `public/brand/`, which holds the
+  logo files).
+- Links that look like buttons use `ButtonLink` (styles shared with
+  `Button` via `components/ui/button-styles.ts`, which is a plain module so
+  server components can use it) — never wrap a `<button>` in a `<Link>`.
+
+**Planned and designed for, not built:** a monthly subscription with a
+free trial (the Pricing section and Terms §8 describe it as future; when
+it ships, update both, add the payment processor to the Privacy Policy,
+and consider a cross-platform subscription service so web, iOS and
+Android share one entitlement), and native mobile apps (same Firebase
+account; Terms already mention app-store billing). The site's own domain
+should also become the Firebase `authDomain` (see the redirect note under
+Accounts and sign-in).
 
 ## Accounts and sign-in
 

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Logo } from "@/components/Logo";
@@ -154,7 +155,13 @@ function LoginPageContent() {
   return (
     <main className="flex min-h-screen flex-1 flex-col items-center justify-center bg-linear-to-b from-yellow-100 via-paper to-red-50 px-4 py-12">
       <div className="w-full max-w-md">
-        <Logo className="mb-8" />
+        <Link
+          href="/"
+          aria-label="JustViet home"
+          className="mx-auto mb-8 block w-fit rounded-xl focus:outline-none focus-visible:ring-4 focus-visible:ring-yellow-200"
+        >
+          <Logo />
+        </Link>
 
         {!isFirebaseConfigured && (
           <p className="mb-4 rounded-xl border-2 border-yellow-500 bg-yellow-50 px-4 py-3 text-sm font-semibold text-ink-700">
@@ -258,9 +265,34 @@ function LoginPageContent() {
               {mode === "forgot" && (
                 <ForgotPasswordForm initialEmail={email} onBackToLogin={() => setMode("login")} />
               )}
+              {mode === "signup" && (
+                <p className="mt-4 text-center text-xs text-ink-500">
+                  By creating an account (including with Google), you agree to our{" "}
+                  <Link href="/terms" className="font-bold text-ink-700 underline-offset-2 hover:underline">
+                    Terms of Service
+                  </Link>{" "}
+                  and{" "}
+                  <Link href="/privacy" className="font-bold text-ink-700 underline-offset-2 hover:underline">
+                    Privacy Policy
+                  </Link>
+                  .
+                </p>
+              )}
             </>
           )}
         </div>
+
+        <nav aria-label="JustViet" className="mt-6 flex flex-wrap justify-center gap-x-5 gap-y-2 text-sm font-semibold text-ink-500">
+          <Link href="/" className="rounded hover:text-red-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-yellow-200">
+            About JustViet
+          </Link>
+          <Link href="/privacy" className="rounded hover:text-red-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-yellow-200">
+            Privacy
+          </Link>
+          <Link href="/terms" className="rounded hover:text-red-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-yellow-200">
+            Terms
+          </Link>
+        </nav>
       </div>
     </main>
   );

@@ -10,7 +10,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "dictionary:import": "node scripts/import-dictionary.mts",
-    "test:rules": "npx --yes firebase-tools@15 emulators:exec --only firestore --project demo-justviet \"vitest run --config vitest.rules.config.mts\""
+    "test:rules": "npx --yes firebase-tools@15 emulators:exec --only firestore --project demo-justviet \"vitest run --config vitest.rules.config.mts\"",
+    "deploy": "next build --webpack && node scripts/fix-export-segments.mjs && npx --yes firebase-tools@15 deploy --only hosting"
   },
   "dependencies": {
     "firebase": "^12.19.0",

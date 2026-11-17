@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { EmailSection } from "@/components/settings/EmailSection";
@@ -10,6 +11,7 @@ import { SignInMethodsSection } from "@/components/settings/SignInMethodsSection
 import { useReauth } from "@/components/settings/useReauth";
 import { completeGoogleRedirect, useAuth } from "@/lib/auth-context";
 import { friendlyAuthError } from "@/lib/auth-errors";
+import { SITE } from "@/lib/site";
 
 export default function SettingsPage() {
   const { user } = useAuth();
@@ -56,12 +58,26 @@ export default function SettingsPage() {
       <SettingsSection
         title="Delete my account"
         tone="muted"
-        description="Permanently deleting your account and data is coming soon. Until then, contact JustViet support if you need your account removed."
+        description={`Permanently deleting your account and data is coming soon. Until then, email ${SITE.contactEmail} from your account's address and we'll remove it.`}
       >
         <Button variant="danger" fullWidth={false} className="px-6" disabled>
           Delete Account (coming soon)
         </Button>
       </SettingsSection>
+
+      <p className="text-center text-sm text-ink-500">
+        <Link href="/privacy" className="font-semibold hover:text-red-500">
+          Privacy Policy
+        </Link>
+        {" · "}
+        <Link href="/terms" className="font-semibold hover:text-red-500">
+          Terms of Service
+        </Link>
+        {" · "}
+        <a href={`mailto:${SITE.contactEmail}`} className="font-semibold hover:text-red-500">
+          Contact us
+        </a>
+      </p>
 
       {dialog}
     </main>

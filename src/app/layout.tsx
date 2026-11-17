@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Baloo_2, Nunito } from "next/font/google";
 import { AuthProvider } from "@/lib/auth-context";
+import { SITE } from "@/lib/site";
 import "./globals.css";
 
 // Vietnamese needs its own subset for letters like ồ, ữ and ạ, or they fall back to
@@ -18,8 +19,21 @@ const nunito = Nunito({
 });
 
 export const metadata: Metadata = {
-  title: "JustViet — Learn Vietnamese",
-  description: "A friendly, bite-sized way to learn Vietnamese.",
+  metadataBase: new URL(SITE.url),
+  title: {
+    default: "JustViet — Learn Vietnamese",
+    template: "%s · JustViet",
+  },
+  description: SITE.description,
+  applicationName: SITE.name,
+  openGraph: {
+    type: "website",
+    siteName: SITE.name,
+    title: "JustViet — Learn Vietnamese",
+    description: SITE.description,
+    url: "/",
+  },
+  twitter: { card: "summary_large_image" },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
