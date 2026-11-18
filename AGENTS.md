@@ -44,6 +44,9 @@ Firestore).
   checks the live Community counts against their records (see Community).
 - `node scripts/community-moderator.mts --key <service-account.json> --grant <email|uid>`
   (or `--revoke`, `--list`) — gives or takes away Community moderator rights.
+- `node scripts/purge-deleted-accounts.mts --key <service-account.json> [--apply]` —
+  finishes deleting accounts whose sign-in account is gone (run it at least
+  monthly; see "Deleting an account").
 
 ## Environment / Firebase setup
 
@@ -244,8 +247,8 @@ need a server.
 **Not possible without a server:** "sign out of all devices" (it needs the
 Admin SDK to revoke refresh tokens). Changing the password or email does
 end other sessions, because Firebase revokes tokens on those changes.
-"Delete my account" is a placeholder on the settings page, built in
-Community Phase 3.
+"Delete my account" is on the settings page; see "Deleting an account"
+under Community.
 
 ### Firebase console settings for sign-in
 
@@ -650,8 +653,9 @@ answers/comments, one reply level, votes, Community XP, accepted answers,
 search, reports, hiding, blocking, rate limits) and **Phase 2**
 (moderators, the reports queue, removing and restoring content, warnings,
 suspensions, bans, in-app notifications; see "Moderation and
-notifications" below) are built. **Phase 3** (hardening, stronger limits,
-account deletion) is not; see the end of this section.
+notifications" below) and **Phase 3** (daily caps, new-member and link
+limits, name resets, voiding votes, account deletion; see "Limits and
+account deletion" below) are built.
 
 **No backend.** Everything is enforced by `firestore.rules`, with the XP
 ledger's pattern: each action is one client transaction, and every document
@@ -834,8 +838,59 @@ recipient against that action, so they can't be forged. Never to yourself.
 The nav shows the unread count (re-counted on tab focus, one-time reads as
 everywhere else); notifications from members you've blocked aren't shown.
 
-**Phase 3 hooks.** All Community data is keyed by uid for account
-deletion, which must also delete the member's votes (adjusting the
-authors' totals), name claim, age answer, private lists, inbox and any
-removed copies. Not built yet: locks, appeals, fraud-vote invalidation,
-renaming an offensive name, and stronger rate limits.
+### Limits and account deletion (Phase 3)
+
+**Daily caps** (per UTC day, `limits.ts`, mirrored in the rules): 10 posts,
+100 answers/comments/replies, 300 votes; in a member's first 3 days
+(`NEW_MEMBER_DAYS`, from `profile.joinedAt`) 3 posts, 20 responses, 50
+votes. The activity record carries `countDay`, `dayPosts`,
+`dayResponses` and `dayVotes`; a post, response or vote must add exactly
+one to today's count (`countAction`), anything else leaves the counts
+alone. Like the report cap, the day comes from the browser's clock, so a
+badly wrong clock near midnight UTC can get a refusal. **Links**: at most
+`MAX_LINKS` (3) per post, answer, comment or reply, none for new members;
+counted as `http://`/`https://` occurrences (`countLinks`; the rules use
+`split`), on creates and edits. No limits use Community XP, by design
+(low scores never restrict anyone; karma can be farmed).
+
+**Moderator extras.** *Reset name* (`resetMemberName`): the profile
+becomes "Member 123456" (`placeholderName`, claimed for the member, old
+name released) with `nameReset: true`; the member sees a banner and can
+rename straight away, which clears the flag (then the 30-day wait applies
+again). *Cancel their votes* (`voidMemberVotes`, for vote manipulation):
+moderators can read any vote, and each vote is set to 0 in its own
+transaction (activity `act: "void"`) that moves the item's and author's
+counts back. Votes on deleted or removed content, or on the moderator's
+own content, are skipped.
+
+**Deleting an account** (Settings → Delete my account,
+`DeleteAccountSection` → `account/deleteAccount.ts`):
+1. Community (`deleteCommunityData`): withdraws the member's votes (each
+   a transaction with `act: "leave"`, which skips the vote wait and works
+   while suspended), deletes replies, then answers/comments, then posts
+   through the normal delete paths (so anything others replied to is
+   erased, not removed), deletes removed copies, notifications, hidden
+   posts and blocks, then the profile with its name claim (one batch; the
+   rules require both together). It finds the member's responses with a
+   collection-group query on `author`, which needs the `responses.author`
+   COLLECTION_GROUP field override in firestore.indexes.json.
+2. Learning data (`account/repository.ts`): vocabCards, reviewLogs,
+   settings, dictionaryEntries, companion.
+3. The sign-in account (`deleteSignInAccount` via `withRecentLogin`).
+
+The rules keep some things out of a browser's reach, so they're left for
+`scripts/purge-deleted-accounts.mts`: the XP ledger, the 13+ answer, and
+the activity record. Keeping the activity record means deleting a profile
+and rejoining can't escape a suspension. A banned member can't reach the
+Community, so their content is left too. The script finds every uid that
+owns data but has no sign-in account, deletes or anonymizes all of it
+(content others replied to is erased, the rest deleted; votes deleted),
+then fixes every Community count with `findDrift`. Without `--apply` it
+only reports. Reports and moderator-log entries are kept. The Privacy
+Policy promises this within 30 days, so run it at least monthly. Tested
+against the emulators (`emulators:exec --only firestore,auth`; the auth
+emulator is in firebase.json).
+
+**Not built** (deliberately left out): post locks, appeals, App Check /
+reCAPTCHA (needs keys from the Firebase and Google consoles), and
+detecting ban evasion through new accounts.

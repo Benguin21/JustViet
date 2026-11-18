@@ -144,7 +144,10 @@ const sections: LegalSection[] = [
           <li>Your votes: which posts and answers you voted on, and how.</li>
           <li>Reports you send: what you reported, the reason, any note you add, and when.</li>
           <li>The posts you hide and the accounts you block.</li>
-          <li>When you last posted, responded, voted and reported, so we can apply simple rate limits against spam.</li>
+          <li>
+            When you last posted, responded, voted and reported, and how many posts, answers and votes you made today, so
+            we can apply limits against spam.
+          </li>
           <li>
             Your notifications: who answered, replied to, mentioned you or accepted your answer, on which post, when,
             and whether you&apos;ve read it, plus messages from moderators.
@@ -166,7 +169,8 @@ const sections: LegalSection[] = [
             dictionary words, goals, XP and level) are never shown in the Community.
           </li>
           <li>
-            <strong>Votes are private.</strong> Members see only the total score; nobody else can see how you voted.
+            <strong>Votes are private.</strong> Members see only the total score; nobody else can see how you voted,
+            except moderators investigating vote manipulation (who can cancel the votes involved).
           </li>
           <li>
             <strong>Reports are confidential.</strong> The person you report isn&apos;t told who reported them. Reports are
@@ -176,9 +180,10 @@ const sections: LegalSection[] = [
           <li>Your notifications are private to you.</li>
           <li>
             <strong>Moderators</strong>, members the JustViet team appoints, can see reports (with their notes),
-            content they removed, whether a member is suspended or banned, and the moderator log. Moderators can&apos;t
-            see your email address, your votes or your learning data. When a moderator acts on your content or account
-            you get a notification with the reason; you aren&apos;t told which moderator it was.
+            content they removed, whether a member is suspended or banned, votes when investigating manipulation, and
+            the moderator log. Moderators can&apos;t see your email address or your learning data. They can replace a
+            community name that breaks the guidelines with a neutral one. When a moderator acts on your content or
+            account you get a notification with the reason; you aren&apos;t told which moderator it was.
           </li>
           <li>If you&apos;re banned, that&apos;s recorded on your community profile.</li>
         </ul>
@@ -280,15 +285,18 @@ const sections: LegalSection[] = [
       <>
         <p>
           We keep your account and learning data for as long as your account exists, so your progress is there when
-          you come back. If you ask us to delete your account, we&apos;ll delete your personal information within 30
-          days, except for anything we must keep to meet legal obligations, resolve disputes or prevent abuse. Copies in
-          our providers&apos; backups and logs are removed on their normal schedules. Community content follows the
-          rules in <a href="#community">The Community</a>; deleting your account will also delete your community
-          profile and erase your posts.
+          you come back.
         </p>
         <p>
-          A &ldquo;Delete my account&rdquo; button is coming to the app&apos;s settings. Until then, email <Mail /> from
-          the address on your account and we&apos;ll take care of it.
+          <strong>Deleting your account:</strong> use &ldquo;Delete my account&rdquo; in the app&apos;s Settings (or email{" "}
+          <Mail /> from the address on your account). It immediately deletes your flashcards, review history, dictionary
+          words, goals and settings; withdraws your Community votes; deletes your posts, answers, comments and replies
+          (where others had replied, a &ldquo;deleted by its author&rdquo; placeholder stays, with your name and text
+          erased); deletes your community profile, name and notifications; and deletes your sign-in account. A few
+          records the app itself can&apos;t change (your XP history, your Community age answer, and your Community
+          activity record) are deleted by us within 30 days. We keep only what we must to meet legal obligations,
+          resolve disputes or prevent abuse, such as reports you sent and records of moderator actions. Copies in our
+          providers&apos; backups and logs are removed on their normal schedules.
         </p>
       </>
     ),

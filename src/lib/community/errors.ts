@@ -52,6 +52,14 @@ export class SuspendedError extends Error {
   }
 }
 
+/** Today's cap for posts, responses or votes is used up (see limits.ts). */
+export class DailyLimitError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "DailyLimitError";
+  }
+}
+
 /** Only moderators can do that. */
 export class NotModeratorError extends Error {
   constructor() {
@@ -77,6 +85,7 @@ const KNOWN = [
   GoneError,
   SuspendedError,
   NotModeratorError,
+  DailyLimitError,
 ];
 
 /** A short, friendly message for anything a Community action throws. Mirrors firestore-errors.ts. */

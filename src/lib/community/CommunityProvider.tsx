@@ -16,7 +16,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { readModeratorClaim, useAuth } from "@/lib/auth-context";
 import { friendlyCommunityError } from "./errors";
 import * as repo from "./repository";
-import { utcDay } from "./limits";
+import { countAction, utcDay } from "./limits";
 import { EMPTY_ACTIVITY, type Activity, type CommunityProfile } from "./types";
 
 export type CommunityStatus = "loading" | "error" | "unverified" | "ask-age" | "under13" | "join" | "banned" | "member";
@@ -235,7 +235,8 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
       noteActivity: (kind) => {
         const now = Date.now();
         update((a) => {
-          const act = { ...a.activity };
+          let act = { ...a.activity };
+          if (kind !== "report") act = { ...act, ...countAction(kind, act, now) };
           if (kind === "post") act.lastPost = now;
           if (kind === "response") act.lastResponse = now;
           if (kind === "vote") act.lastVote = now;

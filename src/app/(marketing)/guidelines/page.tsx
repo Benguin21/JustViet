@@ -48,6 +48,10 @@ export default function GuidelinesPage() {
             for yourself.
           </p>
           <p>
+            To keep spam out, everyone has daily limits on posts, answers and votes, a post or answer can include at
+            most 3 links, and new members get lower limits and can&apos;t post links for their first 3 days.
+          </p>
+          <p>
             Moderators review reports. Breaking these guidelines or our{" "}
             <Link href="/terms" className="font-bold text-red-600 underline-offset-2 hover:underline">Terms of Service</Link> can
             lead to content being removed, a warning, a suspension from posting, or a ban from the Community. You&apos;ll

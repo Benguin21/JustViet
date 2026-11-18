@@ -37,6 +37,8 @@ function ProfileContent() {
   const page = useMemberProfile(uid);
   const [editing, setEditing] = useState(false);
   const [reporting, setReporting] = useState(false);
+  const [editLinkClosed, setEditLinkClosed] = useState(false);
+  const editOpen = editing || (Boolean(params.get("edit")) && !editLinkClosed);
   const [notice, setNotice] = useState<string | null>(null);
   const { message: toast, showToast } = useToast();
   const { profile } = page;
@@ -96,7 +98,7 @@ function ProfileContent() {
         </div>
         <div className="flex flex-wrap gap-1 sm:flex-col sm:items-end">
           {own ? (
-            <Button variant="outline" size="sm" fullWidth={false} onClick={() => setEditing((v) => !v)} aria-expanded={editing}>
+            <Button variant="outline" size="sm" fullWidth={false} onClick={() => { setEditLinkClosed(true); setEditing(!editOpen); }} aria-expanded={editOpen}>
               Edit profile
             </Button>
           ) : (
@@ -119,7 +121,7 @@ function ProfileContent() {
         </p>
       )}
       {!own && isModerator && me && <MemberModPanel modUid={me} uid={uid} name={profile.name} onDone={showToast} />}
-      {own && editing && <EditProfile profile={profile} onDone={(msg) => { setEditing(false); if (msg) showToast(msg); }} />}
+      {own && editOpen && <EditProfile profile={profile} onDone={(msg) => { setEditing(false); setEditLinkClosed(true); if (msg) showToast(msg); }} />}
 
       <section aria-labelledby="posts-heading" className="flex flex-col gap-3">
         <h2 id="posts-heading" className="font-heading text-xl font-extrabold text-ink-900">
@@ -156,7 +158,8 @@ function EditProfile({ profile, onDone }: { profile: CommunityProfile; onDone: (
   const [color, setLocalColor] = useState(profile.color);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const status = renameStatus(profile.nameChangedAt, now);
+  // After a moderator resets an offensive name, the member may choose a new one straight away.
+  const status = profile.nameReset ? { allowed: true, nextAt: null } : renameStatus(profile.nameChangedAt, now);
   const nameChanged = cleanName(name) !== profile.name;
   const problem = nameChanged ? nameProblem(name) : null;
 

@@ -15,6 +15,7 @@
  */
 import {
   collection,
+  collectionGroup,
   deleteDoc,
   doc,
   documentId,
@@ -46,6 +47,7 @@ import {
   GoneError,
   NameTakenError,
   RateLimitError,
+  DailyLimitError,
   RenameTooSoonError,
   ReportLimitError,
   SuspendedError,
@@ -55,11 +57,17 @@ import {
   POST_INTERVAL_S,
   RESPONSE_INTERVAL_S,
   VOTE_INTERVAL_S,
+  countAction,
+  dailyLeft,
+  dailyLimitMessage,
+  isNewMember,
+  linkProblem,
   reportsLeft,
+  type CountedAction,
   utcDay,
   waitSeconds,
 } from "./limits";
-import { isSuspended, removedKey, suspensionEnd, type ModAction, type ReportRecord } from "./moderation";
+import { isSuspended, placeholderName, removedKey, suspensionEnd, type ModAction, type ReportRecord } from "./moderation";
 import { cleanName, nameKey, nameProblem, renameStatus } from "./names";
 import {
   isModNotification,
@@ -148,6 +156,7 @@ function readProfile(uid: string, d: DocumentData): CommunityProfile {
     nameChangedAt: ms(d.nameChangedAt),
     guidelinesAt: ms(d.guidelinesAt),
     banned: d.banned === true,
+    nameReset: d.nameReset === true,
   };
 }
 
@@ -200,6 +209,10 @@ function readActivity(d: DocumentData | undefined): Activity {
     reportDay: num(d.reportDay),
     reports: num(d.reports),
     suspendedUntil: ms(d.suspendedUntil),
+    countDay: num(d.countDay),
+    dayPosts: num(d.dayPosts),
+    dayResponses: num(d.dayResponses),
+    dayVotes: num(d.dayVotes),
   };
 }
 
@@ -217,6 +230,10 @@ function activityWrite(raw: DocumentData | undefined, act: string, target: strin
     reportDay: raw?.reportDay ?? 0,
     reports: raw?.reports ?? 0,
     suspendedUntil: raw?.suspendedUntil ?? null,
+    countDay: raw?.countDay ?? 0,
+    dayPosts: raw?.dayPosts ?? 0,
+    dayResponses: raw?.dayResponses ?? 0,
+    dayVotes: raw?.dayVotes ?? 0,
     ...changes,
     act,
     target,
@@ -229,6 +246,26 @@ function assertNotSuspended(activity: Activity) {
   if (activity.suspendedUntil != null && isSuspended(activity.suspendedUntil, Date.now())) {
     throw new SuspendedError(activity.suspendedUntil);
   }
+}
+
+/**
+ * Refuses (before the rules would) when today's cap is used up, and returns
+ * the counts the activity record must carry for this action.
+ */
+function countFor(kind: CountedAction, activity: Activity, joinedAt: number) {
+  const now = Date.now();
+  if (dailyLeft(kind, activity, joinedAt, now) <= 0) throw new DailyLimitError(dailyLimitMessage(kind, isNewMember(joinedAt, now)));
+  return countAction(kind, activity, now);
+}
+
+function assertLinks(text: string, joinedAt: number) {
+  const problem = linkProblem(text, joinedAt, Date.now());
+  if (problem) throw new Error(problem);
+}
+
+async function ownJoinedAt(tx: Transaction | null, uid: string): Promise<number> {
+  const snap = tx ? await tx.get(profileRef(uid)) : await getDoc(profileRef(uid));
+  return readProfile(uid, snap.data() ?? {}).joinedAt;
 }
 
 async function checkNotSuspended(uid: string) {
@@ -306,7 +343,19 @@ export async function joinCommunity(uid: string, rawName: string, color: string)
     const profile = { name, nameKey: key, color, up: 0, down: 0, joinedAt: serverTimestamp(), nameChangedAt: null, guidelinesAt: null };
     if (!claim.exists()) tx.set(nameRef(key), { uid });
     tx.set(profileRef(uid), profile);
-    return { uid, name, nameKey: key, color, up: 0, down: 0, joinedAt: Date.now(), nameChangedAt: null, guidelinesAt: null, banned: false };
+    return {
+      uid,
+      name,
+      nameKey: key,
+      color,
+      up: 0,
+      down: 0,
+      joinedAt: Date.now(),
+      nameChangedAt: null,
+      guidelinesAt: null,
+      banned: false,
+      nameReset: false,
+    };
   });
 }
 
@@ -322,15 +371,15 @@ export async function renameProfile(uid: string, rawName: string): Promise<Commu
     const cur = readProfile(uid, snap.data());
     if (cur.name === name) return cur;
     const status = renameStatus(cur.nameChangedAt, Date.now());
-    if (!status.allowed && status.nextAt) throw new RenameTooSoonError(status.nextAt);
+    if (!cur.nameReset && !status.allowed && status.nextAt) throw new RenameTooSoonError(status.nextAt);
     if (key !== cur.nameKey) {
       const claim = await tx.get(nameRef(key));
       if (claim.exists() && claim.data().uid !== uid) throw new NameTakenError();
       if (!claim.exists()) tx.set(nameRef(key), { uid });
       tx.delete(nameRef(cur.nameKey));
     }
-    tx.update(profileRef(uid), { name, nameKey: key, nameChangedAt: serverTimestamp() });
-    return { ...cur, name, nameKey: key, nameChangedAt: Date.now() };
+    tx.update(profileRef(uid), { name, nameKey: key, nameChangedAt: serverTimestamp(), ...(cur.nameReset ? { nameReset: false } : {}) });
+    return { ...cur, name, nameKey: key, nameChangedAt: Date.now(), nameReset: false };
   });
 }
 
@@ -476,13 +525,16 @@ export async function createPost(uid: string, id: string, input: PostInput): Pro
     const existing = await tx.get(postRef(id));
     if (existing.exists()) return { post: readPost(id, existing.data()), duplicate: true };
     const { raw, activity } = await readActivityIn(tx, uid);
+    const joinedAt = await ownJoinedAt(tx, uid);
     assertNotSuspended(activity);
+    assertLinks(f.body, joinedAt);
     const wait = waitSeconds(activity.lastPost, Date.now(), POST_INTERVAL_S);
     if (wait > 0) throw new RateLimitError(wait);
+    const counts = countFor("post", activity, joinedAt);
     const base = { author: uid, editedAt: null, up: 0, down: 0, score: 0, responses: 0, erased: 0, accepted: null, deleted: false };
     const { tokens, ...shown } = f;
     tx.set(postRef(id), { ...shown, tokens, ...base, createdAt: serverTimestamp() });
-    tx.set(activityRef(uid), activityWrite(raw, "post", id, { lastPost: serverTimestamp() }));
+    tx.set(activityRef(uid), activityWrite(raw, "post", id, { lastPost: serverTimestamp(), ...counts }));
     return { post: { id, ...shown, ...base, removed: false, createdAt: Date.now() }, duplicate: false };
   });
 }
@@ -491,6 +543,7 @@ export async function createPost(uid: string, id: string, input: PostInput): Pro
 export async function editPost(post: Post, input: PostInput): Promise<Post> {
   const f = postFields(input);
   await checkNotSuspended(post.author);
+  assertLinks(f.body, await ownJoinedAt(null, post.author));
   const type = post.responses === 0 && post.erased === 0 && post.accepted == null ? f.type : post.type;
   const { tokens, ...shown } = f;
   await updateDoc(postRef(post.id), { ...shown, tokens, type, editedAt: serverTimestamp() });
@@ -567,9 +620,12 @@ export async function createResponse(uid: string, postId: string, id: string, in
       if (!parent || parent.deleted || parent.parent != null) throw new GoneError("That response was deleted, so it can't get replies.");
     }
     const { raw, activity } = await readActivityIn(tx, uid);
+    const joinedAt = await ownJoinedAt(tx, uid);
     assertNotSuspended(activity);
+    assertLinks(body, joinedAt);
     const wait = waitSeconds(activity.lastResponse, Date.now(), RESPONSE_INTERVAL_S);
     if (wait > 0) throw new RateLimitError(wait);
+    const counts = countFor("response", activity, joinedAt);
     const fields = {
       post: postId,
       parent: input.parent,
@@ -586,7 +642,7 @@ export async function createResponse(uid: string, postId: string, id: string, in
     tx.set(responseRef(postId, id), { ...fields, createdAt: serverTimestamp() });
     if (parent) tx.update(responseRef(postId, parent.id), { replies: parent.replies + 1 });
     else tx.update(postRef(postId), { responses: post.responses + 1 });
-    tx.set(activityRef(uid), activityWrite(raw, "respond", `${postId}/${id}`, { lastResponse: serverTimestamp() }));
+    tx.set(activityRef(uid), activityWrite(raw, "respond", `${postId}/${id}`, { lastResponse: serverTimestamp(), ...counts }));
     for (const n of recipientsForResponse({ actor: uid, postAuthor: post.author, parentAuthor: parent?.author ?? null, mention: fields.mention })) {
       tx.set(notificationRef(n.to, memberNotificationId(n.type, postId, id)), memberNotification(n.type, uid, postId, id));
     }
@@ -599,6 +655,7 @@ export async function editResponse(r: Response, rawBody: string): Promise<Respon
   if (problem) throw new Error(problem);
   const body = cleanBody(rawBody);
   await checkNotSuspended(r.author);
+  assertLinks(body, await ownJoinedAt(null, r.author));
   await updateDoc(responseRef(r.post, r.id), { body, editedAt: serverTimestamp() });
   return { ...r, body, editedAt: Date.now() };
 }
@@ -667,16 +724,18 @@ export async function castVote(uid: string, item: ItemRef, clicked: 1 | -1): Pro
     if (item.response != null && data.parent != null) throw new Error("Replies can't be voted on.");
     const prof = readProfile(author, (await tx.get(profileRef(author))).data() ?? {});
     const { raw, activity } = await readActivityIn(tx, uid);
+    const joinedAt = await ownJoinedAt(tx, uid);
     assertNotSuspended(activity);
     const wait = waitSeconds(activity.lastVote, Date.now(), VOTE_INTERVAL_S);
     if (wait > 0) throw new RateLimitError(wait);
+    const daily = countFor("vote", activity, joinedAt);
     const after = nextVote(before, clicked);
     const counts = applyVote({ up: num(data.up), down: num(data.down) }, before, after);
     const totals = applyVote({ up: prof.up, down: prof.down }, before, after);
     tx.set(voteRef(vid), { voter: uid, post: item.post, response: item.response, author, value: after, at: serverTimestamp() });
     tx.update(itemRef(item), { up: counts.up, down: counts.down, score: counts.score });
     tx.update(profileRef(author), { up: totals.up, down: totals.down });
-    tx.set(activityRef(uid), activityWrite(raw, "vote", vid, { lastVote: serverTimestamp() }));
+    tx.set(activityRef(uid), activityWrite(raw, "vote", vid, { lastVote: serverTimestamp(), ...daily }));
     return { value: after, up: counts.up, down: counts.down, score: counts.score };
   });
 }
@@ -1121,4 +1180,182 @@ export async function markNotificationsRead(uid: string, ids: string[]): Promise
 
 export async function deleteNotification(uid: string, id: string): Promise<void> {
   await deleteDoc(notificationRef(uid, id));
+}
+
+// ------------------------------------------------- Phase 3: moderator extras
+
+/**
+ * Replaces a name that breaks the guidelines with "Member 123456" (claimed
+ * for the member, the old name released). The member is told and can choose
+ * a new name straight away, without the 30-day wait.
+ */
+export async function resetMemberName(modUid: string, uid: string, rawReason: string): Promise<string> {
+  const reason = cleanReason(rawReason);
+  return runTransaction(requireDb(), async (tx) => {
+    const snap = await tx.get(profileRef(uid));
+    if (!snap.exists()) throw new GoneError("That member wasn't found.");
+    const cur = readProfile(uid, snap.data());
+    let name = placeholderName();
+    let key = nameKey(name);
+    // Try a few numbers until one is free (a clash is very unlikely).
+    for (let i = 0; i < 5 && (await tx.get(nameRef(key))).exists(); i++) {
+      name = placeholderName();
+      key = nameKey(name);
+    }
+    tx.set(nameRef(key), { uid });
+    tx.delete(nameRef(cur.nameKey));
+    tx.update(profileRef(uid), { name, nameKey: key, nameReset: true });
+    notifyMember(tx, uid, "renamed", { post: null, response: null }, reason);
+    logAction(tx, modUid, "rename", { uid, post: null, response: null }, reason);
+    return name;
+  });
+}
+
+interface VoteDoc {
+  id: string;
+  post: string;
+  response: string | null;
+  author: string;
+  value: VoteValue;
+}
+
+async function votesBy(voter: string): Promise<VoteDoc[]> {
+  const snap = await getDocs(query(collection(requireDb(), "communityVotes"), where("voter", "==", voter)));
+  return snap.docs
+    .map((d) => {
+      const v = d.data();
+      return {
+        id: d.id,
+        post: str(v.post),
+        response: strOrNull(v.response),
+        author: str(v.author),
+        value: isVoteValue(v.value) ? v.value : 0,
+      } as VoteDoc;
+    })
+    .filter((v) => v.value !== 0);
+}
+
+/**
+ * Sets one vote to 0 and moves its item's and author's counts back, in one
+ * transaction. `act` is "leave" (the voter, deleting their account) or
+ * "void" (a moderator). Votes on deleted or removed content are skipped:
+ * their counts are frozen (the admin purge script tidies them up).
+ */
+async function cancelVote(actor: string, act: "leave" | "void", v: VoteDoc): Promise<boolean> {
+  return runTransaction(requireDb(), async (tx) => {
+    const vs = await tx.get(voteRef(v.id));
+    const before: VoteValue = vs.exists() && isVoteValue(vs.data().value) ? vs.data().value : 0;
+    if (before === 0) return false;
+    const item = { post: v.post, response: v.response };
+    const is = await tx.get(itemRef(item));
+    if (!is.exists() || is.data().deleted === true) return false;
+    const data = is.data();
+    // A moderator can't touch votes on their own content (the rules refuse it); those are skipped.
+    if (act === "void" && str(data.author) === actor) return false;
+    const ps = await tx.get(profileRef(str(data.author)));
+    if (!ps.exists()) return false;
+    const prof = readProfile(ps.id, ps.data());
+    const { raw } = await readActivityIn(tx, actor);
+    const counts = applyVote({ up: num(data.up), down: num(data.down) }, before, 0);
+    const totals = applyVote({ up: prof.up, down: prof.down }, before, 0);
+    tx.update(voteRef(v.id), { value: 0, at: serverTimestamp() });
+    tx.update(itemRef(item), { up: counts.up, down: counts.down, score: counts.score });
+    tx.update(profileRef(prof.uid), { up: totals.up, down: totals.down });
+    tx.set(activityRef(actor), activityWrite(raw, act, v.id));
+    return true;
+  });
+}
+
+/**
+ * For vote manipulation (sockpuppets): cancels every vote a member cast and
+ * fixes everyone's Community XP, one vote at a time. Moderators only.
+ */
+export async function voidMemberVotes(
+  modUid: string,
+  voter: string,
+  rawReason: string,
+  onProgress?: (done: number, total: number) => void,
+): Promise<number> {
+  const reason = cleanReason(rawReason);
+  const votes = await votesBy(voter);
+  let cancelled = 0;
+  for (const [i, v] of votes.entries()) {
+    if (await cancelVote(modUid, "void", v)) cancelled++;
+    onProgress?.(i + 1, votes.length);
+  }
+  const b = writeBatch(requireDb());
+  notifyMember(b, voter, "voided", { post: null, response: null }, reason);
+  logAction(b, modUid, "void", { uid: voter, post: null, response: null }, reason);
+  await b.commit();
+  return cancelled;
+}
+
+// ------------------------------------------------- Phase 3: account deletion
+
+export type CommunityDeletionStep = "votes" | "responses" | "posts" | "inbox" | "profile";
+
+/**
+ * Deletes everything of the member's own that the Community holds, as far
+ * as the rules let a browser: withdraws their votes (fixing everyone's
+ * counts), deletes or erases their answers, comments, replies and posts
+ * (exactly as deleting each one would), deletes the text of anything a
+ * moderator removed, their notifications, hidden posts and blocks, and
+ * finally their profile and name. Safe to run again after an interruption.
+ *
+ * Left for the admin purge script (scripts/purge-deleted-accounts.mts),
+ * once the sign-in account is gone: the 13+ answer and the activity record
+ * (which carries any suspension, so deleting a profile can't escape one),
+ * and anything a banned member couldn't reach.
+ */
+export async function deleteCommunityData(uid: string, onProgress?: (step: CommunityDeletionStep, done: number, total: number) => void): Promise<void> {
+  let prof: CommunityProfile | null = null;
+  try {
+    const snap = await getDoc(profileRef(uid));
+    prof = snap.exists() ? readProfile(uid, snap.data()) : null;
+  } catch {
+    prof = null; // Not a member (or not verified): nothing in the Community to delete.
+  }
+  if (!prof || prof.banned) return;
+
+  const votes = await votesBy(uid);
+  for (const [i, v] of votes.entries()) {
+    await cancelVote(uid, "leave", v);
+    onProgress?.("votes", i + 1, votes.length);
+  }
+
+  // Replies first (nothing hangs off them), then answers and comments, then posts.
+  const mine = await getDocs(query(collectionGroup(requireDb(), "responses"), where("author", "==", uid)));
+  const responses = mine.docs
+    .map((d) => ({ post: d.ref.parent.parent?.id ?? "", r: readResponse(d.id, d.data()) }))
+    .filter((x) => x.post && !x.r.deleted)
+    .sort((a, b) => Number(a.r.parent == null) - Number(b.r.parent == null));
+  for (const [i, x] of responses.entries()) {
+    await deleteResponse(uid, x.post, x.r.id);
+    onProgress?.("responses", i + 1, responses.length);
+  }
+  const posts = (await getDocs(query(postsCol(), where("author", "==", uid)))).docs
+    .map((d) => readPost(d.id, d.data()))
+    .filter((p) => !p.deleted);
+  for (const [i, p] of posts.entries()) {
+    await deletePost(uid, p.id);
+    onProgress?.("posts", i + 1, posts.length);
+  }
+
+  const removed = await getDocs(query(collection(requireDb(), "communityRemoved"), where("author", "==", uid)));
+  const inbox = await getDocs(inboxCol(uid));
+  const hidden = await getDocs(collection(requireDb(), "users", uid, "communityHidden"));
+  const blocks = await getDocs(collection(requireDb(), "users", uid, "communityBlocks"));
+  const refs = [...removed.docs, ...inbox.docs, ...hidden.docs, ...blocks.docs].map((d) => d.ref);
+  for (let i = 0; i < refs.length; i += 400) {
+    const b = writeBatch(requireDb());
+    for (const ref of refs.slice(i, i + 400)) b.delete(ref);
+    await b.commit();
+    onProgress?.("inbox", Math.min(i + 400, refs.length), refs.length);
+  }
+
+  const b = writeBatch(requireDb());
+  b.delete(profileRef(uid));
+  b.delete(nameRef(prof.nameKey));
+  await b.commit();
+  onProgress?.("profile", 1, 1);
 }

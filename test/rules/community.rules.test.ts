@@ -94,9 +94,27 @@ async function clearLimits(uid: string) {
 }
 
 /** The activity record a hand-written request would write (like repository.ts's activityWrite). */
+const COUNTED: Record<string, "dayPosts" | "dayResponses" | "dayVotes"> = { post: "dayPosts", respond: "dayResponses", vote: "dayVotes" };
+/** The daily counters a hand-written request must carry (limits.ts countAction, by hand). */
+function countsFor(cur: Record<string, unknown>, act: string) {
+  const counts = {
+    countDay: (cur.countDay as number) ?? 0,
+    dayPosts: (cur.dayPosts as number) ?? 0,
+    dayResponses: (cur.dayResponses as number) ?? 0,
+    dayVotes: (cur.dayVotes as number) ?? 0,
+  };
+  const field = COUNTED[act];
+  if (!field) return counts;
+  const today = Math.floor(Date.now() / 86_400_000);
+  const fresh = counts.countDay === today;
+  const out = { countDay: today, dayPosts: fresh ? counts.dayPosts : 0, dayResponses: fresh ? counts.dayResponses : 0, dayVotes: fresh ? counts.dayVotes : 0 };
+  out[field] += 1;
+  return out;
+}
 async function activityFor(uid: string, act: string, target: string, changes: Record<string, unknown> = {}) {
   const cur = (await read(`communityActivity/${uid}`)) ?? {};
   return {
+    ...countsFor(cur, act),
     lastPost: cur.lastPost ?? null,
     lastResponse: cur.lastResponse ?? null,
     lastVote: cur.lastVote ?? null,
@@ -113,6 +131,8 @@ async function join(uid: string, name: string, guidelines = true) {
   as(uid);
   await repo.answerAge(uid, true);
   await repo.joinCommunity(uid, name, "teal");
+  const prof = (await read(`communityProfiles/${uid}`))!;
+  await seed(`communityProfiles/${uid}`, { ...prof, joinedAt: Timestamp.fromMillis(Date.now() - 30 * 86_400_000) });
   if (guidelines) await repo.acceptGuidelines(uid);
 }
 async function post(uid: string, input = QUESTION) {

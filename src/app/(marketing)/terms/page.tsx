@@ -203,8 +203,8 @@ const sections: LegalSection[] = [
     title: "Ending your use of JustViet",
     body: (
       <p>
-        You can stop using JustViet at any time and ask us to delete your account by emailing <Mail /> (an in-app
-        option is coming). We may suspend or close accounts that seriously or repeatedly break these terms, or where
+        You can stop using JustViet at any time and delete your account from the app&apos;s Settings (or by emailing{" "}
+        <Mail />). We may suspend or close accounts that seriously or repeatedly break these terms, or where
         we&apos;re required to by law; where reasonable, we&apos;ll tell you first. Sections that should naturally
         continue after an account ends — such as ownership, disclaimers and limits of liability — will continue.
       </p>

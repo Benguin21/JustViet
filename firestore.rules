@@ -35,6 +35,14 @@ rules_version = '2';
 // the recipient's communityInbox by whoever caused them, in the same
 // request, and checked against it. Tested in community-moderation.rules.test.ts.
 //
+// Phase 3: daily caps on posts, responses and votes (counted on the activity
+// record; lower in a member's first days), at most MAX_LINKS links per text
+// (none for new members), moderators resetting offensive names and voiding
+// votes, and account deletion (a member withdraws their votes with act
+// 'leave', then deletes their profile together with its name claim; the XP
+// ledger, 13+ answer and activity record stay protected until
+// scripts/purge-deleted-accounts.mts runs). Tested in community-phase3.rules.test.ts.
+//
 // To apply: Firebase console → Firestore Database → Rules tab → paste this
 // file's contents → Publish. (Same idea as enabling the Email/Password
 // sign-in provider was for Authentication.) Or, with the Firebase CLI:
@@ -257,8 +265,16 @@ service cloud.firestore {
     function COLORS() { return ['tomato', 'amber', 'leaf', 'teal', 'sky', 'plum', 'rose', 'cocoa']; }
     function REASONS() { return ['harassment', 'spam', 'inappropriate', 'privacy', 'off-topic', 'other']; }
     function MOD_REASON_MAX() { return 500; }
-    function MOD_ACTIONS() { return ['remove', 'restore', 'dismiss', 'warn', 'suspend', 'unsuspend', 'ban', 'unban']; }
-    function MOD_NOTIFICATIONS() { return ['removed', 'restored', 'warning', 'suspended', 'unsuspended', 'banned', 'unbanned']; }
+    function MOD_ACTIONS() { return ['remove', 'restore', 'dismiss', 'warn', 'suspend', 'unsuspend', 'ban', 'unban', 'rename', 'void']; }
+    function MOD_NOTIFICATIONS() { return ['removed', 'restored', 'warning', 'suspended', 'unsuspended', 'banned', 'unbanned', 'renamed', 'voided']; }
+    function POSTS_PER_DAY() { return 10; }
+    function RESPONSES_PER_DAY() { return 100; }
+    function VOTES_PER_DAY() { return 300; }
+    function NEW_MEMBER_DAYS() { return 3; }
+    function NEW_POSTS_PER_DAY() { return 3; }
+    function NEW_RESPONSES_PER_DAY() { return 20; }
+    function NEW_VOTES_PER_DAY() { return 50; }
+    function MAX_LINKS() { return 3; }
 
     // ----- who may use the Community -----
     function me() {
@@ -282,8 +298,21 @@ service cloud.firestore {
     function notSuspendedNow() {
       return !exists(activityPath(me())) || notSuspended(get(activityPath(me())).data);
     }
-    function guidelinesAccepted() {
-      return get(profilePath(me())).data.guidelinesAt != null;
+    // Links in a text: each http:// or https://, any case (mirror countLinks in limits.ts).
+    function linkCount(s) {
+      return s.split('[Hh][Tt][Tt][Pp][Ss]?://').size() - 1;
+    }
+    // A member's first NEW_MEMBER_DAYS: lower daily caps and no links.
+    function isNewMember(p) {
+      return request.time < p.joinedAt + duration.value(NEW_MEMBER_DAYS(), 'd');
+    }
+    function linksOkFor(p, s) {
+      return linkCount(s) <= (isNewMember(p) ? 0 : MAX_LINKS());
+    }
+    // A new post or response: guidelines accepted, and not too many links for this member.
+    function contributionOk(s) {
+      let p = get(profilePath(me())).data;
+      return p.guidelinesAt != null && linksOkFor(p, s);
     }
 
     function agePath(uid) {
@@ -375,6 +404,19 @@ service cloud.firestore {
         && b.down == a.down + downD(before, after)
         && b.score == b.up - b.down;
     }
+    // A moderator cancels someone's vote: the item's counts move back by exactly that vote.
+    function itemVoidOk(p, r, a, b, changed) {
+      let x = getAfter(activityPath(me())).data;
+      return changed.hasOnly(['up', 'down', 'score']) && x.at == request.time && x.act == 'void'
+        && itemVoidOfOk(p, r, a, b, x.target);
+    }
+    function itemVoidOfOk(p, r, a, b, vid) {
+      let v = getAfter(votePath(vid)).data;
+      let before = get(votePath(vid)).data.value;
+      return v.post == p && v.response == r
+        && b.up == a.up + upD(before, v.value) && b.down == a.down + downD(before, v.value)
+        && b.score == b.up - b.down;
+    }
     // The member's own profile loses exactly what the item they're deleting held.
     function ownCountsDropBy(up, down) {
       let pa = get(profilePath(me())).data;
@@ -403,10 +445,13 @@ service cloud.firestore {
       allow get: if verified() && (exists(profilePath(me())) || get(agePath(me())).data.over13 == true);
       allow create: if verified()
         && request.resource.data.keys().hasOnly(['uid'])
-        && request.resource.data.uid == me()
-        && getAfter(profilePath(me())).data.nameKey == key;
-      // Released by a rename.
-      allow delete: if verified() && resource.data.uid == me() && getAfter(profilePath(me())).data.nameKey != key;
+        && (request.resource.data.uid == me() || isMod())
+        && getAfter(profilePath(request.resource.data.uid)).data.nameKey == key;
+      // Released by a rename, a moderator's name reset, or deleting the account.
+      allow delete: if verified()
+        && ((resource.data.uid == me()
+              && (!existsAfter(profilePath(me())) || getAfter(profilePath(me())).data.nameKey != key))
+            || (isMod() && getAfter(profilePath(resource.data.uid)).data.nameKey != key));
     }
 
     // ----- communityProfiles/{uid} -----
@@ -416,6 +461,8 @@ service cloud.firestore {
       allow list: if member() && request.query.limit <= 30;
       allow create: if verified() && uid == me() && profileCreateOk(uid);
       allow update: if member() && (uid == me() ? ownProfileOk(uid) : (profileVoteOk(uid) || profileModOk(uid)));
+      // Deleting your account: the profile goes together with its name claim.
+      allow delete: if member() && uid == me() && !existsAfter(namePath(resource.data.nameKey));
     }
     function profileCreateOk(uid) {
       let d = request.resource.data;
@@ -432,7 +479,8 @@ service cloud.firestore {
       let a = resource.data;
       let b = request.resource.data;
       let changed = b.diff(a).affectedKeys();
-      return changed.hasOnly(['name', 'nameKey', 'nameChangedAt', 'color', 'guidelinesAt', 'up', 'down'])
+      return changed.hasOnly(['name', 'nameKey', 'nameChangedAt', 'color', 'guidelinesAt', 'up', 'down', 'nameReset'])
+        && (!changed.hasAny(['nameReset']) || (b.nameReset == false && changed.hasAny(['name'])))
         && (!changed.hasAny(['color']) || b.color in COLORS())
         && (!changed.hasAny(['guidelinesAt']) || (a.guidelinesAt == null && b.guidelinesAt == request.time))
         && (!changed.hasAny(['name', 'nameKey', 'nameChangedAt']) || renameOk(uid, a, b))
@@ -443,7 +491,9 @@ service cloud.firestore {
       return nameOk(b.name) && b.name != a.name
         && b.nameKey == nameKeyOf(b.name) && !reservedName(b.nameKey)
         && b.nameChangedAt == request.time
-        && (a.nameChangedAt == null || request.time >= a.nameChangedAt + duration.value(RENAME_DAYS(), 'd'))
+        && (a.nameChangedAt == null || a.get('nameReset', false) == true
+            || request.time >= a.nameChangedAt + duration.value(RENAME_DAYS(), 'd'))
+        && b.get('nameReset', false) == false
         && (b.nameKey == a.nameKey
             || (getAfter(namePath(b.nameKey)).data.uid == uid && !existsAfter(namePath(a.nameKey))));
     }
@@ -466,7 +516,7 @@ service cloud.firestore {
       let b = request.resource.data;
       let x = getAfter(activityPath(me())).data;
       return b.diff(a).affectedKeys().hasOnly(['up', 'down'])
-        && x.at == request.time && x.act == 'vote'
+        && x.at == request.time && x.act in ['vote', 'leave']
         && profileVoteOfOk(uid, a, b, x.target);
     }
     function profileVoteOfOk(uid, a, b, vid) {
@@ -483,7 +533,25 @@ service cloud.firestore {
       let changed = b.diff(a).affectedKeys();
       return isMod()
         && ((changed.hasOnly(['banned']) && b.banned is bool)
-            || (changed.hasOnly(['up', 'down']) && modCountsOk(uid, a, b)));
+            || (changed.hasOnly(['up', 'down']) && (modCountsOk(uid, a, b) || voidCountsOk(uid, a, b)))
+            || (changed.hasOnly(['name', 'nameKey', 'nameReset']) && nameResetOk(uid, a, b)));
+    }
+    // A moderator cancels one of someone's votes on this member's content: the totals move back exactly.
+    function voidCountsOk(uid, a, b) {
+      let x = getAfter(activityPath(me())).data;
+      return x.at == request.time && x.act == 'void' && voidCountsOfOk(uid, a, b, x.target);
+    }
+    function voidCountsOfOk(uid, a, b, vid) {
+      let v = getAfter(votePath(vid)).data;
+      let before = get(votePath(vid)).data.value;
+      return v.author == uid && b.up == a.up + upD(before, v.value) && b.down == a.down + downD(before, v.value);
+    }
+    // A moderator replaces a name that breaks the guidelines with "Member 123456", claimed for the member,
+    // who may then choose a new name straight away.
+    function nameResetOk(uid, a, b) {
+      return b.name is string && b.name.matches('^Member [0-9]{6}$') && b.nameKey == b.name.lower()
+        && b.nameReset == true
+        && getAfter(namePath(b.nameKey)).data.uid == uid && !existsAfter(namePath(a.nameKey));
     }
     function modCountsOk(uid, a, b) {
       let x = getAfter(activityPath(me())).data;
@@ -523,14 +591,38 @@ service cloud.firestore {
     function activityOk() {
       let a = resource == null ? blankActivity() : resource.data;
       let b = request.resource.data;
-      return b.keys().hasOnly(['lastPost', 'lastResponse', 'lastVote', 'reportDay', 'reports', 'suspendedUntil', 'act', 'target', 'at'])
+      return b.keys().hasOnly(['lastPost', 'lastResponse', 'lastVote', 'reportDay', 'reports', 'suspendedUntil', 'act', 'target', 'at',
+                               'countDay', 'dayPosts', 'dayResponses', 'dayVotes'])
         && b.keys().hasAll(['lastPost', 'lastResponse', 'lastVote', 'reportDay', 'reports', 'act', 'target', 'at'])
         && b.get('suspendedUntil', null) == a.get('suspendedUntil', null)
         && b.at == request.time && b.act is string && b.target is string
         && stampOk(a.lastPost, b.lastPost, POST_INTERVAL_S())
         && stampOk(a.lastResponse, b.lastResponse, RESPONSE_INTERVAL_S())
         && stampOk(a.lastVote, b.lastVote, VOTE_INTERVAL_S())
-        && reportsOk(a, b);
+        && reportsOk(a, b)
+        && countsOk(a, b);
+    }
+    // The daily caps: a post, response or vote adds one to today's count, which can't pass the cap
+    // (lower in a member's first NEW_MEMBER_DAYS); anything else leaves the counts as they were.
+    function countsOk(a, b) {
+      return b.act in ['post', 'respond', 'vote']
+        ? countedOk(a, b, a.get('countDay', 0) == today())
+        : (b.get('countDay', 0) == a.get('countDay', 0)
+            && b.get('dayPosts', 0) == a.get('dayPosts', 0)
+            && b.get('dayResponses', 0) == a.get('dayResponses', 0)
+            && b.get('dayVotes', 0) == a.get('dayVotes', 0));
+    }
+    function countedOk(a, b, fresh) {
+      return b.countDay == today()
+        && b.dayPosts == (fresh ? a.get('dayPosts', 0) : 0) + (b.act == 'post' ? 1 : 0)
+        && b.dayResponses == (fresh ? a.get('dayResponses', 0) : 0) + (b.act == 'respond' ? 1 : 0)
+        && b.dayVotes == (fresh ? a.get('dayVotes', 0) : 0) + (b.act == 'vote' ? 1 : 0)
+        && capsOk(b, isNewMember(get(profilePath(me())).data));
+    }
+    function capsOk(b, isNew) {
+      return b.dayPosts <= (isNew ? NEW_POSTS_PER_DAY() : POSTS_PER_DAY())
+        && b.dayResponses <= (isNew ? NEW_RESPONSES_PER_DAY() : RESPONSES_PER_DAY())
+        && b.dayVotes <= (isNew ? NEW_VOTES_PER_DAY() : VOTES_PER_DAY());
     }
     // Unchanged, or now, if at least `secs` seconds have passed since the last one.
     function stampOk(prev, next, secs) {
@@ -576,7 +668,7 @@ service cloud.firestore {
         && d.createdAt == request.time && d.editedAt == null
         && d.up == 0 && d.down == 0 && d.score == 0 && d.responses == 0 && d.erased == 0
         && d.accepted == null && d.deleted == false
-        && guidelinesAccepted()
+        && contributionOk(d.body)
         && x.at == request.time && x.act == 'post' && x.target == postId && x.lastPost == request.time
         && notSuspended(x);
     }
@@ -587,6 +679,7 @@ service cloud.firestore {
       return (a.author == me() && a.deleted == false
               && (postEditOk(a, b, changed) || postAcceptOk(postId, a, b, changed) || postEraseOk(postId, a, b, changed)))
         || (isMod() && postModOk(postId, a, b, changed))
+        || (isMod() && itemVoidOk(postId, null, a, b, changed))
         || postCountsOk(postId, a, b, changed)
         || itemVoteOk(postId, null, a, b, changed);
     }
@@ -621,6 +714,7 @@ service cloud.firestore {
         && textOk(b.title, TITLE_MIN(), TITLE_MAX()) && textOk(b.body, BODY_MIN(), BODY_MAX())
         && b.category in CATEGORIES() && tokensOk(b.tokens)
         && notSuspendedNow()
+        && linksOkFor(get(profilePath(me())).data, b.body)
         && (b.type == a.type
             || (b.type in ['question', 'discussion'] && a.responses == 0 && a.erased == 0 && a.accepted == null));
     }
@@ -683,7 +777,7 @@ service cloud.firestore {
         && d.post == postId && d.author == me()
         && d.createdAt == request.time && d.editedAt == null
         && d.up == 0 && d.down == 0 && d.score == 0 && d.replies == 0 && d.deleted == false
-        && guidelinesAccepted()
+        && contributionOk(d.body)
         && x.at == request.time && x.act == 'respond' && x.target == postId + '/' + rid && x.lastResponse == request.time
         && notSuspended(x)
         && get(postPath(postId)).data.deleted == false
@@ -709,13 +803,15 @@ service cloud.firestore {
       return (a.author == me() && a.deleted == false
               && (respEditOk(a, b, changed) || respEraseOk(postId, rid, a, b, changed)))
         || (isMod() && respModOk(postId, rid, a, b, changed))
+        || (isMod() && a.parent == null && itemVoidOk(postId, rid, a, b, changed))
         || replyCountOk(postId, rid, a, b, changed)
         || (a.parent == null && itemVoteOk(postId, rid, a, b, changed));
     }
     function respEditOk(a, b, changed) {
       return changed.hasOnly(['body', 'editedAt']) && b.editedAt == request.time
         && textOk(b.body, 1, a.parent == null ? RESPONSE_MAX() : REPLY_MAX())
-        && notSuspendedNow();
+        && notSuspendedNow()
+        && linksOkFor(get(profilePath(me())).data, b.body);
     }
     // A moderator removes or restores an answer, comment or reply (replies carry no votes).
     function respModOk(postId, rid, a, b, changed) {
@@ -775,9 +871,20 @@ service cloud.firestore {
     // ----- communityVotes/{voteId}: one per item and voter, private to the voter -----
     match /communityVotes/{voteId} {
       // Only ids ending in your own uid: probing someone else's vote is refused whether it exists or not.
-      allow get: if member() && voteId.split('_')[voteId.split('_').size() - 1] == me();
-      allow list: if member() && resource.data.voter == me();
+      // Moderators can see votes to investigate manipulation.
+      allow get: if (member() && voteId.split('_')[voteId.split('_').size() - 1] == me()) || isMod();
+      allow list: if (member() && resource.data.voter == me()) || isMod();
       allow create, update: if member() && voteOk(voteId);
+      allow update: if member() && isMod() && voidOk(voteId);
+    }
+    // A moderator cancels someone else's vote (to 0), moving the item's and author's counts back.
+    function voidOk(voteId) {
+      let a = resource.data;
+      let v = request.resource.data;
+      return v.diff(a).affectedKeys().hasOnly(['value', 'at']) && v.value == 0 && a.value != 0
+        && v.at == request.time && a.voter != me()
+        && acted('void', voteId)
+        && voteItemOk(v, a.value) && voteAuthorOk(v, a.value);
     }
     function voteOk(voteId) {
       let v = request.resource.data;
@@ -790,8 +897,10 @@ service cloud.firestore {
         && voteId == voteIdFor(v.post, v.response, me())
         && (resource == null
             || (resource.data.post == v.post && resource.data.response == v.response && resource.data.author == v.author))
-        && x.at == request.time && x.act == 'vote' && x.target == voteId && x.lastVote == request.time
-        && notSuspended(x)
+        && x.at == request.time && x.target == voteId
+        && ((x.act == 'vote' && x.lastVote == request.time && notSuspended(x))
+            // Withdrawing your own vote while deleting your account: no wait, and allowed even if suspended.
+            || (x.act == 'leave' && v.value == 0))
         && voteItemOk(v, before)
         && voteAuthorOk(v, before);
     }
@@ -843,10 +952,15 @@ service cloud.firestore {
               && reportId == me() + '_u_' + d.profile && exists(profilePath(d.profile)));
     }
 
+    // ----- a member's own responses across all posts (deleting an account finds them this way) -----
+    match /{path=**}/responses/{rid} {
+      allow list: if member() && resource.data.author == me();
+    }
+
     // ----- communityRemoved/{p_post | r_post_response}: a removed item's text, so it can be restored -----
     match /communityRemoved/{key} {
       allow get: if isMod() || (verified() && resource.data.author == me());
-      allow list: if isMod();
+      allow list: if isMod() || (verified() && resource.data.author == me());
       allow create: if isMod() && removedCreateOk(key);
       // A moderator deletes it on restore; its author may delete it for good (then it can't be restored).
       allow delete: if isMod() || (verified() && resource.data.author == me());

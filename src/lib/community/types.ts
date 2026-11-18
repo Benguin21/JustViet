@@ -69,6 +69,8 @@ export interface CommunityProfile {
   guidelinesAt: number | null;
   /** Banned by a moderator: no access to the Community until unbanned. */
   banned: boolean;
+  /** A moderator replaced the name with a neutral one; the member may choose a new name right away. */
+  nameReset: boolean;
 }
 
 export interface Post {
@@ -137,9 +139,25 @@ export interface Activity {
   reports: number;
   /** Set by a moderator: no posting, responding, voting, editing or reporting until then. */
   suspendedUntil: number | null;
+  /** Today's counts for the daily caps (see limits.ts): the UTC day they're for, and how many of each. */
+  countDay: number;
+  dayPosts: number;
+  dayResponses: number;
+  dayVotes: number;
 }
 
-export const EMPTY_ACTIVITY: Activity = { lastPost: null, lastResponse: null, lastVote: null, reportDay: 0, reports: 0, suspendedUntil: null };
+export const EMPTY_ACTIVITY: Activity = {
+  lastPost: null,
+  lastResponse: null,
+  lastVote: null,
+  reportDay: 0,
+  reports: 0,
+  suspendedUntil: null,
+  countDay: 0,
+  dayPosts: 0,
+  dayResponses: 0,
+  dayVotes: 0,
+};
 
 export const REPORT_REASONS = [
   { id: "harassment", label: "Harassment or hate" },

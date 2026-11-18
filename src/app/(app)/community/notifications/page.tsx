@@ -21,6 +21,8 @@ const ICONS: Record<CommunityNotification["type"], string> = {
   unsuspended: "▶️",
   banned: "🚫",
   unbanned: "🔓",
+  renamed: "✏️",
+  voided: "🗳️",
 };
 
 /** The member's notifications: answers, replies, mentions, accepted answers and moderation. */

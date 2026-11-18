@@ -17,8 +17,29 @@ export const MOD_REASON_MAX = 500;
 
 const DAY_MS = 86_400_000;
 
-export type ModAction = "remove" | "restore" | "dismiss" | "warn" | "suspend" | "unsuspend" | "ban" | "unban";
-export const MOD_ACTIONS: readonly ModAction[] = ["remove", "restore", "dismiss", "warn", "suspend", "unsuspend", "ban", "unban"];
+export type ModAction = "remove" | "restore" | "dismiss" | "warn" | "suspend" | "unsuspend" | "ban" | "unban" | "rename" | "void";
+export const MOD_ACTIONS: readonly ModAction[] = [
+  "remove",
+  "restore",
+  "dismiss",
+  "warn",
+  "suspend",
+  "unsuspend",
+  "ban",
+  "unban",
+  "rename",
+  "void",
+];
+
+/**
+ * The neutral name a moderator gives an account whose name breaks the
+ * guidelines: "Member " and six digits (firestore.rules checks the shape).
+ * The member can then choose a new name straight away.
+ */
+export function placeholderName(random: () => number = Math.random): string {
+  return `Member ${String(Math.floor(random() * 1_000_000)).padStart(6, "0")}`;
+}
+export const PLACEHOLDER_NAME_PATTERN = /^Member [0-9]{6}$/;
 
 export function suspensionEnd(now: number, days: number): number {
   return now + days * DAY_MS;

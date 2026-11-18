@@ -1,6 +1,18 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { MOD_ACTIONS, MOD_REASON_MAX, groupReports, isSuspended, parseRemovedKey, removedKey, suspensionEnd, type ReportRecord } from "./moderation";
+import {
+  MOD_ACTIONS,
+  MOD_REASON_MAX,
+  PLACEHOLDER_NAME_PATTERN,
+  groupReports,
+  isSuspended,
+  parseRemovedKey,
+  placeholderName,
+  removedKey,
+  suspensionEnd,
+  type ReportRecord,
+} from "./moderation";
+import { nameKey, nameProblem } from "./names";
 import { MOD_NOTIFICATION_TYPES } from "./notifications";
 
 const DAY = 86_400_000;
@@ -13,6 +25,16 @@ describe("suspensions", () => {
     expect(isSuspended(until, now)).toBe(true);
     expect(isSuspended(until, until)).toBe(false);
     expect(isSuspended(null, now)).toBe(false);
+  });
+});
+
+describe("placeholder names", () => {
+  it("are Member and six digits, valid names whose key is their lowercase", () => {
+    expect(placeholderName(() => 0.0042)).toBe("Member 004200");
+    const n = placeholderName();
+    expect(n).toMatch(PLACEHOLDER_NAME_PATTERN);
+    expect(nameProblem(n)).toBeNull();
+    expect(nameKey(n)).toBe(n.toLowerCase());
   });
 });
 

@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Button } from "@/components/ui/Button";
+import { DeleteAccountSection } from "@/components/settings/DeleteAccountSection";
 import { EmailSection } from "@/components/settings/EmailSection";
 import { PasswordSection } from "@/components/settings/PasswordSection";
 import { ProfileSection } from "@/components/settings/ProfileSection";
-import { FormMessage, SettingsSection } from "@/components/settings/SettingsSection";
+import { FormMessage } from "@/components/settings/SettingsSection";
 import { SignInMethodsSection } from "@/components/settings/SignInMethodsSection";
 import { useReauth } from "@/components/settings/useReauth";
 import { completeGoogleRedirect, useAuth } from "@/lib/auth-context";
@@ -50,20 +50,7 @@ export default function SettingsPage() {
       <PasswordSection key={`password-${user?.uid}`} />
       <SignInMethodsSection key={`methods-${user?.uid}`} withRecentLogin={withRecentLogin} />
 
-      {/*
-        TODO(account-deletion): "Delete my account" lives here. It's built in
-        Community Phase 3 (it must also remove community content, votes and
-        the XP ledger), so it's only a placeholder for now. See AGENTS.md.
-      */}
-      <SettingsSection
-        title="Delete my account"
-        tone="muted"
-        description={`Permanently deleting your account and data is coming soon. Until then, email ${SITE.contactEmail} from your account's address and we'll remove it.`}
-      >
-        <Button variant="danger" fullWidth={false} className="px-6" disabled>
-          Delete Account (coming soon)
-        </Button>
-      </SettingsSection>
+      <DeleteAccountSection key={`delete-${user?.uid}`} withRecentLogin={withRecentLogin} />
 
       <p className="text-center text-sm text-ink-500">
         <Link href="/privacy" className="font-semibold hover:text-red-500">

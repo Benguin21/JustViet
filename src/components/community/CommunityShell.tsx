@@ -17,6 +17,7 @@ export function CommunityShell({ children }: { children: ReactNode }) {
       <CommunityGate>
         <CommunityNav />
         <SuspendedBanner />
+        <NameResetBanner />
         {children}
       </CommunityGate>
     </CommunityProvider>
@@ -69,6 +70,25 @@ function CommunityNav() {
       </div>
       {showGuidelines && <GuidelinesDialog onClose={() => setShowGuidelines(false)} />}
     </nav>
+  );
+}
+
+/** After a moderator reset an offensive name: ask the member to choose a new one. */
+function NameResetBanner() {
+  const { profile } = useCommunity();
+  if (!profile?.nameReset) return null;
+  return (
+    <div role="status" className="border-b-2 border-yellow-200 bg-yellow-50 px-4 py-2.5 sm:px-6">
+      <p className="mx-auto max-w-3xl text-sm font-semibold text-ink-700">
+        A moderator reset your community name to {profile.name}. Please choose a new one that follows the guidelines.{" "}
+        <Link
+          href={`/community/profile?uid=${encodeURIComponent(profile.uid)}&edit=1`}
+          className="font-bold text-red-600 underline-offset-2 hover:underline"
+        >
+          Choose a name
+        </Link>
+      </p>
+    </div>
   );
 }
 

@@ -10,7 +10,16 @@ import { formatDate } from "./posts";
 import type { PostType } from "./types";
 
 export type MemberNotificationType = "response" | "reply" | "mention" | "accepted";
-export type ModNotificationType = "removed" | "restored" | "warning" | "suspended" | "unsuspended" | "banned" | "unbanned";
+export type ModNotificationType =
+  | "removed"
+  | "restored"
+  | "warning"
+  | "suspended"
+  | "unsuspended"
+  | "banned"
+  | "unbanned"
+  | "renamed"
+  | "voided";
 export type NotificationType = MemberNotificationType | ModNotificationType;
 
 export const MOD_NOTIFICATION_TYPES: readonly ModNotificationType[] = [
@@ -21,6 +30,8 @@ export const MOD_NOTIFICATION_TYPES: readonly ModNotificationType[] = [
   "unsuspended",
   "banned",
   "unbanned",
+  "renamed",
+  "voided",
 ];
 
 export function isModNotification(type: string): type is ModNotificationType {
@@ -112,5 +123,9 @@ export function describeNotification(
       return "You've been banned from the Community";
     case "unbanned":
       return "Your ban was lifted. Welcome back to the Community!";
+    case "renamed":
+      return "A moderator reset your community name. Please choose a new one.";
+    case "voided":
+      return "A moderator cancelled your votes";
   }
 }

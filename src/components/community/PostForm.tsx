@@ -5,7 +5,9 @@ import { useEffect, useId, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Select";
 import { TextField } from "@/components/ui/TextField";
-import { BODY_MAX, BODY_MIN, TITLE_MAX, TITLE_MIN } from "@/lib/community/limits";
+import { useCommunity } from "@/lib/community/CommunityProvider";
+import { BODY_MAX, BODY_MIN, TITLE_MAX, TITLE_MIN, linkProblem } from "@/lib/community/limits";
+import { useNow } from "@/lib/useNow";
 import { cleanTitle, validatePost, type PostErrors, type PostInput } from "@/lib/community/posts";
 import * as repo from "@/lib/community/repository";
 import { rankRelated, relatedTokens } from "@/lib/community/search";
@@ -47,6 +49,9 @@ export function PostForm({
   const [input, setInput] = useState<PostInput>(initial);
   const [errors, setErrors] = useState<PostErrors>({});
   const [related, setRelated] = useState<{ title: string; posts: Post[] }>({ title: "", posts: [] });
+  const { profile } = useCommunity();
+  const now = useNow();
+  const linkNote = profile ? linkProblem(input.body, profile.joinedAt, now) : null;
   const typeId = useId();
 
   function update(patch: Partial<PostInput>) {
@@ -81,6 +86,8 @@ export function PostForm({
   function submit(e: FormEvent) {
     e.preventDefault();
     const found = validatePost(input);
+    const links = profile ? linkProblem(input.body, profile.joinedAt, Date.now()) : null;
+    if (links && !found.body) found.body = links;
     setErrors(found);
     if (Object.keys(found).length === 0) onSubmit(input);
   }
@@ -169,6 +176,11 @@ export function PostForm({
         placeholder={input.type === "question" ? "What have you tried? Include example sentences if you can." : "Share what you know. Examples help!"}
       />
 
+      {linkNote && !errors.body && (
+        <p role="status" className="-mt-3 text-sm font-semibold text-ink-700">
+          {linkNote}
+        </p>
+      )}
       {waitNotice}
       {serverError && (
         <p role="alert" className="rounded-xl bg-red-50 px-3 py-2 text-sm font-semibold text-red-600">

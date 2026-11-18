@@ -21,6 +21,7 @@ import {
 } from "react";
 import {
   applyActionCode,
+  deleteUser,
   checkActionCode,
   confirmPasswordReset,
   createUserWithEmailAndPassword,
@@ -360,6 +361,15 @@ export async function readModeratorClaim(refresh = false): Promise<boolean> {
   if (!current) return false;
   const result = await current.getIdTokenResult(refresh);
   return result.claims.moderator === true;
+}
+
+/**
+ * Deletes the Firebase sign-in account (the last step of "Delete my
+ * account"). May throw `auth/requires-recent-login`; run it through
+ * `withRecentLogin`.
+ */
+export async function deleteSignInAccount() {
+  await deleteUser(requireUser());
 }
 
 /** Re-sends the verification email to the signed-in user. */

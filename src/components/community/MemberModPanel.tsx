@@ -10,11 +10,12 @@ import * as repo from "@/lib/community/repository";
 import { useNow } from "@/lib/useNow";
 import { ReasonField } from "./Moderation";
 
-type Dialog = "warn" | "suspend" | "ban" | null;
+type Dialog = "warn" | "suspend" | "ban" | "rename" | "void" | null;
 
 /**
  * On a member's profile, for moderators: their standing, and warn,
- * suspend, lift a suspension, ban or unban. Every action notifies the
+ * suspend, lift a suspension, ban or unban, reset an offensive name, or
+ * cancel all their votes (vote manipulation). Every action notifies the
  * member (from "a moderator") and is written to the moderator log.
  */
 export function MemberModPanel({ modUid, uid, name, onDone }: { modUid: string; uid: string; name: string; onDone: (msg: string) => void }) {
@@ -23,6 +24,7 @@ export function MemberModPanel({ modUid, uid, name, onDone }: { modUid: string; 
   const [status, setStatus] = useState<{ key: string; banned: boolean; suspendedUntil: number | null } | null>(null);
   const [dialog, setDialog] = useState<Dialog>(null);
   const [error, setError] = useState<string | null>(null);
+  const [progress, setProgress] = useState<string | null>(null);
   const key = `${uid}:${reload}`;
 
   useEffect(() => {
@@ -69,6 +71,7 @@ export function MemberModPanel({ modUid, uid, name, onDone }: { modUid: string; 
               : `${name} is in good standing.`}
       </p>
       {error && <p className="text-sm font-semibold text-red-600">{error}</p>}
+      {progress && <p role="status" className="text-sm font-semibold text-ink-700">{progress}</p>}
       {current && (
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" fullWidth={false} onClick={() => setDialog("warn")}>
@@ -94,6 +97,12 @@ export function MemberModPanel({ modUid, uid, name, onDone }: { modUid: string; 
               Ban
             </Button>
           )}
+          <Button variant="outline" size="sm" fullWidth={false} onClick={() => setDialog("rename")}>
+            Reset name
+          </Button>
+          <Button variant="outline" size="sm" fullWidth={false} onClick={() => setDialog("void")}>
+            Cancel their votes
+          </Button>
         </div>
       )}
       {dialog && (
@@ -106,7 +115,16 @@ export function MemberModPanel({ modUid, uid, name, onDone }: { modUid: string; 
               ? run(() => repo.warnMember(modUid, uid, reason), "Warning sent")
               : dialog === "suspend"
                 ? run(() => repo.suspendMember(modUid, uid, days, reason), "Member suspended")
-                : run(() => repo.banMember(modUid, uid, reason), "Member banned")
+                : dialog === "rename"
+                  ? run(() => repo.resetMemberName(modUid, uid, reason), "Name reset")
+                  : dialog === "void"
+                    ? run(async () => {
+                        const n = await repo.voidMemberVotes(modUid, uid, reason, (done, total) =>
+                          setProgress(`Cancelling votes: ${done} of ${total}…`),
+                        );
+                        setProgress(`Cancelled ${n} vote${n === 1 ? "" : "s"}.`);
+                      }, "Votes cancelled")
+                    : run(() => repo.banMember(modUid, uid, reason), "Member banned")
           }
         />
       )}
@@ -125,6 +143,16 @@ const COPY = {
     title: "Ban",
     body: "They lose all access to the Community (reading too) until unbanned. Their posts stay unless you remove them.",
     action: "Ban",
+  },
+  rename: {
+    title: "Reset the name of",
+    body: "Their name becomes \"Member\" and six digits, and they're asked to choose a new one (they can right away).",
+    action: "Reset name",
+  },
+  void: {
+    title: "Cancel the votes of",
+    body: "For vote manipulation: every vote they cast is cancelled and everyone's Community XP is corrected. This can take a minute.",
+    action: "Cancel votes",
   },
 } as const;
 

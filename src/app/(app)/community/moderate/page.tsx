@@ -27,6 +27,8 @@ const ACTION_TEXT: Record<ModAction, string> = {
   unsuspend: "lifted the suspension of",
   ban: "banned",
   unban: "unbanned",
+  rename: "reset the name of",
+  void: "cancelled the votes of",
 };
 
 const reasonLabel = (id: string) => REPORT_REASONS.find((r) => r.id === id)?.label ?? id;

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { useCommunity } from "@/lib/community/CommunityProvider";
 import { clearDraft, loadDraft, responseDraftKey, saveDraft, type ResponseDraft } from "@/lib/community/drafts";
 import { friendlyCommunityError, RateLimitError } from "@/lib/community/errors";
-import { REPLY_MAX, RESPONSE_INTERVAL_S, RESPONSE_MAX, waitSeconds } from "@/lib/community/limits";
+import { REPLY_MAX, RESPONSE_INTERVAL_S, RESPONSE_MAX, linkProblem, waitSeconds } from "@/lib/community/limits";
 import { mentionPrefix, validateResponse } from "@/lib/community/posts";
 import * as repo from "@/lib/community/repository";
 import { RichTextEditor } from "./RichTextEditor";
@@ -35,7 +35,7 @@ export function ResponseComposer({
   onCancel?: () => void;
   autoFocus?: boolean;
 }) {
-  const { uid, activity } = useCommunity();
+  const { uid, activity, profile } = useCommunity();
   const key = uid ? responseDraftKey(uid, postId, parent) : null;
   const [draft, setDraft] = useState<ResponseDraft>(() => {
     const saved = key ? loadDraft<ResponseDraft>(key) : null;
@@ -59,7 +59,8 @@ export function ResponseComposer({
 
   async function submit(e: FormEvent) {
     e.preventDefault();
-    const problem = validateResponse(draft.body, isReply);
+    const problem =
+      validateResponse(draft.body, isReply) ?? (profile ? linkProblem(draft.body, profile.joinedAt, Date.now()) : null);
     if (problem) {
       setError(problem);
       return;
