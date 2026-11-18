@@ -32,6 +32,7 @@ export function MarketingFooter() {
           <ul className="flex flex-col gap-2">
             <li><Link href="/privacy" className={linkClass}>Privacy Policy</Link></li>
             <li><Link href="/terms" className={linkClass}>Terms of Service</Link></li>
+            <li><Link href="/guidelines" className={linkClass}>Community Guidelines</Link></li>
             <li>
               <a href={`mailto:${SITE.contactEmail}`} className={linkClass}>
                 Contact us

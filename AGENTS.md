@@ -38,8 +38,10 @@ Firestore).
 - `npm run test:rules` — `firestore.rules` against the Firestore emulator
   (`test/rules/`, its own Vitest config; needs Java, fetches
   `firebase-tools` through npx). Run it after any change to the rules or to
-  `src/lib/xp/repository.ts`. If it hangs, a stale emulator may hold port
-  8080: `pkill -f cloud-firestore-emulator`.
+  `src/lib/xp/repository.ts` or `src/lib/community/repository.ts`. If it
+  hangs, a stale emulator may hold port 8080: `pkill -f cloud-firestore-emulator`.
+- `node scripts/community-drift.mts --key <service-account.json> [--fix]` —
+  checks the live Community counts against their records (see Community).
 
 ## Environment / Firebase setup
 
@@ -87,16 +89,16 @@ landing page, not a redirect.)
 
 **Routing layout:**
 - `src/app/(marketing)/` — the public website, server-rendered and visible
-  without signing in: `/` (landing page), `/privacy`, `/terms`. See "Public
-  website" below.
+  without signing in: `/` (landing page), `/privacy`, `/terms`,
+  `/guidelines` (the community guidelines). See "Public website" below.
 - `src/app/login/page.tsx` — single page, three modes (login/signup/forgot
   password) toggled by local state, not separate routes; see
   `src/components/auth/*Form.tsx`.
 - `src/app/(app)/` — route group for everything behind `RequireAuth`:
   `home/` (Rồng Con's homepage), `goals/` (the Goals tab), `vocab-srs/` and
-  `dictionary/` (all below), plus a stub page per remaining nav section
-  (`grammar/`, `skills/`, `community/`), each just rendering
-  `<ComingSoon />` with its own copy. Flesh these out in place as features land.
+  `dictionary/`, `community/` (all below), plus a stub page per remaining
+  nav section (`grammar/`, `skills/`), each just rendering `<ComingSoon />`
+  with its own copy. Flesh these out in place as features land.
 - `src/app/(app)/layout.tsx` renders `AppHeader` (logo + user greeting +
   logout) and wraps children in `RequireAuth`.
 
@@ -133,10 +135,16 @@ policy to be on the app's own verified domain). Route group
   learning" → /home.
 - `/privacy` and `/terms` — drafts written to match what the app actually
   does (Firebase Auth + Firestore only, no analytics or ads, the Have I
-  Been Pwned check, one sessionStorage flag). **Whenever data collection or
-  a processor changes** (Community, payments, mobile apps, analytics, a new
-  host), update the Privacy Policy and its date in `src/lib/site.ts`
-  first. They need legal review before launch.
+  Been Pwned check, small sessionStorage/localStorage preferences and
+  drafts, and the Community: what members see, private votes, confidential
+  reports, retention). **Whenever data collection or a processor changes**
+  (Community Phases 2–3, payments, mobile apps, analytics, a new host),
+  update the Privacy Policy and its date in `src/lib/site.ts` first. They
+  need legal review before launch. The Terms' "Your content" section links
+  `/guidelines`. **Age:** JustViet itself has no minimum age (under 18 with a
+  parent or guardian's permission; under 13, a parent or guardian creates
+  and looks after the account). Only the Community requires 13+, checked by
+  its own question (Terms "Who can use JustViet", Privacy "Children").
 - `src/lib/site.ts` — the business facts used everywhere: operator
   ("JustViet LLC", Utah — update to the registered name once formed),
   contact email, governing law, document dates, and the site URL from
@@ -631,3 +639,147 @@ names its teacher; the Grammar/Skills lesson screens, when built, should
 call `teacherForLesson` once per lesson and keep that teacher through every
 explanation, exercise and piece of feedback. `guides.ts` re-exports
 `TEACHERS` for the homepage intro.
+
+## Community
+
+A small Reddit-style space where signed-in learners ask Vietnamese
+questions, start discussions and answer each other. **Phase 1** is built
+(posts, answers/comments, one reply level, votes, Community XP, accepted
+answers, search, reports, hiding, blocking, rate limits). **Phase 2**
+(moderation queue and tools, roles, notifications) and **Phase 3**
+(hardening, stronger limits, account deletion) are not built; nothing in
+Phase 1 blocks them (see the end of this section).
+
+**No backend.** Everything is enforced by `firestore.rules`, with the XP
+ledger's pattern: each action is one client transaction, and every document
+it touches checks the others moved by exactly the right amount
+(`get`/`getAfter`/`existsAfter`). The heaviest transactions (a vote,
+deleting an answer with replies) use at most 17 document lookups, counted
+without caching, under Firestore's 20. Don't add a lookup to them without
+recounting.
+
+**Access.** Reading or writing anything needs, checked in the rules: signed
+in, a verified email (`request.auth.token.email_verified`), and a community
+profile, which can only be created after answering 13+. The only exceptions
+are the joining steps (the 13+ answer, reading your own missing profile,
+checking a name is free after answering 13+). The UI gate is
+`CommunityGate` (verify email with Resend → "Community is for members 13 and
+older." → choose a name and colour). The rest of the app stays open to
+unverified and under-13 users. Community never reads or writes learning XP,
+levels, goals or Rồng Con data, and never shows an email address.
+
+**Files.** The same layering as the Vocab SRS and Dictionary:
+- `src/lib/community/` — pure and unit tested: `types.ts` (the data model,
+  in its header comment), `limits.ts`, `names.ts`, `votes.ts`,
+  `format.ts`, `search.ts`, `posts.ts`, `recompute.ts`, `avatar.ts`,
+  `guidelines.ts`. `limits.test.ts` and `names.test.ts` read
+  `firestore.rules` and fail if its limits, categories, colours, report
+  reasons, reserved names or letter-folding tables drift from these files.
+- `repository.ts` — the only Community file that imports
+  `firebase/firestore`. One-time reads, transactions for every count.
+- `CommunityProvider.tsx` — shared member state for all Community pages
+  (mounted once by `src/app/(app)/community/layout.tsx`, a server component
+  that also sets `noindex`): joining status, own profile, rate-limit record,
+  hidden posts, blocks, and a cache of other members' profiles.
+- One data hook per page: `useCommunityFeed`, `usePostThread`,
+  `useMemberProfile` (the Blocked page uses the provider).
+- `src/components/community/*` — UI. Pages are `/community` (feed),
+  `/community/ask`, `/community/post?id=`, `/community/profile?uid=` and
+  `/community/blocked`. Query parameters, not `[id]` segments, because the
+  app is a static export; pages that read them wrap in `<Suspense>`.
+
+**Data** (all top-level, so Phase 3 can delete by uid):
+- `communityAge/{uid}` `{ over13, at }`, written once, never by the app
+  again. **To correct a wrong answer**, an admin deletes the doc in the
+  Firebase console (Firestore → communityAge → the uid); the member is asked
+  again on their next visit. Find the uid in Authentication → Users.
+- `communityProfiles/{uid}` — name, nameKey, colour, up, down (votes
+  received), joinedAt, nameChangedAt, guidelinesAt. Readable by members.
+- `communityNames/{nameKey}` `{ uid }` — the uniqueness claim, created and
+  released in the same transaction as the profile change.
+- `communityActivity/{uid}` — the per-user "last action" record, owner-only:
+  `lastPost`/`lastResponse`/`lastVote` (rate limits), `reportDay`/`reports`,
+  and this request's `act`, `target`, `at`. The rules use `target` to know
+  which vote or response another document's counts must match, and it means
+  one transaction can only do one action (one post, one vote, one report).
+- `communityPosts/{postId}` and `communityPosts/{postId}/responses/{id}`
+  (top-level answers/comments have `parent: null`; replies have the
+  top-level id). Counts on posts: `up`, `down`, `score`, `responses`
+  (top-level not deleted), `erased` (deleted top-level kept for their
+  replies), `accepted`. Posts store `tokens` for search.
+- `communityVotes/{p_post_uid | r_post_response_uid}` — one per item and
+  voter, value −1/0/1 (0 = removed), readable only by the voter (even a
+  missing vote id of someone else's is refused, so votes can't be probed).
+- `communityReports/{uid_p_post | uid_r_post_resp | uid_u_uid}` — one per
+  reporter and item, `status: "open"`, readable only by the reporter. Phase
+  2's moderation queue reads these with admin or moderator access.
+- `users/{uid}/communityHidden/{postId}`, `users/{uid}/communityBlocks/{uid}`
+  — private lists (excluded from the users catch-all rule, member-only).
+
+**Community XP** = upvotes − downvotes received on the member's posts and
+top-level responses that aren't deleted (label "Community XP", explained as
+"Upvotes received minus downvotes received on your posts and answers.").
+Stored on the profile and moved in the vote's transaction; deleting a
+contribution subtracts its votes in the delete's transaction. Nothing else
+moves it. It can go negative and is always styled neutrally. No levels,
+badges or leaderboards. `recompute.ts` derives every count from the
+records. **Drift check:** `node scripts/community-drift.mts --key
+path/to/key.json` reports drift; add `--fix` to write corrections. The key
+is a service account from Firebase console → Project settings → Service
+accounts; name it `*.service-account.json` (gitignored) or keep it outside
+the repo, and never commit it. With `FIRESTORE_EMULATOR_HOST` set it runs
+against the emulator instead.
+
+**Names.** 3–30 characters of Latin letters (every Vietnamese accent),
+digits, spaces and `. _ -`, starting and ending with a letter or digit.
+Unique ignoring case and accents (`nameKey` = `foldDiacritics`). Letters from
+other alphabets are refused, because the rules can't fold Unicode (they map
+each accented letter themselves in `nameKeyOf`; the emulator's `lower()` is
+ASCII-only) and to stop look-alike impersonation. Reserved: anything
+containing admin/moderator/justviet, the teachers' and Rồng Con's names, and
+the words mod/staff/support/official/system/team. The first change is
+allowed any time, then once every 30 days.
+
+**Posts and responses.** Question or Discussion; title 10–150, body
+20–5,000, a category (Grammar, Vocabulary, Pronunciation, Culture, Learning
+Tips, Other); answers/comments 1–5,000, replies 1–1,000. Lengths count
+UTF-16 units of the cleaned text (JS `.length`, which is also what the
+rules' `size()` counts). Formatting (`format.ts` → `RichText.tsx`, React
+elements only): paragraphs, bold, italic, code, bullet lists, http(s) links
+that open in a new tab with `rel="nofollow ugc noopener noreferrer"` and show
+their domain. Drafts (with the id they'll be created under) stay in
+localStorage until they post, and creates do nothing if the id exists, so
+retries can't duplicate. "Edited" shows only for edits more than 5 minutes
+after posting. Deleting: with nothing under it, removed outright; otherwise
+its text and author are erased for good and it shows "deleted by its
+author" (excluded from feed, search and profiles, reachable by link).
+
+**Feed and search.** Newest, Top (this week / month / all time by score,
+then newer, then id) and Unanswered (questions with no answers that aren't
+deleted), with category and type filters, 20 at a time. Every combination
+has a composite index in `firestore.indexes.json`; filters are always
+applied in the order deleted, category, type, responses, then the sort.
+Top's time window is a `createdAt >=` range with `orderBy(score)`, which
+relies on Firestore's multiple-inequality support. If a query ever fails
+in production with "requires an index", the error links to the index to
+create. **Search limits:** accent-folded whole words and word prefixes
+only (no matching inside words), one-letter words ignored, prefixes up to
+12 letters, at most 500 tokens per post (title first), one query per search
+(the 60 newest posts containing the longest word, then the rest are checked
+and ranked in the browser, exact accents first).
+
+**Rate limits** (`limits.ts`, mirrored in the rules): 60 s between posts,
+15 s between responses or replies, 2 s between votes, 20 reports per UTC
+day. The UI shows "Please wait N seconds". Edits aren't limited.
+
+**Publishing.** Rules and indexes go live with
+`npx --yes firebase-tools@15 deploy --only firestore:rules,firestore:indexes`
+(changes the live database; ask first). Indexes take a few minutes to build;
+the feed shows an error until they're ready.
+
+**Phases 2–3 hooks.** Reports carry `status` for a moderation queue; the
+rules can gain an `isModerator()` (custom claim) branch and a `removed` flag
+next to `deleted` without changing existing writes; replies store `mention`
+and responses store `parent`/`post` for notifications; all Community data is
+keyed by uid for account deletion, which must also delete the member's votes
+(adjusting the authors' totals), name claim, age answer and private lists.

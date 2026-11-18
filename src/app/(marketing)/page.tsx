@@ -41,12 +41,18 @@ const FEATURES = [
     body: "Choose how much to do each day, from a quick five-card warm-up to a longer session. Small, steady habits beat cramming.",
     tone: "yellow",
   },
+  {
+    icon: "💬",
+    title: "A community to ask and help",
+    body: "Stuck on a word or a grammar point? Ask other learners, start a discussion to share a tip, and upvote the most helpful answers. Search with or without accents, and the asker can mark the answer that helped. For members 13 and older with a verified email.",
+    tone: "red",
+    wide: true,
+  },
 ] as const;
 
 const COMING_SOON = [
   { icon: "📖", label: "Grammar lessons with Cô Tươi and Thầy Vinh" },
   { icon: "🎧", label: "Reading and listening practice" },
-  { icon: "💬", label: "A community to ask questions and help each other" },
   { icon: "📱", label: "iPhone and Android apps" },
 ];
 
@@ -75,7 +81,7 @@ const FAQ = [
   },
   {
     q: "What do you do with my data?",
-    a: "We use it to run JustViet and keep your progress in sync — that's it. No ads, and we don't sell your information.",
+    a: "We use it to run JustViet and keep your progress in sync. Your learning data is private to your account; what you post in the Community is visible to other signed-in members. No ads, and we don't sell your information.",
     link: { href: "/privacy", label: "Read the privacy policy" },
   },
 ];
@@ -181,7 +187,7 @@ export default function LandingPage() {
           {FEATURES.map((f) => (
             <li
               key={f.title}
-              className={`flex flex-col gap-3 rounded-3xl border-2 p-6 shadow-[0_4px_0_rgba(74,47,34,0.06)] ${
+              className={`flex flex-col gap-3 rounded-3xl border-2 p-6 shadow-[0_4px_0_rgba(74,47,34,0.06)] ${"wide" in f && f.wide ? "sm:col-span-2" : ""} ${
                 f.tone === "red" ? "border-red-200 bg-red-50" : "border-yellow-200 bg-yellow-50"
               }`}
             >

@@ -10,9 +10,9 @@ export const metadata: Metadata = {
 };
 
 /*
- * A draft: have it reviewed before launch. When paid plans, Community or
- * the mobile apps launch, revisit sections 6, 8 and 9 and update
- * SITE.termsUpdated.
+ * A draft: have it reviewed before launch. When paid plans or the mobile
+ * apps launch, revisit sections 8 and 9 and update SITE.termsUpdated.
+ * Section 5 ("Your content") covers the Community and links /guidelines.
  */
 
 const email = SITE.contactEmail;
@@ -38,10 +38,13 @@ const sections: LegalSection[] = [
     title: "Who can use JustViet",
     body: (
       <ul>
-        <li>You must be at least 13 years old to create an account.</li>
         <li>
-          If you&apos;re under 18 (or the age of majority where you live), you need a parent or guardian&apos;s
-          permission, and they agree to these terms for you.
+          Learners of any age can use JustViet&apos;s learning features. If you&apos;re under 18 (or the age of
+          majority where you live), you need a parent or guardian&apos;s permission, and they agree to these terms for
+          you. If you&apos;re under 13, a parent or guardian should create your account and look after it.
+        </li>
+        <li>
+          The Community is only for members 13 and older. Everyone is asked to confirm their age before joining it.
         </li>
         <li>You must give accurate information when you sign up, and an account is for one person.</li>
       </ul>
@@ -87,15 +90,18 @@ const sections: LegalSection[] = [
     body: (
       <>
         <p>
-          You own what you create in JustViet — like your flashcards, notes and personal dictionary words, and (once
-          available) your community posts. You give us permission to store, process and display that content as needed
-          to run JustViet for you and, for content you choose to share with others, to show it to them. You can delete
-          your content at any time.
+          You own what you create in JustViet — like your flashcards, notes, personal dictionary words and community
+          posts. You give us permission to store, process and display that content as needed to run JustViet for you
+          and, for content you share in the Community, to show it to other signed-in members. You can delete your
+          content at any time; deleting a community post permanently erases its text, though a &ldquo;deleted by its
+          author&rdquo; placeholder may stay so that others&apos; replies still make sense.
         </p>
         <p>
-          You&apos;re responsible for what you add, and you must have the right to share it. When Community launches,
-          posts must follow our community guidelines, and we may remove content or limit accounts that break these
-          terms or the guidelines.
+          You&apos;re responsible for what you add, and you must have the right to share it. The Community is for
+          members 13 and older, and everything you post there must follow our{" "}
+          <Link href="/guidelines">Community Guidelines</Link>. We may remove content or limit accounts that break these
+          terms or the guidelines. Other members&apos; posts are their own views, not ours, and may be wrong: check
+          important things with a reliable source.
         </p>
       </>
     ),
@@ -274,7 +280,10 @@ export default function TermsPage() {
         <>
           <p className="font-bold text-ink-900">The short version</p>
           <ul>
-            <li>You must be 13 or older to use JustViet; under 18 with a parent&apos;s permission.</li>
+            <li>
+              Anyone can learn with JustViet; under 18 with a parent&apos;s permission. The Community is for members 13
+              and older.
+            </li>
             <li>Use JustViet for your own learning, and be kind — don&apos;t misuse it or copy our content.</li>
             <li>You own what you create. We own JustViet&apos;s content and design.</li>
             <li>JustViet is free right now. If paid plans arrive, you&apos;ll only pay if you choose to subscribe.</li>

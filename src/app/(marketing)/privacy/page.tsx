@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 
 /*
  * Keep this accurate to what the app actually does. Before changing what
- * data JustViet collects or who processes it (Community, payments, mobile
+ * data JustViet collects or who processes it (payments, mobile
  * apps, analytics, a new host…), update this page and SITE.privacyUpdated.
  * A draft: have it reviewed before launch.
  */
@@ -66,6 +66,11 @@ const sections: LegalSection[] = [
           <li>Words, meanings and notes you add to your personal dictionary.</li>
           <li>Your XP, level, and Rồng Con&apos;s progress.</li>
         </ul>
+        <h3>Community information</h3>
+        <p>
+          If you use the Community, we also store what you share and do there. It&apos;s described in{" "}
+          <a href="#community">The Community</a> below.
+        </p>
         <h3>Technical information</h3>
         <p>
           When your browser connects to JustViet and to the Google services that power it, those services
@@ -91,6 +96,10 @@ const sections: LegalSection[] = [
           <li>To create and run your account, and to sign you in.</li>
           <li>To provide JustViet&apos;s features — scheduling your reviews, saving your dictionary words, tracking goals and XP.</li>
           <li>
+            To run the Community: showing your profile and posts to other members, counting votes, applying rate limits,
+            and reviewing reports to keep it safe.
+          </li>
+          <li>
             To send account emails you need, such as verifying your email address, resetting your password, or
             confirming an email change. We don&apos;t send marketing emails; if we ever offer a newsletter, it will be
             something you choose to join.
@@ -108,6 +117,67 @@ const sections: LegalSection[] = [
           service you signed up for (contract); keeping JustViet secure and working well (our legitimate interests);
           complying with the law; and your consent where we ask for it.
         </p>
+      </>
+    ),
+  },
+  {
+    id: "community",
+    title: "The Community",
+    body: (
+      <>
+        <p>
+          The Community is a space inside JustViet where members ask questions about Vietnamese, start discussions and
+          answer each other. It&apos;s only for signed-in members with a verified email who say they are 13 or older.
+          Community pages aren&apos;t public: they can&apos;t be seen without signing in and aren&apos;t indexed by search
+          engines.
+        </p>
+        <h3>What we store</h3>
+        <ul>
+          <li>Your answer to &ldquo;Community is for members 13 and older&rdquo;, and when you gave it.</li>
+          <li>
+            Your community profile: the community name you choose, your avatar colour, the date you joined, when you last
+            changed your name, when you accepted the community guidelines, and your totals of upvotes and downvotes
+            received (your &ldquo;Community XP&rdquo;).
+          </li>
+          <li>Your posts, answers, comments and replies, with when you wrote and edited them.</li>
+          <li>Your votes: which posts and answers you voted on, and how.</li>
+          <li>Reports you send: what you reported, the reason, any note you add, and when.</li>
+          <li>The posts you hide and the accounts you block.</li>
+          <li>When you last posted, responded, voted and reported, so we can apply simple rate limits against spam.</li>
+        </ul>
+        <h3>What other members can see</h3>
+        <ul>
+          <li>
+            Other signed-in members can see your community name, avatar colour, Community XP, join date, and everything
+            you post (with its date, whether it was edited, and its vote score).
+          </li>
+          <li>
+            Your email address, your real name (unless you use it as your community name), and your learning data (cards,
+            dictionary words, goals, XP and level) are never shown in the Community.
+          </li>
+          <li>
+            <strong>Votes are private.</strong> Members see only the total score; nobody else can see how you voted.
+          </li>
+          <li>
+            <strong>Reports are confidential.</strong> The person you report isn&apos;t told who reported them. Reports are
+            kept for the JustViet team to review and never remove anything automatically.
+          </li>
+          <li>Your hidden posts and blocked accounts are private to you. A blocked member isn&apos;t told.</li>
+        </ul>
+        <h3>How long community content is kept</h3>
+        <ul>
+          <li>Your community profile and posts are kept while your account exists, or until you delete them.</li>
+          <li>
+            When you delete a post, answer, comment or reply, its text is permanently erased. If others have already
+            replied, a placeholder (&ldquo;deleted by its author&rdquo;) stays so their replies still make sense, but it no
+            longer shows your name. Deleted content can&apos;t be restored.
+          </li>
+          <li>
+            When you change your community name, the old one is released and other members may choose it. Copies of the
+            old name may remain in other members&apos; replies that mention you (&ldquo;@Name&rdquo;).
+          </li>
+          <li>Reports are kept as long as needed to review them and to prevent abuse.</li>
+        </ul>
       </>
     ),
   },
@@ -150,6 +220,10 @@ const sections: LegalSection[] = [
           </li>
         </ul>
         <p>
+          Other Community members see what you choose to share there, as described in{" "}
+          <a href="#community">The Community</a>.
+        </p>
+        <p>
           We may also disclose information if the law requires it, to protect the rights, safety or property of our
           users or others, or as part of a merger, sale or reorganization of our business (in which case this policy
           would continue to protect your information).
@@ -164,10 +238,6 @@ const sections: LegalSection[] = [
       <>
         <p>We&apos;re working on new features. Before any of these launch, we&apos;ll update this policy to explain exactly what&apos;s involved:</p>
         <ul>
-          <li>
-            <strong>Community:</strong> a space to ask questions and answer each other. What you post there — and your
-            community display name — will be visible to other signed-in members.
-          </li>
           <li>
             <strong>Paid plans:</strong> a monthly subscription with a free trial. Payments will be handled by a
             payment provider or by Apple&apos;s or Google&apos;s app stores; we won&apos;t store your full card number.
@@ -188,7 +258,9 @@ const sections: LegalSection[] = [
           We keep your account and learning data for as long as your account exists, so your progress is there when
           you come back. If you ask us to delete your account, we&apos;ll delete your personal information within 30
           days, except for anything we must keep to meet legal obligations, resolve disputes or prevent abuse. Copies in
-          our providers&apos; backups and logs are removed on their normal schedules.
+          our providers&apos; backups and logs are removed on their normal schedules. Community content follows the
+          rules in <a href="#community">The Community</a>; deleting your account will also delete your community
+          profile and erase your posts.
         </p>
         <p>
           A &ldquo;Delete my account&rdquo; button is coming to the app&apos;s settings. Until then, email <Mail /> from
@@ -205,7 +277,9 @@ const sections: LegalSection[] = [
         <ul>
           <li>
             <strong>See and change your information:</strong> your name, email and password are in the app&apos;s
-            Settings, and your cards and dictionary words can be edited or deleted any time.
+            Settings, and your cards and dictionary words can be edited or deleted any time. In the Community you can
+            edit or delete your own posts, answers and replies, change your avatar colour any time, and change your
+            community name once every 30 days.
           </li>
           <li>
             <strong>Get a copy, correct, or delete:</strong> email <Mail /> and we&apos;ll respond within 30 days. We
@@ -230,12 +304,24 @@ const sections: LegalSection[] = [
     id: "children",
     title: "Children",
     body: (
-      <p>
-        JustViet isn&apos;t directed to children under 13, and we don&apos;t knowingly collect personal information from
-        them. If you&apos;re under 13, please don&apos;t create an account. If you&apos;re between 13 and 18, please
-        use JustViet with a parent or guardian&apos;s permission. If you believe a child under 13 has given us personal
-        information, contact us at <Mail /> and we&apos;ll delete it.
-      </p>
+      <>
+        <p>
+          Learners of any age can use JustViet&apos;s learning features. If you&apos;re under 18, please use JustViet
+          with a parent or guardian&apos;s permission. If you&apos;re under 13, a parent or guardian should create your
+          account and look after it. For learning, we only collect what the account needs: an email address, a name and
+          the learner&apos;s progress. We don&apos;t show ads, use analytics, or sell or share anyone&apos;s information
+          for advertising.
+        </p>
+        <p>
+          The Community is only for members 13 and older. It asks every member to confirm their age before they can
+          join, and isn&apos;t available to anyone who says they&apos;re under 13, so they can&apos;t post, comment or
+          see other members&apos; posts.
+        </p>
+        <p>
+          Parents and guardians can ask to see, correct or delete their child&apos;s information at any time by
+          emailing <Mail />.
+        </p>
+      </>
     ),
   },
   {
@@ -244,7 +330,8 @@ const sections: LegalSection[] = [
     body: (
       <p>
         Your connection to JustViet is encrypted (HTTPS), and Google encrypts the data it stores for us. Our database
-        rules only allow each account to read and change its own data. No system is perfectly secure, so please use a
+        rules only allow each account to read and change its own data, except Community content, which other members
+        can read but only its author can change (votes, reports, hidden posts and blocks stay private to you). No system is perfectly secure, so please use a
         strong, unique password — JustViet will help you pick one.
       </p>
     ),
@@ -292,9 +379,13 @@ export default function PrivacyPage() {
         <>
           <p className="font-bold text-ink-900">The short version</p>
           <ul>
-            <li>We collect what we need to run JustViet: your account details and your learning progress.</li>
+            <li>We collect what we need to run JustViet: your account details, your learning progress, and what you share in the Community.</li>
             <li>No ads, no tracking cookies, no analytics, and we never sell your information.</li>
-            <li>Your data is stored with Google Firebase, and only your account can access it.</li>
+            <li>Your data is stored with Google Firebase. Your learning data is private to your account.</li>
+            <li>
+              What you post in the Community, with your community name, is visible to other signed-in members. Your votes
+              and reports stay private.
+            </li>
             <li>You can see, change or delete your information — just ask.</li>
           </ul>
         </>

@@ -13,9 +13,23 @@ rules_version = '2';
 // never change. So the browser can't mint XP by writing numbers directly.
 // These mirror src/lib/xp/plan.ts; test them with `npm run test:rules`.
 //
+// The Community (top-level community* collections, plus two private lists
+// under users/{uid}) is enforced here too, with the same pattern: each action
+// is one client transaction, and every document it touches checks that the
+// others moved by exactly the right amount. The per-user "last action"
+// record (communityActivity/{uid}) names the one item each transaction acts
+// on (`act`, `target`, `at` == request.time), which is how a profile or a
+// post knows which vote or response its counts must match, and it carries
+// the rate limits. Reading or writing Community data needs a signed-in user
+// with a verified email and a community profile; a profile can only be
+// created after the 13+ answer. The limits mirror src/lib/community/limits.ts
+// (limits.test.ts and names.test.ts check they agree). See "Community" in
+// AGENTS.md; tested in test/rules/community.rules.test.ts.
+//
 // To apply: Firebase console → Firestore Database → Rules tab → paste this
 // file's contents → Publish. (Same idea as enabling the Email/Password
-// sign-in provider was for Authentication.)
+// sign-in provider was for Authentication.) Or, with the Firebase CLI:
+// `npx --yes firebase-tools@15 deploy --only firestore:rules,firestore:indexes`.
 service cloud.firestore {
   match /databases/{database}/documents {
     match /users/{userId} {
@@ -74,8 +88,22 @@ service cloud.firestore {
       // The user's own document, and everything that isn't the XP ledger.
       allow read, write: if owner();
       match /{col}/{rest=**} {
-        allow read: if owner();
-        allow write: if owner() && !(col in ['xp', 'xpEvents', 'days']);
+        allow read: if owner() && !(col in ['communityHidden', 'communityBlocks']);
+        allow write: if owner() && !(col in ['xp', 'xpEvents', 'days', 'communityHidden', 'communityBlocks']);
+      }
+
+      // ----- Community: the member's private hidden posts and blocked accounts -----
+      // Hiding and blocking only change what this member sees: never votes or XP.
+      match /communityHidden/{postId} {
+        allow get, list, delete: if owner() && member();
+        allow create: if owner() && member() && stampOnly();
+      }
+      match /communityBlocks/{other} {
+        allow get, list, delete: if owner() && member();
+        allow create: if owner() && member() && other != userId && exists(profilePath(other)) && stampOnly();
+      }
+      function stampOnly() {
+        return request.resource.data.keys().hasOnly(['at']) && request.resource.data.at == request.time;
       }
 
       // ----- xp/total: moves by exactly the one new event written with it -----
@@ -196,6 +224,499 @@ service cloud.firestore {
           && ((same(prev, next, 'seq') && same(prev, next, 'bonus') && same(prev, next, 'flash') && same(prev, next, 'done'))
               || (isNewEvent(lastEvent()) && getAfter(eventPath(lastEvent())).data.day == d));
       }
+    }
+
+    // =====================================================================
+    // Community
+    // =====================================================================
+
+    // ----- limits (mirror src/lib/community/limits.ts; limits.test.ts checks) -----
+    function TITLE_MIN() { return 10; }
+    function TITLE_MAX() { return 150; }
+    function BODY_MIN() { return 20; }
+    function BODY_MAX() { return 5000; }
+    function RESPONSE_MAX() { return 5000; }
+    function REPLY_MAX() { return 1000; }
+    function REPORT_NOTE_MAX() { return 500; }
+    function POST_INTERVAL_S() { return 60; }
+    function RESPONSE_INTERVAL_S() { return 15; }
+    function VOTE_INTERVAL_S() { return 2; }
+    function REPORTS_PER_DAY() { return 20; }
+    function RENAME_DAYS() { return 30; }
+    function MAX_TOKENS() { return 500; }
+    function CATEGORIES() { return ['grammar', 'vocabulary', 'pronunciation', 'culture', 'tips', 'other']; }
+    function COLORS() { return ['tomato', 'amber', 'leaf', 'teal', 'sky', 'plum', 'rose', 'cocoa']; }
+    function REASONS() { return ['harassment', 'spam', 'inappropriate', 'privacy', 'off-topic', 'other']; }
+
+    // ----- who may use the Community -----
+    function me() {
+      return request.auth.uid;
+    }
+    function verified() {
+      return request.auth != null && request.auth.token.email_verified == true;
+    }
+    // Signed in, verified email, and a community profile (which needs the 13+ answer).
+    function member() {
+      return verified() && exists(profilePath(me()));
+    }
+    function guidelinesAccepted() {
+      return get(profilePath(me())).data.guidelinesAt != null;
+    }
+
+    function agePath(uid) {
+      return /databases/$(database)/documents/communityAge/$(uid);
+    }
+    function profilePath(uid) {
+      return /databases/$(database)/documents/communityProfiles/$(uid);
+    }
+    function namePath(key) {
+      return /databases/$(database)/documents/communityNames/$(key);
+    }
+    function activityPath(uid) {
+      return /databases/$(database)/documents/communityActivity/$(uid);
+    }
+    function postPath(p) {
+      return /databases/$(database)/documents/communityPosts/$(p);
+    }
+    function respPath(p, r) {
+      return /databases/$(database)/documents/communityPosts/$(p)/responses/$(r);
+    }
+    function itemPath(p, r) {
+      return r == null ? postPath(p) : respPath(p, r);
+    }
+    function votePath(id) {
+      return /databases/$(database)/documents/communityVotes/$(id);
+    }
+
+    function textOk(s, min, max) {
+      return s is string && s.trim().size() >= min && s.size() <= max;
+    }
+    function tokensOk(t) {
+      return t is list && t.size() <= MAX_TOKENS();
+    }
+    function idOk(id) {
+      return id is string && id.matches('^[A-Za-z0-9]{16,40}$');
+    }
+
+    // ----- the per-user "last action" record -----
+    // This request's action, as the record now says: `at` == request.time only if this request wrote it.
+    function acted(kind, target) {
+      let x = getAfter(activityPath(me())).data;
+      return x.at == request.time && x.act == kind && x.target == target;
+    }
+
+    // ----- names: allowed letters, the uniqueness key, reserved names (mirror names.ts) -----
+    function nameOk(n) {
+      return n is string
+        && n.matches('^[A-Za-z0-9àáảãạăằắẳẵặâầấẩẫậÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬđĐèéẻẽẹêềếểễệÈÉẺẼẸÊỀẾỂỄỆìíỉĩịÌÍỈĨỊòóỏõọôồốổỗộơờớởỡợÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢùúủũụưừứửữựÙÚỦŨỤƯỪỨỬỮỰỳýỷỹỵỲÝỶỸỴ][A-Za-z0-9àáảãạăằắẳẵặâầấẩẫậÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬđĐèéẻẽẹêềếểễệÈÉẺẼẸÊỀẾỂỄỆìíỉĩịÌÍỈĨỊòóỏõọôồốổỗộơờớởỡợÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢùúủũụưừứửữựÙÚỦŨỤƯỪỨỬỮỰỳýỷỹỵỲÝỶỸỴ ._-]{1,28}[A-Za-z0-9àáảãạăằắẳẵặâầấẩẫậÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬđĐèéẻẽẹêềếểễệÈÉẺẼẸÊỀẾỂỄỆìíỉĩịÌÍỈĨỊòóỏõọôồốổỗộơờớởỡợÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢùúủũụưừứửữựÙÚỦŨỤƯỪỨỬỮỰỳýỷỹỵỲÝỶỸỴ]$')
+        && !n.matches('.*  .*');
+    }
+    // The key: accents folded letter by letter (rules have no Unicode folding), then ASCII lowercase.
+    function nameKeyOf(n) {
+      return n.replace('[àáảãạăằắẳẵặâầấẩẫậÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬ]', 'a')
+        .replace('[đĐ]', 'd')
+        .replace('[èéẻẽẹêềếểễệÈÉẺẼẸÊỀẾỂỄỆ]', 'e')
+        .replace('[ìíỉĩịÌÍỈĨỊ]', 'i')
+        .replace('[òóỏõọôồốổỗộơờớởỡợÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢ]', 'o')
+        .replace('[ùúủũụưừứửữựÙÚỦŨỤƯỪỨỬỮỰ]', 'u')
+        .replace('[ỳýỷỹỵỲÝỶỸỴ]', 'y')
+        .lower();
+    }
+    function reservedName(key) {
+      let compact = key.replace('[ ._-]', '');
+      return compact.matches('.*(admin|moderator|justviet).*')
+        || compact.matches('(cotuoi|thayvinh|rongcon)[0-9]*')
+        || key.matches('(.*[ ._-])?(mod|mods|staff|support|official|system|team)([ ._-].*)?');
+    }
+
+    // ----- vote arithmetic (mirror votes.ts) -----
+    function upD(x, y) {
+      return (y == 1 ? 1 : 0) - (x == 1 ? 1 : 0);
+    }
+    function downD(x, y) {
+      return (y == -1 ? 1 : 0) - (x == -1 ? 1 : 0);
+    }
+    function voteIdFor(p, r, uid) {
+      return r == null ? 'p_' + p + '_' + uid : 'r_' + p + '_' + r + '_' + uid;
+    }
+    // A post's or top-level response's counts move by exactly this request's vote.
+    function itemVoteOk(p, r, a, b, changed) {
+      let vid = voteIdFor(p, r, me());
+      let before = exists(votePath(vid)) ? get(votePath(vid)).data.value : 0;
+      let after = getAfter(votePath(vid)).data.value;
+      return changed.hasOnly(['up', 'down', 'score'])
+        && b.up == a.up + upD(before, after)
+        && b.down == a.down + downD(before, after)
+        && b.score == b.up - b.down;
+    }
+    // The member's own profile loses exactly what the item they're deleting held.
+    function ownCountsDropBy(up, down) {
+      let pa = get(profilePath(me())).data;
+      let pb = getAfter(profilePath(me())).data;
+      return pb.up == pa.up - up && pb.down == pa.down - down;
+    }
+
+    // ----- communityAge/{uid}: the 13+ answer, once; only an admin can change it -----
+    match /communityAge/{uid} {
+      allow get: if verified() && uid == me();
+      allow create: if verified() && uid == me()
+        && request.resource.data.keys().hasOnly(['over13', 'at'])
+        && request.resource.data.over13 is bool
+        && request.resource.data.at == request.time;
+    }
+
+    // ----- communityNames/{key}: one claim per name, held by the profile that points to it -----
+    match /communityNames/{key} {
+      // Readable before joining (to check a name is free) by anyone who answered 13+.
+      allow get: if verified() && (exists(profilePath(me())) || get(agePath(me())).data.over13 == true);
+      allow create: if verified()
+        && request.resource.data.keys().hasOnly(['uid'])
+        && request.resource.data.uid == me()
+        && getAfter(profilePath(me())).data.nameKey == key;
+      // Released by a rename.
+      allow delete: if verified() && resource.data.uid == me() && getAfter(profilePath(me())).data.nameKey != key;
+    }
+
+    // ----- communityProfiles/{uid} -----
+    match /communityProfiles/{uid} {
+      // Your own (possibly missing) profile is readable before you join, so the app knows to ask.
+      allow get: if member() || (verified() && uid == me());
+      allow list: if member() && request.query.limit <= 30;
+      allow create: if verified() && uid == me() && profileCreateOk(uid);
+      allow update: if member() && (uid == me() ? ownProfileOk(uid) : profileVoteOk(uid));
+    }
+    function profileCreateOk(uid) {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['name', 'nameKey', 'color', 'up', 'down', 'joinedAt', 'nameChangedAt', 'guidelinesAt'])
+        && d.keys().hasAll(['name', 'nameKey', 'color', 'up', 'down', 'joinedAt', 'nameChangedAt', 'guidelinesAt'])
+        && nameOk(d.name) && d.nameKey == nameKeyOf(d.name) && !reservedName(d.nameKey)
+        && d.color in COLORS()
+        && d.up == 0 && d.down == 0
+        && d.joinedAt == request.time && d.nameChangedAt == null && d.guidelinesAt == null
+        && get(agePath(uid)).data.over13 == true
+        && getAfter(namePath(d.nameKey)).data.uid == uid;
+    }
+    function ownProfileOk(uid) {
+      let a = resource.data;
+      let b = request.resource.data;
+      let changed = b.diff(a).affectedKeys();
+      return changed.hasOnly(['name', 'nameKey', 'nameChangedAt', 'color', 'guidelinesAt', 'up', 'down'])
+        && (!changed.hasAny(['color']) || b.color in COLORS())
+        && (!changed.hasAny(['guidelinesAt']) || (a.guidelinesAt == null && b.guidelinesAt == request.time))
+        && (!changed.hasAny(['name', 'nameKey', 'nameChangedAt']) || renameOk(uid, a, b))
+        && (!changed.hasAny(['up', 'down']) || ownDeleteOk(a, b));
+    }
+    // At most once every RENAME_DAYS; the new name is claimed and the old one released together.
+    function renameOk(uid, a, b) {
+      return nameOk(b.name) && b.name != a.name
+        && b.nameKey == nameKeyOf(b.name) && !reservedName(b.nameKey)
+        && b.nameChangedAt == request.time
+        && (a.nameChangedAt == null || request.time >= a.nameChangedAt + duration.value(RENAME_DAYS(), 'd'))
+        && (b.nameKey == a.nameKey
+            || (getAfter(namePath(b.nameKey)).data.uid == uid && !existsAfter(namePath(a.nameKey))));
+    }
+    // Deleting your own post or response takes its votes off your totals, in the same request.
+    function ownDeleteOk(a, b) {
+      let x = getAfter(activityPath(me())).data;
+      let parts = x.target.split('/');
+      return x.at == request.time && x.act == 'delete' && parts.size() <= 2
+        && ownDeleteOfOk(a, b, parts.size() == 1 ? postPath(parts[0]) : respPath(parts[0], parts[parts.size() - 1]));
+    }
+    function ownDeleteOfOk(a, b, path) {
+      let item = get(path).data;
+      return item.author == me()
+        && b.up == a.up - item.up && b.down == a.down - item.down
+        && (!existsAfter(path) || getAfter(path).data.deleted == true);
+    }
+    // Someone else's profile moves only by the exact amount of this request's vote on its owner's item.
+    function profileVoteOk(uid) {
+      let a = resource.data;
+      let b = request.resource.data;
+      let x = getAfter(activityPath(me())).data;
+      return b.diff(a).affectedKeys().hasOnly(['up', 'down'])
+        && x.at == request.time && x.act == 'vote'
+        && profileVoteOfOk(uid, a, b, x.target);
+    }
+    function profileVoteOfOk(uid, a, b, vid) {
+      let v = getAfter(votePath(vid)).data;
+      let before = exists(votePath(vid)) ? get(votePath(vid)).data.value : 0;
+      return v.author == uid && v.voter == me()
+        && b.up == a.up + upD(before, v.value)
+        && b.down == a.down + downD(before, v.value);
+    }
+
+    // ----- communityActivity/{uid}: the rate limits, and this request's action -----
+    match /communityActivity/{uid} {
+      allow get: if member() && uid == me();
+      allow create, update: if member() && uid == me() && activityOk();
+    }
+    function blankActivity() {
+      return {'lastPost': null, 'lastResponse': null, 'lastVote': null, 'reportDay': 0, 'reports': 0};
+    }
+    function activityOk() {
+      let a = resource == null ? blankActivity() : resource.data;
+      let b = request.resource.data;
+      return b.keys().hasOnly(['lastPost', 'lastResponse', 'lastVote', 'reportDay', 'reports', 'act', 'target', 'at'])
+        && b.keys().hasAll(['lastPost', 'lastResponse', 'lastVote', 'reportDay', 'reports', 'act', 'target', 'at'])
+        && b.at == request.time && b.act is string && b.target is string
+        && stampOk(a.lastPost, b.lastPost, POST_INTERVAL_S())
+        && stampOk(a.lastResponse, b.lastResponse, RESPONSE_INTERVAL_S())
+        && stampOk(a.lastVote, b.lastVote, VOTE_INTERVAL_S())
+        && reportsOk(a, b);
+    }
+    // Unchanged, or now, if at least `secs` seconds have passed since the last one.
+    function stampOk(prev, next, secs) {
+      return next == prev
+        || (next == request.time && (prev == null || request.time >= prev + duration.value(secs, 's')));
+    }
+    function today() {
+      return request.time.toMillis() / 86400000;
+    }
+    function reportsOk(a, b) {
+      return b.act == 'report'
+        ? (b.reportDay == today()
+            && b.reports == (a.reportDay == today() ? a.reports : 0) + 1
+            && b.reports <= REPORTS_PER_DAY())
+        : (b.reportDay == a.reportDay && b.reports == a.reports);
+    }
+
+    // ----- communityPosts/{postId} and their responses -----
+    match /communityPosts/{postId} {
+      allow get, list: if member();
+      allow create: if member() && postCreateOk(postId);
+      allow update: if member() && postUpdateOk(postId);
+      allow delete: if member() && postDeleteOk(postId);
+
+      match /responses/{rid} {
+        allow get, list: if member();
+        allow create: if member() && respCreateOk(postId, rid);
+        allow update: if member() && respUpdateOk(postId, rid);
+        allow delete: if member() && respDeleteOk(postId, rid);
+      }
+    }
+
+    function postCreateOk(postId) {
+      let d = request.resource.data;
+      let x = getAfter(activityPath(me())).data;
+      return idOk(postId)
+        && d.keys().hasOnly(['type', 'category', 'title', 'body', 'author', 'createdAt', 'editedAt', 'up', 'down', 'score', 'responses', 'erased', 'accepted', 'deleted', 'tokens'])
+        && d.keys().hasAll(['type', 'category', 'title', 'body', 'author', 'createdAt', 'editedAt', 'up', 'down', 'score', 'responses', 'erased', 'accepted', 'deleted', 'tokens'])
+        && d.author == me()
+        && d.type in ['question', 'discussion'] && d.category in CATEGORIES()
+        && textOk(d.title, TITLE_MIN(), TITLE_MAX()) && textOk(d.body, BODY_MIN(), BODY_MAX())
+        && tokensOk(d.tokens)
+        && d.createdAt == request.time && d.editedAt == null
+        && d.up == 0 && d.down == 0 && d.score == 0 && d.responses == 0 && d.erased == 0
+        && d.accepted == null && d.deleted == false
+        && guidelinesAccepted()
+        && x.at == request.time && x.act == 'post' && x.target == postId && x.lastPost == request.time;
+    }
+    function postUpdateOk(postId) {
+      let a = resource.data;
+      let b = request.resource.data;
+      let changed = b.diff(a).affectedKeys();
+      return (a.author == me() && a.deleted == false
+              && (postEditOk(a, b, changed) || postAcceptOk(postId, a, b, changed) || postEraseOk(postId, a, b, changed)))
+        || postCountsOk(postId, a, b, changed)
+        || itemVoteOk(postId, null, a, b, changed);
+    }
+    // The author edits the text (the type only while there are no responses).
+    function postEditOk(a, b, changed) {
+      return changed.hasOnly(['title', 'body', 'category', 'type', 'tokens', 'editedAt'])
+        && b.editedAt == request.time
+        && textOk(b.title, TITLE_MIN(), TITLE_MAX()) && textOk(b.body, BODY_MIN(), BODY_MAX())
+        && b.category in CATEGORIES() && tokensOk(b.tokens)
+        && (b.type == a.type
+            || (b.type in ['question', 'discussion'] && a.responses == 0 && a.erased == 0 && a.accepted == null));
+    }
+    // The asker accepts one answer, switches, or removes acceptance.
+    function postAcceptOk(postId, a, b, changed) {
+      return a.type == 'question' && changed.hasOnly(['accepted'])
+        && (b.accepted == null || acceptable(postId, b.accepted));
+    }
+    function acceptable(postId, rid) {
+      let r = get(respPath(postId, rid)).data;
+      return r.parent == null && r.deleted == false;
+    }
+    // Deleting a post with responses erases its title, body and author for good; its votes stop counting.
+    function postEraseOk(postId, a, b, changed) {
+      return (a.responses > 0 || a.erased > 0)
+        && changed.hasOnly(['title', 'body', 'author', 'deleted', 'tokens', 'up', 'down', 'score'])
+        && b.title == '' && b.body == '' && b.author == '' && b.deleted == true && b.tokens.size() == 0
+        && b.up == 0 && b.down == 0 && b.score == 0
+        && ownCountsDropBy(a.up, a.down)
+        && acted('delete', postId);
+    }
+    // A post with nothing under it is deleted outright.
+    function postDeleteOk(postId) {
+      let a = resource.data;
+      return a.author == me() && a.deleted == false && a.responses == 0 && a.erased == 0
+        && ownCountsDropBy(a.up, a.down)
+        && acted('delete', postId);
+    }
+    // Anyone's top-level response being added or deleted moves the post's counts by exactly one.
+    function postCountsOk(postId, a, b, changed) {
+      let x = getAfter(activityPath(me())).data;
+      let parts = x.target.split('/');
+      return x.at == request.time && parts.size() == 2 && parts[0] == postId
+        && changed.hasOnly(['responses', 'erased', 'accepted'])
+        && topLevelChangeOk(postId, parts[1], x.act, a, b);
+    }
+    function topLevelChangeOk(postId, rid, kind, a, b) {
+      let path = respPath(postId, rid);
+      return (kind == 'respond' && !exists(path) && getAfter(path).data.parent == null
+              && b.responses == a.responses + 1 && b.erased == a.erased && b.accepted == a.accepted)
+        || (kind == 'delete' && get(path).data.parent == null && get(path).data.deleted == false
+              && b.responses == a.responses - 1
+              && b.erased == a.erased + (existsAfter(path) ? 1 : 0)
+              && b.accepted == (a.accepted == rid ? null : a.accepted));
+    }
+
+    function respCreateOk(postId, rid) {
+      let d = request.resource.data;
+      let x = getAfter(activityPath(me())).data;
+      return idOk(rid)
+        && d.keys().hasOnly(['post', 'parent', 'author', 'body', 'createdAt', 'editedAt', 'up', 'down', 'score', 'replies', 'deleted', 'mention'])
+        && d.keys().hasAll(['post', 'parent', 'author', 'body', 'createdAt', 'editedAt', 'up', 'down', 'score', 'replies', 'deleted', 'mention'])
+        && d.post == postId && d.author == me()
+        && d.createdAt == request.time && d.editedAt == null
+        && d.up == 0 && d.down == 0 && d.score == 0 && d.replies == 0 && d.deleted == false
+        && guidelinesAccepted()
+        && x.at == request.time && x.act == 'respond' && x.target == postId + '/' + rid && x.lastResponse == request.time
+        && get(postPath(postId)).data.deleted == false
+        && (d.parent == null ? topCreateOk(postId, d) : replyCreateOk(postId, d));
+    }
+    function topCreateOk(postId, d) {
+      let pa = get(postPath(postId)).data;
+      let pb = getAfter(postPath(postId)).data;
+      return textOk(d.body, 1, RESPONSE_MAX()) && d.mention == null
+        && pb.responses == pa.responses + 1 && pb.erased == pa.erased;
+    }
+    // One reply level: a reply's parent is a top-level response that isn't deleted.
+    function replyCreateOk(postId, d) {
+      let ra = get(respPath(postId, d.parent)).data;
+      let rb = getAfter(respPath(postId, d.parent)).data;
+      return textOk(d.body, 1, REPLY_MAX()) && (d.mention == null || d.mention is string)
+        && ra.parent == null && ra.deleted == false && rb.replies == ra.replies + 1;
+    }
+    function respUpdateOk(postId, rid) {
+      let a = resource.data;
+      let b = request.resource.data;
+      let changed = b.diff(a).affectedKeys();
+      return (a.author == me() && a.deleted == false
+              && (respEditOk(a, b, changed) || respEraseOk(postId, rid, a, b, changed)))
+        || replyCountOk(postId, rid, a, b, changed)
+        || (a.parent == null && itemVoteOk(postId, rid, a, b, changed));
+    }
+    function respEditOk(a, b, changed) {
+      return changed.hasOnly(['body', 'editedAt']) && b.editedAt == request.time
+        && textOk(b.body, 1, a.parent == null ? RESPONSE_MAX() : REPLY_MAX());
+    }
+    // A top-level response with replies is erased (text and author gone for good) so its replies stay.
+    function respEraseOk(postId, rid, a, b, changed) {
+      return a.parent == null && a.replies > 0
+        && changed.hasOnly(['body', 'author', 'deleted', 'up', 'down', 'score'])
+        && b.body == '' && b.author == '' && b.deleted == true && b.up == 0 && b.down == 0 && b.score == 0
+        && ownCountsDropBy(a.up, a.down)
+        && acted('delete', postId + '/' + rid)
+        && postLosesTop(postId, rid, 1);
+    }
+    function respDeleteOk(postId, rid) {
+      let a = resource.data;
+      return a.author == me() && a.deleted == false
+        && acted('delete', postId + '/' + rid)
+        && (a.parent == null
+            ? (a.replies == 0 && ownCountsDropBy(a.up, a.down) && postLosesTop(postId, rid, 0))
+            : replyParentDrops(postId, a.parent));
+    }
+    // The post's count drops by one, and acceptance clears if it was this answer.
+    function postLosesTop(postId, rid, erasedDelta) {
+      let pa = get(postPath(postId)).data;
+      let pb = getAfter(postPath(postId)).data;
+      return pb.responses == pa.responses - 1 && pb.erased == pa.erased + erasedDelta
+        && pb.accepted == (pa.accepted == rid ? null : pa.accepted);
+    }
+    function replyParentDrops(postId, parent) {
+      let ra = get(respPath(postId, parent)).data;
+      let rb = getAfter(respPath(postId, parent)).data;
+      return rb.replies == ra.replies - 1;
+    }
+    // A top-level response's reply count moves by exactly one reply added or deleted in this request.
+    function replyCountOk(postId, rid, a, b, changed) {
+      let x = getAfter(activityPath(me())).data;
+      let parts = x.target.split('/');
+      return x.at == request.time && parts.size() == 2 && parts[0] == postId && parts[1] != rid
+        && changed.hasOnly(['replies'])
+        && replyChangeOk(postId, rid, parts[1], x.act, a, b);
+    }
+    function replyChangeOk(postId, parent, child, kind, a, b) {
+      let path = respPath(postId, child);
+      return (kind == 'respond' && !exists(path) && getAfter(path).data.parent == parent && b.replies == a.replies + 1)
+        || (kind == 'delete' && get(path).data.parent == parent && !existsAfter(path) && b.replies == a.replies - 1);
+    }
+
+    // ----- communityVotes/{voteId}: one per item and voter, private to the voter -----
+    match /communityVotes/{voteId} {
+      // Only ids ending in your own uid: probing someone else's vote is refused whether it exists or not.
+      allow get: if member() && voteId.split('_')[voteId.split('_').size() - 1] == me();
+      allow list: if member() && resource.data.voter == me();
+      allow create, update: if member() && voteOk(voteId);
+    }
+    function voteOk(voteId) {
+      let v = request.resource.data;
+      let before = resource == null ? 0 : resource.data.value;
+      let x = getAfter(activityPath(me())).data;
+      return v.keys().hasOnly(['voter', 'post', 'response', 'author', 'value', 'at'])
+        && v.keys().hasAll(['voter', 'post', 'response', 'author', 'value', 'at'])
+        && v.voter == me() && v.at == request.time
+        && v.value in [-1, 0, 1] && v.value != before
+        && voteId == voteIdFor(v.post, v.response, me())
+        && (resource == null
+            || (resource.data.post == v.post && resource.data.response == v.response && resource.data.author == v.author))
+        && x.at == request.time && x.act == 'vote' && x.target == voteId && x.lastVote == request.time
+        && voteItemOk(v, before)
+        && voteAuthorOk(v, before);
+    }
+    // Not your own, not deleted, not a reply; and its counts move by exactly this vote.
+    function voteItemOk(v, before) {
+      let ia = get(itemPath(v.post, v.response)).data;
+      let ib = getAfter(itemPath(v.post, v.response)).data;
+      return ia.deleted == false && ib.deleted == false
+        && ia.author == v.author && v.author != me()
+        && (v.response == null || ia.parent == null)
+        && ib.up == ia.up + upD(before, v.value)
+        && ib.down == ia.down + downD(before, v.value);
+    }
+    // The author's Community XP moves by the same amount.
+    function voteAuthorOk(v, before) {
+      let pa = get(profilePath(v.author)).data;
+      let pb = getAfter(profilePath(v.author)).data;
+      return pb.up == pa.up + upD(before, v.value) && pb.down == pa.down + downD(before, v.value);
+    }
+
+    // ----- communityReports/{id}: one per item and reporter; kept for Phase 2's moderation queue -----
+    match /communityReports/{reportId} {
+      allow get: if member() && reportId.split('_')[0] == me();
+      allow list: if member() && resource.data.reporter == me();
+      allow create: if member() && reportOk(reportId);
+    }
+    function reportOk(reportId) {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['reporter', 'kind', 'post', 'response', 'profile', 'reason', 'note', 'at', 'status'])
+        && d.keys().hasAll(['reporter', 'kind', 'post', 'response', 'profile', 'reason', 'note', 'at', 'status'])
+        && d.reporter == me() && d.at == request.time && d.status == 'open'
+        && d.reason in REASONS() && d.note is string && d.note.size() <= REPORT_NOTE_MAX()
+        && reportTargetOk(reportId, d)
+        && acted('report', reportId);
+    }
+    function reportTargetOk(reportId, d) {
+      return (d.kind == 'post' && d.response == null && d.profile == null
+              && reportId == me() + '_p_' + d.post && exists(postPath(d.post)))
+        || (d.kind in ['response', 'reply'] && d.profile == null
+              && reportId == me() + '_r_' + d.post + '_' + d.response
+              && (get(respPath(d.post, d.response)).data.parent == null) == (d.kind == 'response'))
+        || (d.kind == 'profile' && d.post == null && d.response == null && d.profile != me()
+              && reportId == me() + '_u_' + d.profile && exists(profilePath(d.profile)));
     }
   }
 }

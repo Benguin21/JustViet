@@ -27,8 +27,8 @@ export const SITE = {
   tagline: "Learn Vietnamese a little every day — and actually remember it.",
   description:
     "JustViet is a friendly way to learn Vietnamese: spaced-repetition flashcards, a tone-aware dictionary, daily goals, and Rồng Con, a baby dragon who grows as you study.",
-  privacyUpdated: "November 17, 2026",
-  termsUpdated: "November 17, 2026",
+  privacyUpdated: "November 18, 2026",
+  termsUpdated: "November 18, 2026",
 } as const;
 
 /** The year for copyright lines (computed once, outside render). */

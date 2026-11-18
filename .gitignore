@@ -56,3 +56,7 @@ firestore-debug.log
 
 # firebase hosting deploy cache
 .firebase/
+
+# Firebase service-account keys (scripts/community-drift.mts). Never commit these.
+*.service-account.json
+service-account*.json
