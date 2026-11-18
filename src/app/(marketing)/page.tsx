@@ -44,7 +44,7 @@ const FEATURES = [
   {
     icon: "💬",
     title: "A community to ask and help",
-    body: "Stuck on a word or a grammar point? Ask other learners, start a discussion to share a tip, and upvote the most helpful answers. Search with or without accents, and the asker can mark the answer that helped. For members 13 and older with a verified email.",
+    body: "Stuck on a word or a grammar point? Ask other learners, start a discussion to share a tip, and upvote the most helpful answers. Search with or without accents, the asker can mark the answer that helped, and you're notified when someone answers or replies. Moderators keep it friendly. For members 13 and older with a verified email.",
     tone: "red",
     wide: true,
   },

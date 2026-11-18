@@ -48,8 +48,10 @@ export default function GuidelinesPage() {
             for yourself.
           </p>
           <p>
-            Breaking these guidelines or our <Link href="/terms" className="font-bold text-red-600 underline-offset-2 hover:underline">Terms of Service</Link>{" "}
-            can lead to content being removed or an account being limited. Questions? Email{" "}
+            Moderators review reports. Breaking these guidelines or our{" "}
+            <Link href="/terms" className="font-bold text-red-600 underline-offset-2 hover:underline">Terms of Service</Link> can
+            lead to content being removed, a warning, a suspension from posting, or a ban from the Community. You&apos;ll
+            get a notification saying what happened and why. Questions? Email{" "}
             <a href={`mailto:${SITE.contactEmail}`} className="font-bold text-red-600 underline-offset-2 hover:underline">
               {SITE.contactEmail}
             </a>

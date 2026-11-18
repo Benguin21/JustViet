@@ -69,6 +69,17 @@ describe("findDrift", () => {
     expect(findDrift({ profiles, posts, responses, votes })).toEqual([]);
   });
 
+  it("keeps a removed item's tally but leaves it out of Community XP and the post's answer count", () => {
+    const posts = [post("p", "ann", { responses: 0, erased: 1 }), post("q", "ann", { deleted: true, removed: true, up: 1, score: 1 })];
+    const responses = [resp("r", "p", "bob", { deleted: true, removed: true, up: 1, score: 1 })];
+    const votes = [
+      { post: "p", response: "r", value: 1 },
+      { post: "q", response: null, value: 1 },
+    ];
+    const profiles = [{ uid: "ann", up: 0, down: 0 }, { uid: "bob", up: 0, down: 0 }];
+    expect(findDrift({ profiles, posts, responses, votes })).toEqual([]);
+  });
+
   it("finds and fixes wrong counts, stale acceptance and deleted items' votes", () => {
     const posts = [post("p", "ann", { up: 5, score: 5, responses: 3, accepted: "gone" }), post("d", "", { deleted: true, up: 2, score: 2 })];
     const responses = [resp("r", "p", "bob", { replies: 4 }), resp("e", "p", "", { deleted: true })];

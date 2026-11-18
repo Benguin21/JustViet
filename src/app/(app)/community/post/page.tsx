@@ -11,6 +11,7 @@ import { MemberLine } from "@/components/community/MemberLine";
 import { PostBadges } from "@/components/community/PostCard";
 import { PostForm } from "@/components/community/PostForm";
 import { ReportDialog } from "@/components/community/ReportDialog";
+import { ModRemoveDialog, RemovedNotice } from "@/components/community/Moderation";
 import { ResponseComposer } from "@/components/community/ResponseComposer";
 import { ResponseItem, actionClass, type ThreadActions } from "@/components/community/ResponseItem";
 import { RichText } from "@/components/community/RichText";
@@ -47,7 +48,7 @@ function PostPageContent() {
   const router = useRouter();
   const postId = useSearchParams().get("id");
   const thread = usePostThread(postId);
-  const { uid, profiles, blocked, hidden, hide, unhide, block, unblock } = useCommunity();
+  const { uid, profiles, blocked, hidden, hide, unhide, block, unblock, isModerator } = useCommunity();
   const { accepted: guidelinesAccepted, require, dialog: guidelinesDialog } = useGuidelinesGate();
   const { message: toast, showToast } = useToast();
   const [editing, setEditing] = useState(false);
@@ -59,6 +60,7 @@ function PostPageContent() {
   const [revealHidden, setRevealHidden] = useState(false);
   const [voting, setVoting] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [removing, setRemoving] = useState(false);
 
   const { post, responses } = thread;
   const top = useMemo(
@@ -104,6 +106,14 @@ function PostPageContent() {
       showToast("Deleted");
     },
     accept: thread.accept,
+    remove: async (item, reason) => {
+      await thread.removeItem(item, reason);
+      showToast("Removed");
+    },
+    restore: async (item) => {
+      await thread.restoreItem(item);
+      showToast("Restored");
+    },
     report: (target, a) => setReport({ target, author: a }),
     requireGuidelines: require,
   };
@@ -130,7 +140,9 @@ function PostPageContent() {
     }
   }
 
-  const content = post.deleted ? (
+  const content = post.removed ? (
+    <RemovedNotice item={{ post: post.id, response: null }} author={post.author} noun="post" onRestore={() => actions.restore({ post: post.id, response: null })} />
+  ) : post.deleted ? (
     <p className="font-semibold text-ink-500 italic">{DELETED_POST_TEXT}</p>
   ) : editing ? (
     <PostForm
@@ -238,6 +250,11 @@ function PostPageContent() {
                             Block {author.name}
                           </button>
                         ))}
+                      {isModerator && (
+                        <button type="button" className={`${actionClass} text-red-600`} onClick={() => setRemoving(true)}>
+                          Remove
+                        </button>
+                      )}
                     </>
                   )}
                 </div>
@@ -328,6 +345,13 @@ function PostPageContent() {
           authorUid={report.author}
           authorName={report.author ? (profiles[report.author]?.name ?? null) : null}
           onClose={() => setReport(null)}
+        />
+      )}
+      {removing && (
+        <ModRemoveDialog
+          noun="post"
+          onClose={() => setRemoving(false)}
+          onConfirm={(reason) => actions.remove({ post: post.id, response: null }, reason)}
         />
       )}
       {guidelinesDialog}

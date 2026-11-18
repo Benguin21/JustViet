@@ -10,6 +10,7 @@ import { deletedResponseText, responseDeleteMode } from "@/lib/community/posts";
 import type * as repo from "@/lib/community/repository";
 import type { Post, ReportTarget, Response, VoteValue } from "@/lib/community/types";
 import { MemberLine } from "./MemberLine";
+import { ModRemoveDialog, RemovedNotice } from "./Moderation";
 import { ResponseComposer } from "./ResponseComposer";
 import { RichText } from "./RichText";
 import { RichTextEditor } from "./RichTextEditor";
@@ -26,6 +27,9 @@ export interface ThreadActions {
   deleteResponse: (r: Response) => Promise<void>;
   accept: (responseId: string | null) => Promise<void>;
   report: (target: ReportTarget, authorUid: string | null) => void;
+  /** Moderators only. */
+  remove: (item: { post: string; response: string | null }, reason: string) => Promise<void>;
+  restore: (item: { post: string; response: string | null }) => Promise<void>;
   /** Wraps a contribution so the guidelines are accepted first. */
   requireGuidelines: (then: () => void) => void;
 }
@@ -56,8 +60,9 @@ function Entry({
   onReply: () => void;
   extraActions?: React.ReactNode;
 }) {
-  const { uid, profiles, blocked, block } = useCommunity();
+  const { uid, profiles, blocked, block, isModerator } = useCommunity();
   const [editing, setEditing] = useState(false);
+  const [removing, setRemoving] = useState(false);
   const [draft, setDraft] = useState(r.body);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -79,6 +84,16 @@ function Entry({
     }
   }
 
+  if (r.removed) {
+    return (
+      <RemovedNotice
+        item={{ post: post.id, response: r.id }}
+        author={r.author}
+        noun={noun}
+        onRestore={() => actions.restore({ post: post.id, response: r.id })}
+      />
+    );
+  }
   if (r.deleted) {
     return <p className="text-sm font-semibold text-ink-500 italic">{deletedResponseText(post.type)}</p>;
   }
@@ -150,9 +165,21 @@ function Entry({
                   Block
                 </button>
               )}
+              {isModerator && (
+                <button type="button" className={`${actionClass} text-red-600`} onClick={() => setRemoving(true)}>
+                  Remove
+                </button>
+              )}
             </>
           )}
         </div>
+      )}
+      {removing && (
+        <ModRemoveDialog
+          noun={noun}
+          onClose={() => setRemoving(false)}
+          onConfirm={(reason) => actions.remove({ post: post.id, response: r.id }, reason)}
+        />
       )}
       {confirm && (
         <ConfirmDialog
@@ -202,9 +229,10 @@ export function ResponseItem({
   const isAsker = Boolean(uid) && post.author === uid;
   const noun = post.type === "question" ? "answer" : "comment";
   const show = (id: string) => setReveal((s) => new Set(s).add(id));
-  const visibleReplies = replies.filter((r) => !r.deleted);
+  // Replies deleted by their authors are gone; removed ones stay as "removed by a moderator".
+  const visibleReplies = replies.filter((r) => !r.deleted || r.removed);
 
-  if (response.deleted && visibleReplies.length === 0) return null;
+  if (response.deleted && !response.removed && visibleReplies.length === 0) return null;
 
   async function vote(clicked: 1 | -1) {
     setVoting(true);

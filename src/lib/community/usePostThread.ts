@@ -154,9 +154,56 @@ export function usePostThread(postId: string | null) {
   };
 
   const accept = async (responseId: string | null) => {
-    const { post } = need();
-    await repo.setAccepted(post.id, responseId).catch(rethrow);
+    const { me, post } = need();
+    await repo.setAccepted(me, post.id, responseId).catch(rethrow);
     set((s) => ({ ...s, post: s.post ? { ...s.post, accepted: responseId } : s.post }));
+  };
+
+  /** Moderators: the item's author loses (or, on restore, gets back) its votes. */
+  const shiftAuthorTotals = (author: string, up: number, down: number, sign: 1 | -1) => {
+    const p = profiles[author];
+    if (author && p && (up || down)) patchProfile(author, { up: p.up + sign * up, down: p.down + sign * down });
+  };
+
+  /** Moderators remove a post, answer, comment or reply (restorable). */
+  const removeItem = async (item: ItemRef, reason: string) => {
+    const { me, post } = need();
+    await repo.removeContent(me, item, reason).catch(rethrow);
+    if (item.response == null) {
+      shiftAuthorTotals(post.author, post.up, post.down, -1);
+      set((s) => ({ ...s, post: s.post ? { ...s.post, title: "", body: "", deleted: true, removed: true } : s.post }));
+      return;
+    }
+    const r = current?.responses.find((x) => x.id === item.response);
+    if (!r) return;
+    if (r.parent == null) shiftAuthorTotals(r.author, r.up, r.down, -1);
+    set((s) => ({
+      ...s,
+      responses: s.responses.map((x) => (x.id === r.id ? { ...x, body: "", deleted: true, removed: true } : x)),
+      post:
+        s.post && r.parent == null
+          ? { ...s.post, responses: s.post.responses - 1, erased: s.post.erased + 1, accepted: s.post.accepted === r.id ? null : s.post.accepted }
+          : s.post,
+    }));
+  };
+
+  /** Moderators put removed content back, votes and all. */
+  const restoreItem = async (item: ItemRef) => {
+    const { me, post } = need();
+    const text = await repo.restoreContent(me, item).catch(rethrow);
+    if (item.response == null) {
+      shiftAuthorTotals(post.author, post.up, post.down, 1);
+      set((s) => ({ ...s, post: s.post ? { ...s.post, ...text, deleted: false, removed: false } : s.post }));
+      return;
+    }
+    const r = current?.responses.find((x) => x.id === item.response);
+    if (!r) return;
+    if (r.parent == null) shiftAuthorTotals(r.author, r.up, r.down, 1);
+    set((s) => ({
+      ...s,
+      responses: s.responses.map((x) => (x.id === r.id ? { ...x, body: text.body, deleted: false, removed: false } : x)),
+      post: s.post && r.parent == null ? { ...s.post, responses: s.post.responses + 1, erased: s.post.erased - 1 } : s.post,
+    }));
   };
 
   return {
@@ -173,6 +220,8 @@ export function usePostThread(postId: string | null) {
     editResponse,
     deleteResponse,
     accept,
+    removeItem,
+    restoreItem,
     /** What deleting the post would do right now. */
     postDeleteMode: current?.post ? postDeleteMode(current.post) : ("remove" as const),
   };

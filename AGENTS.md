@@ -42,6 +42,8 @@ Firestore).
   hangs, a stale emulator may hold port 8080: `pkill -f cloud-firestore-emulator`.
 - `node scripts/community-drift.mts --key <service-account.json> [--fix]` —
   checks the live Community counts against their records (see Community).
+- `node scripts/community-moderator.mts --key <service-account.json> --grant <email|uid>`
+  (or `--revoke`, `--list`) — gives or takes away Community moderator rights.
 
 ## Environment / Firebase setup
 
@@ -643,20 +645,24 @@ explanation, exercise and piece of feedback. `guides.ts` re-exports
 ## Community
 
 A small Reddit-style space where signed-in learners ask Vietnamese
-questions, start discussions and answer each other. **Phase 1** is built
-(posts, answers/comments, one reply level, votes, Community XP, accepted
-answers, search, reports, hiding, blocking, rate limits). **Phase 2**
-(moderation queue and tools, roles, notifications) and **Phase 3**
-(hardening, stronger limits, account deletion) are not built; nothing in
-Phase 1 blocks them (see the end of this section).
+questions, start discussions and answer each other. **Phase 1** (posts,
+answers/comments, one reply level, votes, Community XP, accepted answers,
+search, reports, hiding, blocking, rate limits) and **Phase 2**
+(moderators, the reports queue, removing and restoring content, warnings,
+suspensions, bans, in-app notifications; see "Moderation and
+notifications" below) are built. **Phase 3** (hardening, stronger limits,
+account deletion) is not; see the end of this section.
 
 **No backend.** Everything is enforced by `firestore.rules`, with the XP
 ledger's pattern: each action is one client transaction, and every document
 it touches checks the others moved by exactly the right amount
 (`get`/`getAfter`/`existsAfter`). The heaviest transactions (a vote,
-deleting an answer with replies) use at most 17 document lookups, counted
-without caching, under Firestore's 20. Don't add a lookup to them without
-recounting.
+deleting an answer with replies, a reply that notifies two people) use at
+most 17 document lookups, and a moderator removing or restoring an answer
+16, counted without caching, under Firestore's 20. Don't add a lookup to
+them without recounting. `member()` reads the member's own profile (to
+check `banned`), and suspensions live on the activity record that every
+contribution already reads, so neither costs an extra lookup.
 
 **Access.** Reading or writing anything needs, checked in the rules: signed
 in, a verified email (`request.auth.token.email_verified`), and a community
@@ -682,10 +688,12 @@ levels, goals or Rồng Con data, and never shows an email address.
   that also sets `noindex`): joining status, own profile, rate-limit record,
   hidden posts, blocks, and a cache of other members' profiles.
 - One data hook per page: `useCommunityFeed`, `usePostThread`,
-  `useMemberProfile` (the Blocked page uses the provider).
+  `useMemberProfile`, `useNotifications`, `useModeration` (the Blocked
+  page uses the provider).
 - `src/components/community/*` — UI. Pages are `/community` (feed),
-  `/community/ask`, `/community/post?id=`, `/community/profile?uid=` and
-  `/community/blocked`. Query parameters, not `[id]` segments, because the
+  `/community/ask`, `/community/post?id=`, `/community/profile?uid=`,
+  `/community/blocked`, `/community/notifications` and
+  `/community/moderate` (moderators). Query parameters, not `[id]` segments, because the
   app is a static export; pages that read them wrap in `<Suspense>`.
 
 **Data** (all top-level, so Phase 3 can delete by uid):
@@ -711,10 +719,14 @@ levels, goals or Rồng Con data, and never shows an email address.
   voter, value −1/0/1 (0 = removed), readable only by the voter (even a
   missing vote id of someone else's is refused, so votes can't be probed).
 - `communityReports/{uid_p_post | uid_r_post_resp | uid_u_uid}` — one per
-  reporter and item, `status: "open"`, readable only by the reporter. Phase
-  2's moderation queue reads these with admin or moderator access.
+  reporter and item, `status: "open"`, readable by the reporter and moderators; moderators close them
+  as `actioned` or `dismissed` (`resolvedAt`).
 - `users/{uid}/communityHidden/{postId}`, `users/{uid}/communityBlocks/{uid}`
   — private lists (excluded from the users catch-all rule, member-only).
+- Phase 2: `communityRemoved/{p_post | r_post_response}` (a removed item's
+  text; its author and moderators can read it), `communityModLog/{id}`
+  (moderators only), `communityInbox/{uid}/notifications/{id}` (owner-only),
+  `profile.banned` and `activity.suspendedUntil`.
 
 **Community XP** = upvotes − downvotes received on the member's posts and
 top-level responses that aren't deleted (label "Community XP", explained as
@@ -777,9 +789,53 @@ day. The UI shows "Please wait N seconds". Edits aren't limited.
 (changes the live database; ask first). Indexes take a few minutes to build;
 the feed shows an error until they're ready.
 
-**Phases 2–3 hooks.** Reports carry `status` for a moderation queue; the
-rules can gain an `isModerator()` (custom claim) branch and a `removed` flag
-next to `deleted` without changing existing writes; replies store `mention`
-and responses store `parent`/`post` for notifications; all Community data is
-keyed by uid for account deletion, which must also delete the member's votes
-(adjusting the authors' totals), name claim, age answer and private lists.
+### Moderation and notifications (Phase 2)
+
+**Moderators** are members whose Firebase account has the custom claim
+`moderator: true`. Only `scripts/community-moderator.mts` (with a service
+account key) sets it, so no browser can make itself a moderator, and the
+rules check it with `isMod()` at no lookup cost. A new claim reaches the
+browser when the sign-in token refreshes; the Community provider forces a
+refresh once per visit, and signing out and in always works. Moderators
+need a community profile too. They see a Moderate link, a Remove button on
+everything, and a Moderation panel on members' profiles.
+
+- **Reports queue** (`/community/moderate`): open reports grouped by
+  target (`groupReports` in `moderation.ts`), with reasons, notes and the
+  content. Remove (closes the reports as `actioned`) or Dismiss. Plus a
+  Removed tab (restore) and the moderator log. The query needs the
+  `communityReports (status, at)` index.
+- **Remove / restore**: the public post or response is blanked and marked
+  `deleted: true, removed: true` (so the feed, search, votes, edits and
+  new responses all leave it alone); its text moves to
+  `communityRemoved/{key}`, readable by its author and moderators. Its
+  votes come off the author's Community XP (the item keeps its tally, so a
+  restore adds it back), and a removed answer stops counting in the post's
+  `responses` (it counts in `erased`; acceptance clears). Its author sees
+  "A moderator removed your …" and can read or permanently delete the text
+  (then it can't be restored). Restoring puts the text and tokens back.
+- **Warnings** are a notification and a log entry. **Suspensions**
+  (`activity.suspendedUntil`, 1/3/7/30 days) block posting, responding,
+  voting, editing and reporting, but not reading or deleting your own
+  content; the member's own activity writes must copy the field unchanged.
+  **Bans** (`profile.banned`) make `member()` false, so a banned member
+  can't read or write anything in the Community except their own profile
+  and notifications (the gate shows the reason).
+- Every moderator action writes `communityModLog` and notifies the member
+  from `"mod"`; members never see which moderator acted.
+
+**Notifications** (`notifications.ts`, `useNotifications`): answers and
+comments (to the post's author), replies (to the replied-to author),
+mentions (to the "@Name"), accepted answers, and moderation. Each is
+written into `communityInbox/{recipient}/notifications` in the same
+transaction as the action, with a deterministic id
+(`{type}_{post}_{response}`, or `mod_{random}`), and the rules check the
+recipient against that action, so they can't be forged. Never to yourself.
+The nav shows the unread count (re-counted on tab focus, one-time reads as
+everywhere else); notifications from members you've blocked aren't shown.
+
+**Phase 3 hooks.** All Community data is keyed by uid for account
+deletion, which must also delete the member's votes (adjusting the
+authors' totals), name claim, age answer, private lists, inbox and any
+removed copies. Not built yet: locks, appeals, fraud-vote invalidation,
+renaming an offensive name, and stronger rate limits.

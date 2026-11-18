@@ -99,8 +99,9 @@ const sections: LegalSection[] = [
         <p>
           You&apos;re responsible for what you add, and you must have the right to share it. The Community is for
           members 13 and older, and everything you post there must follow our{" "}
-          <Link href="/guidelines">Community Guidelines</Link>. We may remove content or limit accounts that break these
-          terms or the guidelines. Other members&apos; posts are their own views, not ours, and may be wrong: check
+          <Link href="/guidelines">Community Guidelines</Link>. Moderators appointed by us may remove content, and
+          warn, suspend or ban accounts, that break these terms or the guidelines; we&apos;ll tell you in the app what
+          was done and why. Removed content can be restored if it was removed by mistake. Other members&apos; posts are their own views, not ours, and may be wrong: check
           important things with a reliable source.
         </p>
       </>

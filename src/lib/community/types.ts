@@ -10,8 +10,15 @@
  *  - communityPosts/{postId}    questions and discussions
  *    └ responses/{responseId}   answers/comments (parent null) and their replies (parent = response id)
  *  - communityVotes/{voteId}    one per item and voter, readable only by the voter
- *  - communityReports/{id}      one per item and reporter, readable only by the reporter (Phase 2 reads them)
+ *  - communityReports/{id}      one per item and reporter, readable by the reporter and moderators
  *  - users/{uid}/communityHidden/{postId}, users/{uid}/communityBlocks/{uid}   private, owner-only
+ *
+ * Phase 2 (moderation and notifications):
+ *  - moderators carry the Firebase custom claim `moderator: true` (scripts/community-moderator.mts)
+ *  - communityRemoved/{p_post | r_post_response}   a removed item's text, readable by its author and moderators
+ *  - communityModLog/{id}       every moderator action, moderators only
+ *  - communityInbox/{uid}/notifications/{id}   the member's notifications, owner-only
+ *  - profile.banned, activity.suspendedUntil   bans and suspensions
  */
 
 export type PostType = "question" | "discussion";
@@ -60,6 +67,8 @@ export interface CommunityProfile {
   nameChangedAt: number | null;
   /** When the member accepted the community guidelines (null until their first contribution). */
   guidelinesAt: number | null;
+  /** Banned by a moderator: no access to the Community until unbanned. */
+  banned: boolean;
 }
 
 export interface Post {
@@ -81,7 +90,10 @@ export interface Post {
   erased: number;
   /** The accepted answer's id (questions only). */
   accepted: string | null;
+  /** Deleted by its author (text erased) or removed by a moderator (see `removed`). */
   deleted: boolean;
+  /** Removed by a moderator: its text is kept privately (communityRemoved) so it can be restored. */
+  removed: boolean;
 }
 
 export interface Response {
@@ -98,7 +110,10 @@ export interface Response {
   score: number;
   /** Replies under a top-level response (replies are deleted outright, so all of these exist). */
   replies: number;
+  /** Deleted by its author, or removed by a moderator (see `removed`). */
   deleted: boolean;
+  /** Removed by a moderator (restorable); its author is kept. */
+  removed: boolean;
   /** For a reply to a reply: the uid of the person it answers (its body starts with "@Name"). */
   mention: string | null;
 }
@@ -120,9 +135,11 @@ export interface Activity {
   /** UTC day number (epoch ms / 86 400 000) the report count is for. */
   reportDay: number;
   reports: number;
+  /** Set by a moderator: no posting, responding, voting, editing or reporting until then. */
+  suspendedUntil: number | null;
 }
 
-export const EMPTY_ACTIVITY: Activity = { lastPost: null, lastResponse: null, lastVote: null, reportDay: 0, reports: 0 };
+export const EMPTY_ACTIVITY: Activity = { lastPost: null, lastResponse: null, lastVote: null, reportDay: 0, reports: 0, suspendedUntil: null };
 
 export const REPORT_REASONS = [
   { id: "harassment", label: "Harassment or hate" },

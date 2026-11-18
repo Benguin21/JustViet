@@ -235,6 +235,20 @@
           "order": "DESCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "communityReports",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "at",
+          "order": "ASCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": [
@@ -250,6 +264,16 @@
     },
     {
       "collectionGroup": "responses",
+      "fieldPath": "body",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "communityRemoved",
+      "fieldPath": "title",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "communityRemoved",
       "fieldPath": "body",
       "indexes": []
     }

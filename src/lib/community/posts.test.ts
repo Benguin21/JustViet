@@ -78,7 +78,7 @@ describe("formatAgo", () => {
 });
 
 const resp = (id: string, extra: Partial<Response> = {}): Response => ({
-  id, post: "p", parent: null, author: "a", body: "x", createdAt: 0, editedAt: null, up: 0, down: 0, score: 0, replies: 0, deleted: false, mention: null, ...extra,
+  id, post: "p", parent: null, author: "a", body: "x", createdAt: 0, editedAt: null, up: 0, down: 0, score: 0, replies: 0, deleted: false, removed: false, mention: null, ...extra,
 });
 
 describe("ordering responses", () => {

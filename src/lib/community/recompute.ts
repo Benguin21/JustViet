@@ -7,9 +7,11 @@
  *
  * The invariants (the rules keep them; this checks them):
  *  - an item (post or top-level response) that isn't deleted has up/down =
- *    the number of +1/−1 votes on it, and score = up − down; a deleted item
- *    has 0/0/0 (its votes stopped counting when it was deleted)
+ *    the number of +1/−1 votes on it, and score = up − down; an item its
+ *    author deleted has 0/0/0; an item a moderator removed keeps its tally
+ *    (votes are frozen, and it counts again if restored)
  *  - a profile's up/down = the sum over its author's items that aren't deleted
+ *    or removed (removed items are `deleted` too)
  *  - a post's `responses` = its top-level responses that aren't deleted,
  *    `erased` = its deleted top-level responses that are kept as
  *    placeholders, and `accepted` names a top-level response that isn't deleted
@@ -27,6 +29,7 @@ export interface PostRecord {
   erased: number;
   accepted: string | null;
   deleted: boolean;
+  removed?: boolean;
 }
 
 export interface ResponseRecord {
@@ -39,6 +42,7 @@ export interface ResponseRecord {
   score: number;
   replies: number;
   deleted: boolean;
+  removed?: boolean;
 }
 
 export interface VoteRecord {
@@ -128,7 +132,7 @@ export function findDrift(data: {
   for (const p of posts) {
     const own = byPost.get(p.id) ?? [];
     const top = own.filter((r) => r.parent == null);
-    const t = p.deleted ? { up: 0, down: 0 } : (tally.get(itemKey(p.id, null)) ?? { up: 0, down: 0 });
+    const t = p.deleted && !p.removed ? { up: 0, down: 0 } : (tally.get(itemKey(p.id, null)) ?? { up: 0, down: 0 });
     const acceptedOk = p.accepted != null && top.some((r) => r.id === p.accepted && !r.deleted);
     push(
       diff(
@@ -148,7 +152,7 @@ export function findDrift(data: {
 
   for (const r of responses) {
     const isTop = r.parent == null;
-    const t = r.deleted || !isTop ? { up: 0, down: 0 } : (tally.get(itemKey(r.post, r.id)) ?? { up: 0, down: 0 });
+    const t = (r.deleted && !r.removed) || !isTop ? { up: 0, down: 0 } : (tally.get(itemKey(r.post, r.id)) ?? { up: 0, down: 0 });
     const replies = isTop ? (byPost.get(r.post) ?? []).filter((x) => x.parent === r.id).length : 0;
     push(
       diff(

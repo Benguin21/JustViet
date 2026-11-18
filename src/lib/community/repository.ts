@@ -19,6 +19,7 @@ import {
   doc,
   documentId,
   getDoc,
+  getCountFromServer,
   getDocs,
   limit,
   orderBy,
@@ -29,15 +30,26 @@ import {
   Timestamp,
   updateDoc,
   where,
+  writeBatch,
   type DocumentData,
+  type DocumentReference,
   type DocumentSnapshot,
   type Firestore,
   type QueryConstraint,
   type QuerySnapshot,
   type Transaction,
 } from "firebase/firestore";
+import { FirebaseError } from "firebase/app";
 import { db } from "@/lib/firebase";
-import { AlreadyReportedError, GoneError, NameTakenError, RateLimitError, RenameTooSoonError, ReportLimitError } from "./errors";
+import {
+  AlreadyReportedError,
+  GoneError,
+  NameTakenError,
+  RateLimitError,
+  RenameTooSoonError,
+  ReportLimitError,
+  SuspendedError,
+} from "./errors";
 import {
   FEED_PAGE,
   POST_INTERVAL_S,
@@ -47,7 +59,16 @@ import {
   utcDay,
   waitSeconds,
 } from "./limits";
+import { isSuspended, removedKey, suspensionEnd, type ModAction, type ReportRecord } from "./moderation";
 import { cleanName, nameKey, nameProblem, renameStatus } from "./names";
+import {
+  isModNotification,
+  memberNotificationId,
+  recipientsForResponse,
+  type CommunityNotification,
+  type ModNotificationType,
+  type NotificationType,
+} from "./notifications";
 import { cleanBody, cleanTitle, postDeleteMode, responseDeleteMode, topWindowStart, validatePost, validateResponse, type PostInput } from "./posts";
 import { searchTokens } from "./search";
 import { applyVote, isVoteValue, nextVote, voteId } from "./votes";
@@ -89,6 +110,10 @@ const voteRef = (id: string) => doc(requireDb(), "communityVotes", id);
 const reportRef = (id: string) => doc(requireDb(), "communityReports", id);
 const hiddenRef = (uid: string, postId: string) => doc(requireDb(), "users", uid, "communityHidden", postId);
 const blockRef = (uid: string, other: string) => doc(requireDb(), "users", uid, "communityBlocks", other);
+const removedRef = (key: string) => doc(requireDb(), "communityRemoved", key);
+const modLogRef = (id: string) => doc(requireDb(), "communityModLog", id);
+const inboxCol = (uid: string) => collection(requireDb(), "communityInbox", uid, "notifications");
+const notificationRef = (uid: string, id: string) => doc(requireDb(), "communityInbox", uid, "notifications", id);
 
 const ID_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
 
@@ -122,6 +147,7 @@ function readProfile(uid: string, d: DocumentData): CommunityProfile {
     joinedAt: ms(d.joinedAt) ?? Date.now(),
     nameChangedAt: ms(d.nameChangedAt),
     guidelinesAt: ms(d.guidelinesAt),
+    banned: d.banned === true,
   };
 }
 
@@ -142,6 +168,7 @@ function readPost(id: string, d: DocumentData): Post {
     erased: num(d.erased),
     accepted: strOrNull(d.accepted),
     deleted: d.deleted === true,
+    removed: d.removed === true,
   };
 }
 
@@ -159,6 +186,7 @@ function readResponse(id: string, d: DocumentData): Response {
     score: num(d.score),
     replies: num(d.replies),
     deleted: d.deleted === true,
+    removed: d.removed === true,
     mention: strOrNull(d.mention),
   };
 }
@@ -171,13 +199,15 @@ function readActivity(d: DocumentData | undefined): Activity {
     lastVote: ms(d.lastVote),
     reportDay: num(d.reportDay),
     reports: num(d.reports),
+    suspendedUntil: ms(d.suspendedUntil),
   };
 }
 
 /**
  * The whole activity record to write: unchanged fields copied back exactly
- * as read (the rules compare them), the changed ones, and this request's
- * action (`act`, `target`, `at`).
+ * as read (the rules compare them, and only a moderator may change
+ * `suspendedUntil`), the changed ones, and this request's action (`act`,
+ * `target`, `at`).
  */
 function activityWrite(raw: DocumentData | undefined, act: string, target: string, changes: Record<string, unknown> = {}) {
   return {
@@ -186,11 +216,29 @@ function activityWrite(raw: DocumentData | undefined, act: string, target: strin
     lastVote: raw?.lastVote ?? null,
     reportDay: raw?.reportDay ?? 0,
     reports: raw?.reports ?? 0,
+    suspendedUntil: raw?.suspendedUntil ?? null,
     ...changes,
     act,
     target,
     at: serverTimestamp(),
   };
+}
+
+/** Refuses (before the rules would) when a moderator has suspended the member. */
+function assertNotSuspended(activity: Activity) {
+  if (activity.suspendedUntil != null && isSuspended(activity.suspendedUntil, Date.now())) {
+    throw new SuspendedError(activity.suspendedUntil);
+  }
+}
+
+async function checkNotSuspended(uid: string) {
+  const snap = await getDoc(activityRef(uid));
+  assertNotSuspended(readActivity(snap.exists() ? snap.data() : undefined));
+}
+
+/** A member notification (answer, reply, mention, accepted), as written to the recipient's inbox. */
+function memberNotification(type: NotificationType, from: string, post: string, response: string) {
+  return { type, from, post, response, reason: "", until: null, at: serverTimestamp(), read: false };
 }
 
 async function readActivityIn(tx: Transaction, uid: string) {
@@ -218,6 +266,8 @@ export async function fetchAccount(uid: string): Promise<CommunityAccount> {
   if (over13 !== true) return empty;
   const prof = await getDoc(profileRef(uid));
   if (!prof.exists()) return empty;
+  // A banned member can only read their own profile (and notifications).
+  if (prof.data().banned === true) return { ...empty, profile: readProfile(uid, prof.data()) };
   const [act, hidden, blocked] = await Promise.all([
     getDoc(activityRef(uid)),
     getDocs(collection(requireDb(), "users", uid, "communityHidden")),
@@ -256,7 +306,7 @@ export async function joinCommunity(uid: string, rawName: string, color: string)
     const profile = { name, nameKey: key, color, up: 0, down: 0, joinedAt: serverTimestamp(), nameChangedAt: null, guidelinesAt: null };
     if (!claim.exists()) tx.set(nameRef(key), { uid });
     tx.set(profileRef(uid), profile);
-    return { uid, name, nameKey: key, color, up: 0, down: 0, joinedAt: Date.now(), nameChangedAt: null, guidelinesAt: null };
+    return { uid, name, nameKey: key, color, up: 0, down: 0, joinedAt: Date.now(), nameChangedAt: null, guidelinesAt: null, banned: false };
   });
 }
 
@@ -426,19 +476,21 @@ export async function createPost(uid: string, id: string, input: PostInput): Pro
     const existing = await tx.get(postRef(id));
     if (existing.exists()) return { post: readPost(id, existing.data()), duplicate: true };
     const { raw, activity } = await readActivityIn(tx, uid);
+    assertNotSuspended(activity);
     const wait = waitSeconds(activity.lastPost, Date.now(), POST_INTERVAL_S);
     if (wait > 0) throw new RateLimitError(wait);
     const base = { author: uid, editedAt: null, up: 0, down: 0, score: 0, responses: 0, erased: 0, accepted: null, deleted: false };
     const { tokens, ...shown } = f;
     tx.set(postRef(id), { ...shown, tokens, ...base, createdAt: serverTimestamp() });
     tx.set(activityRef(uid), activityWrite(raw, "post", id, { lastPost: serverTimestamp() }));
-    return { post: { id, ...shown, ...base, createdAt: Date.now() }, duplicate: false };
+    return { post: { id, ...shown, ...base, removed: false, createdAt: Date.now() }, duplicate: false };
   });
 }
 
 /** The author edits a post. The type can only change while it has no responses. */
 export async function editPost(post: Post, input: PostInput): Promise<Post> {
   const f = postFields(input);
+  await checkNotSuspended(post.author);
   const type = post.responses === 0 && post.erased === 0 && post.accepted == null ? f.type : post.type;
   const { tokens, ...shown } = f;
   await updateDoc(postRef(post.id), { ...shown, tokens, type, editedAt: serverTimestamp() });
@@ -468,9 +520,23 @@ export async function deletePost(uid: string, postId: string): Promise<"removed"
   });
 }
 
-/** The asker accepts an answer (or switches, or clears with null). Awards nothing. */
-export async function setAccepted(postId: string, responseId: string | null): Promise<void> {
-  await updateDoc(postRef(postId), { accepted: responseId });
+/**
+ * The asker accepts an answer (or switches, or clears with null). Awards
+ * nothing; accepting notifies the answer's author (again, if re-accepted).
+ */
+export async function setAccepted(uid: string, postId: string, responseId: string | null): Promise<void> {
+  await runTransaction(requireDb(), async (tx) => {
+    let to: string | null = null;
+    if (responseId) {
+      const rs = await tx.get(responseRef(postId, responseId));
+      if (!rs.exists() || rs.data().deleted === true) throw new GoneError("That answer was deleted, so it can't be accepted.");
+      to = str(rs.data().author);
+    }
+    tx.update(postRef(postId), { accepted: responseId });
+    if (responseId && to && to !== uid) {
+      tx.set(notificationRef(to, memberNotificationId("accepted", postId, responseId)), memberNotification("accepted", uid, postId, responseId));
+    }
+  });
 }
 
 // ------------------------------------------------------------- responses
@@ -501,6 +567,7 @@ export async function createResponse(uid: string, postId: string, id: string, in
       if (!parent || parent.deleted || parent.parent != null) throw new GoneError("That response was deleted, so it can't get replies.");
     }
     const { raw, activity } = await readActivityIn(tx, uid);
+    assertNotSuspended(activity);
     const wait = waitSeconds(activity.lastResponse, Date.now(), RESPONSE_INTERVAL_S);
     if (wait > 0) throw new RateLimitError(wait);
     const fields = {
@@ -514,13 +581,16 @@ export async function createResponse(uid: string, postId: string, id: string, in
       score: 0,
       replies: 0,
       deleted: false,
-      mention: input.parent ? input.mention : null,
+      mention: input.parent && input.mention !== uid ? input.mention : null,
     };
     tx.set(responseRef(postId, id), { ...fields, createdAt: serverTimestamp() });
     if (parent) tx.update(responseRef(postId, parent.id), { replies: parent.replies + 1 });
     else tx.update(postRef(postId), { responses: post.responses + 1 });
     tx.set(activityRef(uid), activityWrite(raw, "respond", `${postId}/${id}`, { lastResponse: serverTimestamp() }));
-    return { response: { id, ...fields, createdAt: Date.now() }, duplicate: false };
+    for (const n of recipientsForResponse({ actor: uid, postAuthor: post.author, parentAuthor: parent?.author ?? null, mention: fields.mention })) {
+      tx.set(notificationRef(n.to, memberNotificationId(n.type, postId, id)), memberNotification(n.type, uid, postId, id));
+    }
+    return { response: { id, ...fields, removed: false, createdAt: Date.now() }, duplicate: false };
   });
 }
 
@@ -528,6 +598,7 @@ export async function editResponse(r: Response, rawBody: string): Promise<Respon
   const problem = validateResponse(rawBody, r.parent != null);
   if (problem) throw new Error(problem);
   const body = cleanBody(rawBody);
+  await checkNotSuspended(r.author);
   await updateDoc(responseRef(r.post, r.id), { body, editedAt: serverTimestamp() });
   return { ...r, body, editedAt: Date.now() };
 }
@@ -596,6 +667,7 @@ export async function castVote(uid: string, item: ItemRef, clicked: 1 | -1): Pro
     if (item.response != null && data.parent != null) throw new Error("Replies can't be voted on.");
     const prof = readProfile(author, (await tx.get(profileRef(author))).data() ?? {});
     const { raw, activity } = await readActivityIn(tx, uid);
+    assertNotSuspended(activity);
     const wait = waitSeconds(activity.lastVote, Date.now(), VOTE_INTERVAL_S);
     if (wait > 0) throw new RateLimitError(wait);
     const after = nextVote(before, clicked);
@@ -630,6 +702,7 @@ export async function fileReport(uid: string, target: ReportTarget, reason: Repo
   await runTransaction(requireDb(), async (tx) => {
     if ((await tx.get(reportRef(id))).exists()) throw new AlreadyReportedError();
     const { raw, activity } = await readActivityIn(tx, uid);
+    assertNotSuspended(activity);
     const now = Date.now();
     if (reportsLeft(activity.reportDay, activity.reports, now) <= 0) throw new ReportLimitError();
     const day = utcDay(now);
@@ -664,3 +737,388 @@ export const hidePost = (uid: string, postId: string) => createOnce(hiddenRef(ui
 export const unhidePost = (uid: string, postId: string) => deleteDoc(hiddenRef(uid, postId));
 export const blockMember = (uid: string, other: string) => createOnce(blockRef(uid, other));
 export const unblockMember = (uid: string, other: string) => deleteDoc(blockRef(uid, other));
+
+// ------------------------------------------------------------ moderation
+//
+// Moderators carry the custom claim `moderator: true` (see moderation.ts);
+// the rules check it on every write below. Each action writes a mod-log
+// entry, and every action on a member's content or account sends them a
+// notification from "a moderator" (moderators stay anonymous to members).
+
+/** A transaction or a write batch: what the moderation helpers write with. */
+interface Writer {
+  set(ref: DocumentReference, data: DocumentData): unknown;
+  update(ref: DocumentReference, data: DocumentData): unknown;
+}
+
+function logAction(
+  w: Writer,
+  by: string,
+  action: ModAction,
+  target: { uid: string | null; post: string | null; response: string | null },
+  reason: string,
+  until: number | null = null,
+) {
+  w.set(modLogRef(newId()), {
+    by,
+    action,
+    uid: target.uid,
+    post: target.post,
+    response: target.response,
+    reason,
+    until: until == null ? null : Timestamp.fromMillis(until),
+    at: serverTimestamp(),
+  });
+}
+
+function notifyMember(
+  w: Writer,
+  to: string,
+  type: ModNotificationType,
+  target: { post: string | null; response: string | null },
+  reason: string,
+  until: number | null = null,
+) {
+  if (!to) return;
+  w.set(notificationRef(to, `mod_${newId()}`), {
+    type,
+    from: "mod",
+    post: target.post,
+    response: target.response,
+    reason,
+    until: until == null ? null : Timestamp.fromMillis(until),
+    at: serverTimestamp(),
+    read: false,
+  });
+}
+
+function cleanReason(reason: string): string {
+  return reason.normalize("NFC").trim().slice(0, 500);
+}
+
+function resolveReports(w: Writer, ids: string[], status: "actioned" | "dismissed") {
+  for (const id of ids) w.update(reportRef(id), { status, resolvedAt: serverTimestamp() });
+}
+
+/**
+ * Removes a post, answer, comment or reply. Its text moves to a private
+ * copy (communityRemoved, readable by its author and moderators) so it can
+ * be restored; its votes stop counting toward the author's Community XP;
+ * an answer stops counting toward the post's answers (and acceptance
+ * clears). Resolves the given reports as actioned, all in one transaction.
+ */
+export async function removeContent(modUid: string, item: ItemRef, rawReason: string, reportIds: string[] = []): Promise<void> {
+  const reason = cleanReason(rawReason);
+  const key = removedKey(item.post, item.response);
+  await runTransaction(requireDb(), async (tx) => {
+    const snap = await tx.get(itemRef(item));
+    if (!snap.exists() || snap.data().deleted === true) throw new GoneError("This was already deleted or removed.");
+    const d = snap.data();
+    const author = str(d.author);
+    if (author === modUid) throw new Error("Moderators can't remove their own posts this way. Delete it instead.");
+    const isTop = item.response != null && d.parent == null;
+    const votes = num(d.up) !== 0 || num(d.down) !== 0;
+    const post = isTop ? readPost(item.post, (await tx.get(postRef(item.post))).data() ?? {}) : null;
+    const prof = (item.response == null || isTop) && votes ? readProfile(author, (await tx.get(profileRef(author))).data() ?? {}) : null;
+    const { raw } = await readActivityIn(tx, modUid);
+    tx.set(removedRef(key), {
+      author,
+      post: item.post,
+      response: item.response,
+      title: item.response == null ? str(d.title) : "",
+      body: str(d.body),
+      reason,
+      removedAt: serverTimestamp(),
+    });
+    if (item.response == null) tx.update(postRef(item.post), { title: "", body: "", tokens: [], deleted: true, removed: true });
+    else tx.update(responseRef(item.post, item.response), { body: "", deleted: true, removed: true });
+    if (post) {
+      tx.update(postRef(item.post), {
+        responses: post.responses - 1,
+        erased: post.erased + 1,
+        accepted: post.accepted === item.response ? null : post.accepted,
+      });
+    }
+    if (prof) tx.update(profileRef(author), { up: prof.up - num(d.up), down: prof.down - num(d.down) });
+    tx.set(activityRef(modUid), activityWrite(raw, "remove", item.response == null ? item.post : `${item.post}/${item.response}`));
+    resolveReports(tx, reportIds, "actioned");
+    notifyMember(tx, author, "removed", item, reason);
+    logAction(tx, modUid, "remove", { uid: author, ...item }, reason);
+  });
+}
+
+/** Puts removed content back as it was, votes and all. Fails if its author deleted the copy for good. */
+export async function restoreContent(modUid: string, item: ItemRef): Promise<{ title: string; body: string }> {
+  const key = removedKey(item.post, item.response);
+  return runTransaction(requireDb(), async (tx) => {
+    const snap = await tx.get(itemRef(item));
+    if (!snap.exists() || snap.data().removed !== true) throw new GoneError("This isn't removed.");
+    const d = snap.data();
+    const copy = await tx.get(removedRef(key));
+    if (!copy.exists()) throw new GoneError("Its author deleted it permanently, so it can't be restored.");
+    const c = copy.data();
+    const author = str(d.author);
+    const isTop = item.response != null && d.parent == null;
+    const votes = num(d.up) !== 0 || num(d.down) !== 0;
+    const post = isTop ? readPost(item.post, (await tx.get(postRef(item.post))).data() ?? {}) : null;
+    const prof = (item.response == null || isTop) && votes ? readProfile(author, (await tx.get(profileRef(author))).data() ?? {}) : null;
+    const { raw } = await readActivityIn(tx, modUid);
+    if (item.response == null) {
+      tx.update(postRef(item.post), {
+        title: str(c.title),
+        body: str(c.body),
+        tokens: searchTokens(str(c.title), str(c.body)),
+        deleted: false,
+        removed: false,
+      });
+    } else {
+      tx.update(responseRef(item.post, item.response), { body: str(c.body), deleted: false, removed: false });
+    }
+    tx.delete(removedRef(key));
+    if (post) tx.update(postRef(item.post), { responses: post.responses + 1, erased: post.erased - 1 });
+    if (prof) tx.update(profileRef(author), { up: prof.up + num(d.up), down: prof.down + num(d.down) });
+    tx.set(activityRef(modUid), activityWrite(raw, "restore", item.response == null ? item.post : `${item.post}/${item.response}`));
+    notifyMember(tx, author, "restored", item, "");
+    logAction(tx, modUid, "restore", { uid: author, ...item }, "");
+    return { title: str(c.title), body: str(c.body) };
+  });
+}
+
+/** Closes reports without action (nothing is changed for the reported member). */
+export async function dismissReports(
+  modUid: string,
+  target: { uid: string | null; post: string | null; response: string | null },
+  reportIds: string[],
+): Promise<void> {
+  const b = writeBatch(requireDb());
+  resolveReports(b, reportIds, "dismissed");
+  logAction(b, modUid, "dismiss", target, "");
+  await b.commit();
+}
+
+/** A warning: a notification with the moderator's reason, and nothing else. */
+export async function warnMember(modUid: string, uid: string, rawReason: string): Promise<void> {
+  const reason = cleanReason(rawReason);
+  const b = writeBatch(requireDb());
+  notifyMember(b, uid, "warning", { post: null, response: null }, reason);
+  logAction(b, modUid, "warn", { uid, post: null, response: null }, reason);
+  await b.commit();
+}
+
+/** No posting, responding, voting, editing or reporting until `days` from now (reading still works). */
+export async function suspendMember(modUid: string, uid: string, days: number, rawReason: string): Promise<number> {
+  const reason = cleanReason(rawReason);
+  const until = suspensionEnd(Date.now(), days);
+  await runTransaction(requireDb(), async (tx) => {
+    const snap = await tx.get(activityRef(uid));
+    const stamp = Timestamp.fromMillis(until);
+    if (snap.exists()) tx.update(activityRef(uid), { suspendedUntil: stamp });
+    else {
+      tx.set(activityRef(uid), {
+        lastPost: null,
+        lastResponse: null,
+        lastVote: null,
+        reportDay: 0,
+        reports: 0,
+        suspendedUntil: stamp,
+        act: "none",
+        target: "",
+        at: serverTimestamp(),
+      });
+    }
+    notifyMember(tx, uid, "suspended", { post: null, response: null }, reason, until);
+    logAction(tx, modUid, "suspend", { uid, post: null, response: null }, reason, until);
+  });
+  return until;
+}
+
+export async function unsuspendMember(modUid: string, uid: string): Promise<void> {
+  const b = writeBatch(requireDb());
+  b.update(activityRef(uid), { suspendedUntil: null });
+  notifyMember(b, uid, "unsuspended", { post: null, response: null }, "");
+  logAction(b, modUid, "unsuspend", { uid, post: null, response: null }, "");
+  await b.commit();
+}
+
+/** A ban: no access to the Community at all until unbanned. Their posts stay unless removed. */
+export async function banMember(modUid: string, uid: string, rawReason: string): Promise<void> {
+  const reason = cleanReason(rawReason);
+  const b = writeBatch(requireDb());
+  b.update(profileRef(uid), { banned: true });
+  notifyMember(b, uid, "banned", { post: null, response: null }, reason);
+  logAction(b, modUid, "ban", { uid, post: null, response: null }, reason);
+  await b.commit();
+}
+
+export async function unbanMember(modUid: string, uid: string): Promise<void> {
+  const b = writeBatch(requireDb());
+  b.update(profileRef(uid), { banned: false });
+  notifyMember(b, uid, "unbanned", { post: null, response: null }, "");
+  logAction(b, modUid, "unban", { uid, post: null, response: null }, "");
+  await b.commit();
+}
+
+/** A member's ban and suspension, as a moderator sees them. */
+export async function fetchMemberStatus(uid: string): Promise<{ banned: boolean; suspendedUntil: number | null }> {
+  const [prof, act] = await Promise.all([getDoc(profileRef(uid)), getDoc(activityRef(uid))]);
+  return {
+    banned: prof.exists() && prof.data().banned === true,
+    suspendedUntil: act.exists() ? ms(act.data().suspendedUntil) : null,
+  };
+}
+
+/** Open reports, oldest first (up to 200), for the moderator queue. */
+export async function fetchOpenReports(): Promise<ReportRecord[]> {
+  const snap = await getDocs(query(collection(requireDb(), "communityReports"), where("status", "==", "open"), orderBy("at", "asc"), limit(200)));
+  return snap.docs.map((d) => {
+    const r = d.data();
+    return {
+      id: d.id,
+      kind: r.kind,
+      post: strOrNull(r.post),
+      response: strOrNull(r.response),
+      profile: strOrNull(r.profile),
+      reason: r.reason as ReportReason,
+      note: str(r.note),
+      at: ms(r.at) ?? 0,
+    };
+  });
+}
+
+export interface RemovedCopy {
+  key: string;
+  author: string;
+  post: string;
+  response: string | null;
+  title: string;
+  body: string;
+  reason: string;
+  removedAt: number;
+}
+
+function readRemoved(key: string, d: DocumentData): RemovedCopy {
+  return {
+    key,
+    author: str(d.author),
+    post: str(d.post),
+    response: strOrNull(d.response),
+    title: str(d.title),
+    body: str(d.body),
+    reason: str(d.reason),
+    removedAt: ms(d.removedAt) ?? 0,
+  };
+}
+
+/** Recently removed content (moderators). */
+export async function fetchRemovedItems(): Promise<RemovedCopy[]> {
+  const snap = await getDocs(query(collection(requireDb(), "communityRemoved"), orderBy("removedAt", "desc"), limit(50)));
+  return snap.docs.map((d) => readRemoved(d.id, d.data()));
+}
+
+/** A removed item's original text: for its author and moderators. Null if deleted for good. */
+export async function fetchRemovedCopy(item: ItemRef): Promise<RemovedCopy | null> {
+  const key = removedKey(item.post, item.response);
+  try {
+    const snap = await getDoc(removedRef(key));
+    return snap.exists() ? readRemoved(key, snap.data()) : null;
+  } catch (err) {
+    // For its author, a copy deleted for good reads as "not allowed" (the rule checks the author field).
+    if (err instanceof FirebaseError && err.code === "permission-denied") return null;
+    throw err;
+  }
+}
+
+/** One response or reply (for the moderation queue). */
+export async function fetchResponse(postId: string, id: string): Promise<Response | null> {
+  const snap = await getDoc(responseRef(postId, id));
+  return snap.exists() ? readResponse(id, snap.data()) : null;
+}
+
+/** The author deletes their removed content's text for good (it can't be restored afterwards). */
+export async function deleteRemovedCopy(item: ItemRef): Promise<void> {
+  await deleteDoc(removedRef(removedKey(item.post, item.response)));
+}
+
+export interface ModLogEntry {
+  id: string;
+  by: string;
+  action: ModAction;
+  uid: string | null;
+  post: string | null;
+  response: string | null;
+  reason: string;
+  until: number | null;
+  at: number;
+}
+
+/** The latest moderator actions (moderators only). */
+export async function fetchModLog(): Promise<ModLogEntry[]> {
+  const snap = await getDocs(query(collection(requireDb(), "communityModLog"), orderBy("at", "desc"), limit(50)));
+  return snap.docs.map((d) => {
+    const e = d.data();
+    return {
+      id: d.id,
+      by: str(e.by),
+      action: e.action as ModAction,
+      uid: strOrNull(e.uid),
+      post: strOrNull(e.post),
+      response: strOrNull(e.response),
+      reason: str(e.reason),
+      until: ms(e.until),
+      at: ms(e.at) ?? 0,
+    };
+  });
+}
+
+/** Posts by id (for notification and moderation titles). Missing ones are left out. */
+export async function fetchPostsByIds(ids: string[]): Promise<Post[]> {
+  const unique = [...new Set(ids.filter(Boolean))];
+  const chunks: string[][] = [];
+  for (let i = 0; i < unique.length; i += 30) chunks.push(unique.slice(i, i + 30));
+  const snaps = await Promise.all(chunks.map((c) => getDocs(query(postsCol(), where(documentId(), "in", c)))));
+  return snaps.flatMap((s) => s.docs.map((d) => readPost(d.id, d.data())));
+}
+
+// ---------------------------------------------------------- notifications
+
+function readNotification(id: string, d: DocumentData): CommunityNotification {
+  const type = str(d.type) as NotificationType;
+  return {
+    id,
+    type,
+    from: isModNotification(type) ? "mod" : str(d.from),
+    post: strOrNull(d.post),
+    response: strOrNull(d.response),
+    reason: str(d.reason),
+    until: ms(d.until),
+    at: ms(d.at) ?? 0,
+    read: d.read === true,
+  };
+}
+
+/** The member's notifications, newest first, 30 at a time. Readable even when banned. */
+export async function fetchNotifications(uid: string, after: DocumentSnapshot | null): Promise<{ items: CommunityNotification[]; cursor: DocumentSnapshot | null }> {
+  const c: QueryConstraint[] = [orderBy("at", "desc")];
+  if (after) c.push(startAfter(after));
+  c.push(limit(31));
+  const snap = await getDocs(query(inboxCol(uid), ...c));
+  const docs = snap.docs.slice(0, 30);
+  return { items: docs.map((d) => readNotification(d.id, d.data())), cursor: snap.docs.length > 30 ? docs[docs.length - 1] : null };
+}
+
+export async function fetchUnreadCount(uid: string): Promise<number> {
+  const snap = await getCountFromServer(query(inboxCol(uid), where("read", "==", false)));
+  return snap.data().count;
+}
+
+export async function markNotificationsRead(uid: string, ids: string[]): Promise<void> {
+  for (let i = 0; i < ids.length; i += 400) {
+    const b = writeBatch(requireDb());
+    for (const id of ids.slice(i, i + 400)) b.update(notificationRef(uid, id), { read: true });
+    await b.commit();
+  }
+}
+
+export async function deleteNotification(uid: string, id: string): Promise<void> {
+  await deleteDoc(notificationRef(uid, id));
+}

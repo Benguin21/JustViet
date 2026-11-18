@@ -482,7 +482,7 @@ describe("responses and replies", () => {
     await respond(A, id, r, "Thank you!");
     await vote(A, { post: id, response: r }, 1);
     as(A);
-    await repo.setAccepted(id, r);
+    await repo.setAccepted(A, id, r);
     expect((await postOf(id)).accepted).toBe(r);
     expect((await profileOf(B)).up).toBe(1);
     as(B);
@@ -503,14 +503,14 @@ describe("accepted answers", () => {
     const r2 = await respond(B, id);
     const reply = await respond(A, id, r1, "Hmm?");
     as(B);
-    await assertFails(repo.setAccepted(id, r1));
+    await assertFails(repo.setAccepted(B, id, r1));
     as(A);
-    await repo.setAccepted(id, r1);
-    await repo.setAccepted(id, r2);
+    await repo.setAccepted(A, id, r1);
+    await repo.setAccepted(A, id, r2);
     expect((await postOf(id)).accepted).toBe(r2);
-    await assertFails(repo.setAccepted(id, reply));
-    await assertFails(repo.setAccepted(id, "nope"));
-    await repo.setAccepted(id, null);
+    await assertFails(repo.setAccepted(A, id, reply));
+    await expect(repo.setAccepted(A, id, "nope")).rejects.toThrow();
+    await repo.setAccepted(A, id, null);
     expect((await postOf(id)).accepted).toBeNull();
     // Accepting awards nothing.
     expect((await profileOf(B)).up).toBe(0);
@@ -520,7 +520,7 @@ describe("accepted answers", () => {
     const id = await post(A, { ...QUESTION, type: "discussion" as never });
     const r = await respond(B, id);
     as(A);
-    await assertFails(repo.setAccepted(id, r));
+    await assertFails(repo.setAccepted(A, id, r));
   });
 });
 

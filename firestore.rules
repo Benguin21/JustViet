@@ -26,6 +26,15 @@ rules_version = '2';
 // (limits.test.ts and names.test.ts check they agree). See "Community" in
 // AGENTS.md; tested in test/rules/community.rules.test.ts.
 //
+// Community moderation (Phase 2): moderators carry the Firebase custom claim
+// `moderator: true` (set only by scripts/community-moderator.mts with a
+// service account). They can remove and restore content (the text moves to
+// a private communityRemoved copy and its votes stop counting meanwhile),
+// close reports, warn, suspend (activity.suspendedUntil) and ban
+// (profile.banned, which member() checks). Notifications are written into
+// the recipient's communityInbox by whoever caused them, in the same
+// request, and checked against it. Tested in community-moderation.rules.test.ts.
+//
 // To apply: Firebase console → Firestore Database → Rules tab → paste this
 // file's contents → Publish. (Same idea as enabling the Email/Password
 // sign-in provider was for Authentication.) Or, with the Firebase CLI:
@@ -247,6 +256,9 @@ service cloud.firestore {
     function CATEGORIES() { return ['grammar', 'vocabulary', 'pronunciation', 'culture', 'tips', 'other']; }
     function COLORS() { return ['tomato', 'amber', 'leaf', 'teal', 'sky', 'plum', 'rose', 'cocoa']; }
     function REASONS() { return ['harassment', 'spam', 'inappropriate', 'privacy', 'off-topic', 'other']; }
+    function MOD_REASON_MAX() { return 500; }
+    function MOD_ACTIONS() { return ['remove', 'restore', 'dismiss', 'warn', 'suspend', 'unsuspend', 'ban', 'unban']; }
+    function MOD_NOTIFICATIONS() { return ['removed', 'restored', 'warning', 'suspended', 'unsuspended', 'banned', 'unbanned']; }
 
     // ----- who may use the Community -----
     function me() {
@@ -255,9 +267,20 @@ service cloud.firestore {
     function verified() {
       return request.auth != null && request.auth.token.email_verified == true;
     }
-    // Signed in, verified email, and a community profile (which needs the 13+ answer).
+    // Signed in, verified email, and a community profile (which needs the 13+ answer) that isn't banned.
     function member() {
-      return verified() && exists(profilePath(me()));
+      return verified() && get(profilePath(me())).data.get('banned', false) == false;
+    }
+    // A moderator: the custom claim scripts/community-moderator.mts sets. No browser can set it.
+    function isMod() {
+      return verified() && request.auth.token.get('moderator', false) == true;
+    }
+    // Not suspended, as the member's activity record says (only a moderator sets suspendedUntil).
+    function notSuspended(x) {
+      return x.get('suspendedUntil', null) == null || x.suspendedUntil <= request.time;
+    }
+    function notSuspendedNow() {
+      return !exists(activityPath(me())) || notSuspended(get(activityPath(me())).data);
     }
     function guidelinesAccepted() {
       return get(profilePath(me())).data.guidelinesAt != null;
@@ -286,6 +309,9 @@ service cloud.firestore {
     }
     function votePath(id) {
       return /databases/$(database)/documents/communityVotes/$(id);
+    }
+    function removedPath(key) {
+      return /databases/$(database)/documents/communityRemoved/$(key);
     }
 
     function textOk(s, min, max) {
@@ -337,7 +363,7 @@ service cloud.firestore {
       return (y == -1 ? 1 : 0) - (x == -1 ? 1 : 0);
     }
     function voteIdFor(p, r, uid) {
-      return r == null ? 'p_' + p + '_' + uid : 'r_' + p + '_' + r + '_' + uid;
+      return r == null ? 'p_' + p + '_' + uid : 'r_' + p + '_' + string(r) + '_' + uid;
     }
     // A post's or top-level response's counts move by exactly this request's vote.
     function itemVoteOk(p, r, a, b, changed) {
@@ -354,6 +380,12 @@ service cloud.firestore {
       let pa = get(profilePath(me())).data;
       let pb = getAfter(profilePath(me())).data;
       return pb.up == pa.up - up && pb.down == pa.down - down;
+    }
+    // An author's Community XP moves by exactly an item's votes (a moderator removing or restoring it).
+    function authorCountsMove(author, up, down) {
+      let pa = get(profilePath(author)).data;
+      let pb = getAfter(profilePath(author)).data;
+      return pb.up == pa.up + up && pb.down == pa.down + down;
     }
 
     // ----- communityAge/{uid}: the 13+ answer, once; only an admin can change it -----
@@ -383,7 +415,7 @@ service cloud.firestore {
       allow get: if member() || (verified() && uid == me());
       allow list: if member() && request.query.limit <= 30;
       allow create: if verified() && uid == me() && profileCreateOk(uid);
-      allow update: if member() && (uid == me() ? ownProfileOk(uid) : profileVoteOk(uid));
+      allow update: if member() && (uid == me() ? ownProfileOk(uid) : (profileVoteOk(uid) || profileModOk(uid)));
     }
     function profileCreateOk(uid) {
       let d = request.resource.data;
@@ -444,20 +476,56 @@ service cloud.firestore {
         && b.up == a.up + upD(before, v.value)
         && b.down == a.down + downD(before, v.value);
     }
+    // A moderator bans or unbans, or moves the totals by exactly a removed or restored item's votes.
+    function profileModOk(uid) {
+      let a = resource.data;
+      let b = request.resource.data;
+      let changed = b.diff(a).affectedKeys();
+      return isMod()
+        && ((changed.hasOnly(['banned']) && b.banned is bool)
+            || (changed.hasOnly(['up', 'down']) && modCountsOk(uid, a, b)));
+    }
+    function modCountsOk(uid, a, b) {
+      let x = getAfter(activityPath(me())).data;
+      let parts = x.target.split('/');
+      return x.at == request.time && x.act in ['remove', 'restore'] && parts.size() <= 2
+        && modCountsOfOk(uid, a, b, x.act == 'remove' ? -1 : 1,
+             parts.size() == 1 ? postPath(parts[0]) : respPath(parts[0], parts[parts.size() - 1]));
+    }
+    function modCountsOfOk(uid, a, b, sign, path) {
+      let item = get(path).data;
+      let after = getAfter(path).data;
+      return item.author == uid
+        && b.up == a.up + sign * item.up && b.down == a.down + sign * item.down
+        && (sign == -1
+            ? (item.deleted == false && after.get('removed', false) == true)
+            : (item.get('removed', false) == true && after.deleted == false));
+    }
 
     // ----- communityActivity/{uid}: the rate limits, and this request's action -----
     match /communityActivity/{uid} {
-      allow get: if member() && uid == me();
-      allow create, update: if member() && uid == me() && activityOk();
+      allow get: if (member() && uid == me()) || isMod();
+      allow create, update: if (member() && uid == me() && activityOk()) || (isMod() && uid != me() && suspendOk());
     }
     function blankActivity() {
-      return {'lastPost': null, 'lastResponse': null, 'lastVote': null, 'reportDay': 0, 'reports': 0};
+      return {'lastPost': null, 'lastResponse': null, 'lastVote': null, 'reportDay': 0, 'reports': 0, 'suspendedUntil': null};
+    }
+    // A moderator sets or lifts a suspension, and changes nothing else.
+    function suspendOk() {
+      let b = request.resource.data;
+      return (b.suspendedUntil == null || b.suspendedUntil is timestamp)
+        && (resource == null
+            ? (b.keys().hasOnly(['lastPost', 'lastResponse', 'lastVote', 'reportDay', 'reports', 'suspendedUntil', 'act', 'target', 'at'])
+                && b.lastPost == null && b.lastResponse == null && b.lastVote == null
+                && b.reportDay == 0 && b.reports == 0 && b.act == 'none' && b.target == '' && b.at == request.time)
+            : b.diff(resource.data).affectedKeys().hasOnly(['suspendedUntil']));
     }
     function activityOk() {
       let a = resource == null ? blankActivity() : resource.data;
       let b = request.resource.data;
-      return b.keys().hasOnly(['lastPost', 'lastResponse', 'lastVote', 'reportDay', 'reports', 'act', 'target', 'at'])
+      return b.keys().hasOnly(['lastPost', 'lastResponse', 'lastVote', 'reportDay', 'reports', 'suspendedUntil', 'act', 'target', 'at'])
         && b.keys().hasAll(['lastPost', 'lastResponse', 'lastVote', 'reportDay', 'reports', 'act', 'target', 'at'])
+        && b.get('suspendedUntil', null) == a.get('suspendedUntil', null)
         && b.at == request.time && b.act is string && b.target is string
         && stampOk(a.lastPost, b.lastPost, POST_INTERVAL_S())
         && stampOk(a.lastResponse, b.lastResponse, RESPONSE_INTERVAL_S())
@@ -509,7 +577,8 @@ service cloud.firestore {
         && d.up == 0 && d.down == 0 && d.score == 0 && d.responses == 0 && d.erased == 0
         && d.accepted == null && d.deleted == false
         && guidelinesAccepted()
-        && x.at == request.time && x.act == 'post' && x.target == postId && x.lastPost == request.time;
+        && x.at == request.time && x.act == 'post' && x.target == postId && x.lastPost == request.time
+        && notSuspended(x);
     }
     function postUpdateOk(postId) {
       let a = resource.data;
@@ -517,8 +586,33 @@ service cloud.firestore {
       let changed = b.diff(a).affectedKeys();
       return (a.author == me() && a.deleted == false
               && (postEditOk(a, b, changed) || postAcceptOk(postId, a, b, changed) || postEraseOk(postId, a, b, changed)))
+        || (isMod() && postModOk(postId, a, b, changed))
         || postCountsOk(postId, a, b, changed)
         || itemVoteOk(postId, null, a, b, changed);
+    }
+    // A moderator removes a post (its text moves to a private copy; its votes stop counting) or restores it.
+    function postModOk(postId, a, b, changed) {
+      return changed.hasOnly(['title', 'body', 'tokens', 'deleted', 'removed'])
+        && ((a.deleted == false && b.deleted == true && b.removed == true
+              && b.title == '' && b.body == '' && b.tokens.size() == 0
+              && acted('remove', postId)
+              && removedCopyMatches('p_' + postId, a)
+              && authorCountsMove(a.author, 0 - a.up, 0 - a.down))
+          || (a.get('removed', false) == true && b.deleted == false && b.removed == false
+              && tokensOk(b.tokens)
+              && acted('restore', postId)
+              && restoredFromCopy('p_' + postId, b)
+              && authorCountsMove(a.author, a.up, a.down)));
+    }
+    // The private copy written in this request holds exactly what is being removed.
+    function removedCopyMatches(key, a) {
+      let c = getAfter(removedPath(key)).data;
+      return c.author == a.author && c.body == a.body && c.title == a.get('title', '');
+    }
+    // A restore puts back exactly the private copy, which goes in the same request.
+    function restoredFromCopy(key, b) {
+      let c = get(removedPath(key)).data;
+      return b.body == c.body && b.get('title', '') == c.title && !existsAfter(removedPath(key));
     }
     // The author edits the text (the type only while there are no responses).
     function postEditOk(a, b, changed) {
@@ -526,6 +620,7 @@ service cloud.firestore {
         && b.editedAt == request.time
         && textOk(b.title, TITLE_MIN(), TITLE_MAX()) && textOk(b.body, BODY_MIN(), BODY_MAX())
         && b.category in CATEGORIES() && tokensOk(b.tokens)
+        && notSuspendedNow()
         && (b.type == a.type
             || (b.type in ['question', 'discussion'] && a.responses == 0 && a.erased == 0 && a.accepted == null));
     }
@@ -569,7 +664,14 @@ service cloud.firestore {
         || (kind == 'delete' && get(path).data.parent == null && get(path).data.deleted == false
               && b.responses == a.responses - 1
               && b.erased == a.erased + (existsAfter(path) ? 1 : 0)
-              && b.accepted == (a.accepted == rid ? null : a.accepted));
+              && b.accepted == (a.accepted == rid ? null : a.accepted))
+        || (kind == 'remove' && isMod() && get(path).data.parent == null && get(path).data.deleted == false
+              && getAfter(path).data.get('removed', false) == true
+              && b.responses == a.responses - 1 && b.erased == a.erased + 1
+              && b.accepted == (a.accepted == rid ? null : a.accepted))
+        || (kind == 'restore' && isMod() && get(path).data.parent == null && get(path).data.get('removed', false) == true
+              && getAfter(path).data.deleted == false
+              && b.responses == a.responses + 1 && b.erased == a.erased - 1 && b.accepted == a.accepted);
     }
 
     function respCreateOk(postId, rid) {
@@ -583,6 +685,7 @@ service cloud.firestore {
         && d.up == 0 && d.down == 0 && d.score == 0 && d.replies == 0 && d.deleted == false
         && guidelinesAccepted()
         && x.at == request.time && x.act == 'respond' && x.target == postId + '/' + rid && x.lastResponse == request.time
+        && notSuspended(x)
         && get(postPath(postId)).data.deleted == false
         && (d.parent == null ? topCreateOk(postId, d) : replyCreateOk(postId, d));
     }
@@ -605,12 +708,26 @@ service cloud.firestore {
       let changed = b.diff(a).affectedKeys();
       return (a.author == me() && a.deleted == false
               && (respEditOk(a, b, changed) || respEraseOk(postId, rid, a, b, changed)))
+        || (isMod() && respModOk(postId, rid, a, b, changed))
         || replyCountOk(postId, rid, a, b, changed)
         || (a.parent == null && itemVoteOk(postId, rid, a, b, changed));
     }
     function respEditOk(a, b, changed) {
       return changed.hasOnly(['body', 'editedAt']) && b.editedAt == request.time
-        && textOk(b.body, 1, a.parent == null ? RESPONSE_MAX() : REPLY_MAX());
+        && textOk(b.body, 1, a.parent == null ? RESPONSE_MAX() : REPLY_MAX())
+        && notSuspendedNow();
+    }
+    // A moderator removes or restores an answer, comment or reply (replies carry no votes).
+    function respModOk(postId, rid, a, b, changed) {
+      return changed.hasOnly(['body', 'deleted', 'removed'])
+        && ((a.deleted == false && b.deleted == true && b.removed == true && b.body == ''
+              && acted('remove', postId + '/' + rid)
+              && removedCopyMatches('r_' + postId + '_' + rid, a)
+              && (a.parent != null || authorCountsMove(a.author, 0 - a.up, 0 - a.down)))
+          || (a.get('removed', false) == true && b.deleted == false && b.removed == false
+              && acted('restore', postId + '/' + rid)
+              && restoredFromCopy('r_' + postId + '_' + rid, b)
+              && (a.parent != null || authorCountsMove(a.author, a.up, a.down))));
     }
     // A top-level response with replies is erased (text and author gone for good) so its replies stay.
     function respEraseOk(postId, rid, a, b, changed) {
@@ -674,6 +791,7 @@ service cloud.firestore {
         && (resource == null
             || (resource.data.post == v.post && resource.data.response == v.response && resource.data.author == v.author))
         && x.at == request.time && x.act == 'vote' && x.target == voteId && x.lastVote == request.time
+        && notSuspended(x)
         && voteItemOk(v, before)
         && voteAuthorOk(v, before);
     }
@@ -694,11 +812,16 @@ service cloud.firestore {
       return pb.up == pa.up + upD(before, v.value) && pb.down == pa.down + downD(before, v.value);
     }
 
-    // ----- communityReports/{id}: one per item and reporter; kept for Phase 2's moderation queue -----
+    // ----- communityReports/{id}: one per item and reporter; the moderation queue -----
     match /communityReports/{reportId} {
-      allow get: if member() && reportId.split('_')[0] == me();
-      allow list: if member() && resource.data.reporter == me();
+      allow get: if (member() && reportId.split('_')[0] == me()) || isMod();
+      allow list: if (member() && resource.data.reporter == me()) || isMod();
       allow create: if member() && reportOk(reportId);
+      // Moderators close reports (they never delete them).
+      allow update: if isMod()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'resolvedAt'])
+        && request.resource.data.status in ['actioned', 'dismissed']
+        && request.resource.data.resolvedAt == request.time;
     }
     function reportOk(reportId) {
       let d = request.resource.data;
@@ -707,7 +830,8 @@ service cloud.firestore {
         && d.reporter == me() && d.at == request.time && d.status == 'open'
         && d.reason in REASONS() && d.note is string && d.note.size() <= REPORT_NOTE_MAX()
         && reportTargetOk(reportId, d)
-        && acted('report', reportId);
+        && acted('report', reportId)
+        && notSuspended(getAfter(activityPath(me())).data);
     }
     function reportTargetOk(reportId, d) {
       return (d.kind == 'post' && d.response == null && d.profile == null
@@ -717,6 +841,83 @@ service cloud.firestore {
               && (get(respPath(d.post, d.response)).data.parent == null) == (d.kind == 'response'))
         || (d.kind == 'profile' && d.post == null && d.response == null && d.profile != me()
               && reportId == me() + '_u_' + d.profile && exists(profilePath(d.profile)));
+    }
+
+    // ----- communityRemoved/{p_post | r_post_response}: a removed item's text, so it can be restored -----
+    match /communityRemoved/{key} {
+      allow get: if isMod() || (verified() && resource.data.author == me());
+      allow list: if isMod();
+      allow create: if isMod() && removedCreateOk(key);
+      // A moderator deletes it on restore; its author may delete it for good (then it can't be restored).
+      allow delete: if isMod() || (verified() && resource.data.author == me());
+    }
+    function removedCreateOk(key) {
+      let d = request.resource.data;
+      let parts = key.split('_');
+      return d.keys().hasOnly(['author', 'post', 'response', 'title', 'body', 'reason', 'removedAt'])
+        && d.keys().hasAll(['author', 'post', 'response', 'title', 'body', 'reason', 'removedAt'])
+        && d.removedAt == request.time && d.reason is string && d.reason.size() <= MOD_REASON_MAX()
+        && ((parts.size() == 2 && parts[0] == 'p' && d.post == parts[1] && d.response == null)
+            || (parts.size() == 3 && parts[0] == 'r' && d.post == parts[1] && d.response == parts[2]))
+        && removedCopyOfOk(d, get(itemPath(d.post, d.response)).data);
+    }
+    function removedCopyOfOk(d, item) {
+      return item.deleted == false && d.author == item.author && d.body == item.body && d.title == item.get('title', '');
+    }
+
+    // ----- communityModLog/{id}: every moderator action, for moderators only -----
+    match /communityModLog/{id} {
+      allow get, list: if isMod();
+      allow create: if isMod() && modLogOk();
+    }
+    function modLogOk() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['by', 'action', 'uid', 'post', 'response', 'reason', 'until', 'at'])
+        && d.keys().hasAll(['by', 'action', 'uid', 'post', 'response', 'reason', 'until', 'at'])
+        && d.by == me() && d.at == request.time && d.action in MOD_ACTIONS()
+        && d.reason is string && d.reason.size() <= MOD_REASON_MAX()
+        && (d.until == null || d.until is timestamp);
+    }
+
+    // ----- communityInbox/{uid}/notifications/{id}: written by whoever caused them, read by the owner -----
+    match /communityInbox/{uid}/notifications/{nid} {
+      // Readable even when banned, so a banned member can see why.
+      allow get, list, delete: if verified() && uid == me();
+      allow update: if (verified() && uid == me()
+                         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read'])
+                         && request.resource.data.read == true)
+                    || (verified() && uid != me() && notifyOk(uid, nid));
+      allow create: if verified() && uid != me() && notifyOk(uid, nid);
+    }
+    function notifyOk(uid, nid) {
+      let n = request.resource.data;
+      return n.keys().hasOnly(['type', 'from', 'post', 'response', 'reason', 'until', 'at', 'read'])
+        && n.keys().hasAll(['type', 'from', 'post', 'response', 'reason', 'until', 'at', 'read'])
+        && n.at == request.time && n.read == false
+        && ((n.type in MOD_NOTIFICATIONS() && isMod() && n.from == 'mod'
+              && nid.matches('^mod_[A-Za-z0-9]{16,40}$')
+              && n.reason is string && n.reason.size() <= MOD_REASON_MAX()
+              && (n.until == null || n.until is timestamp))
+          || (n.from == me() && n.reason == '' && n.until == null
+              && n.type in ['response', 'reply', 'mention', 'accepted']
+              && n.post is string && n.response is string
+              && nid == n.type + '_' + n.post + '_' + n.response
+              && (n.type == 'accepted' ? acceptedNotifyOk(uid, n) : respondNotifyOk(uid, n))));
+    }
+    // The answer, comment or reply was written by the sender in this very request, to this recipient.
+    function respondNotifyOk(uid, n) {
+      let r = getAfter(respPath(n.post, n.response)).data;
+      return acted('respond', n.post + '/' + n.response) && r.author == me()
+        && ((n.type == 'response' && r.parent == null && get(postPath(n.post)).data.author == uid)
+            || (n.type == 'reply' && r.parent != null && getAfter(respPath(n.post, string(r.parent))).data.author == uid)
+            || (n.type == 'mention' && r.parent != null && r.mention == uid));
+    }
+    // The asker accepted this recipient's answer in this very request.
+    function acceptedNotifyOk(uid, n) {
+      let p = getAfter(postPath(n.post)).data;
+      return p.author == me() && p.accepted == n.response
+        && get(postPath(n.post)).data.accepted != n.response
+        && getAfter(respPath(n.post, n.response)).data.author == uid;
     }
   }
 }

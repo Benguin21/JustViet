@@ -42,6 +42,24 @@ export class ReportLimitError extends Error {
   }
 }
 
+/** A moderator suspended the member: no posting, responding, voting, editing or reporting until then. */
+export class SuspendedError extends Error {
+  readonly until: number;
+  constructor(until: number) {
+    super(`You're suspended from posting until ${formatDate(until)}.`);
+    this.name = "SuspendedError";
+    this.until = until;
+  }
+}
+
+/** Only moderators can do that. */
+export class NotModeratorError extends Error {
+  constructor() {
+    super("Only moderators can do that. If you were just made a moderator, sign out and back in.");
+    this.name = "NotModeratorError";
+  }
+}
+
 /** The post or response was deleted (or never existed). */
 export class GoneError extends Error {
   constructor(message = "This was deleted, so it can't be changed.") {
@@ -50,7 +68,16 @@ export class GoneError extends Error {
   }
 }
 
-const KNOWN = [RateLimitError, NameTakenError, RenameTooSoonError, AlreadyReportedError, ReportLimitError, GoneError];
+const KNOWN = [
+  RateLimitError,
+  NameTakenError,
+  RenameTooSoonError,
+  AlreadyReportedError,
+  ReportLimitError,
+  GoneError,
+  SuspendedError,
+  NotModeratorError,
+];
 
 /** A short, friendly message for anything a Community action throws. Mirrors firestore-errors.ts. */
 export function friendlyCommunityError(error: unknown): string {

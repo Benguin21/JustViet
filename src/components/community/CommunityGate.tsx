@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Button } from "@/components/ui/Button";
 import { ButtonLink } from "@/components/ui/ButtonLink";
 import { TextField } from "@/components/ui/TextField";
@@ -10,6 +10,7 @@ import { friendlyAuthError } from "@/lib/auth-errors";
 import { DEFAULT_AVATAR_COLOR } from "@/lib/community/avatar";
 import { useCommunity } from "@/lib/community/CommunityProvider";
 import { NAME_MAX, cleanName, nameProblem, suggestName } from "@/lib/community/names";
+import * as repo from "@/lib/community/repository";
 import { Avatar } from "./Avatar";
 import { ColorPicker } from "./ColorPicker";
 
@@ -78,6 +79,8 @@ export function CommunityGate({ children }: { children: ReactNode }) {
       );
     case "join":
       return <JoinForm />;
+    case "banned":
+      return <BannedScreen />;
     case "member":
       return <>{children}</>;
   }
@@ -223,6 +226,53 @@ function JoinForm() {
           Join the Community
         </Button>
       </form>
+    </Card>
+  );
+}
+
+/** A banned member sees why (from their notifications, which stay readable) and nothing else. */
+function BannedScreen() {
+  const { uid } = useCommunity();
+  const [reason, setReason] = useState<{ uid: string; text: string } | null>(null);
+
+  useEffect(() => {
+    if (!uid) return;
+    let cancelled = false;
+    repo.fetchNotifications(uid, null).then(
+      ({ items }) => {
+        if (!cancelled) setReason({ uid, text: items.find((n) => n.type === "banned")?.reason ?? "" });
+      },
+      () => {
+        if (!cancelled) setReason({ uid, text: "" });
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [uid]);
+
+  const text = reason && reason.uid === uid ? reason.text : "";
+  return (
+    <Card icon="🚫" title="You've been banned from the Community">
+      <p className="text-ink-700">
+        A moderator banned your account from the Community, so you can&apos;t read or post here. Everything else in
+        JustViet works as usual.
+      </p>
+      {text && (
+        <p className="rounded-xl bg-paper px-3 py-2 text-sm text-ink-700">
+          <span className="font-bold">Reason:</span> {text}
+        </p>
+      )}
+      <p className="text-sm text-ink-500">
+        If you think this is a mistake,{" "}
+        <Link href="/privacy#contact" className="font-bold text-red-600 underline-offset-2 hover:underline">
+          contact us
+        </Link>
+        .
+      </p>
+      <ButtonLink href="/home" variant="outline" fullWidth>
+        Back to Home
+      </ButtonLink>
     </Card>
   );
 }

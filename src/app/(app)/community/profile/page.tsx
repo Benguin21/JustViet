@@ -4,6 +4,7 @@ import { Suspense, useState, type FormEvent } from "react";
 import { useSearchParams } from "next/navigation";
 import { Avatar } from "@/components/community/Avatar";
 import { ColorPicker } from "@/components/community/ColorPicker";
+import { MemberModPanel } from "@/components/community/MemberModPanel";
 import { CommunityXp } from "@/components/community/CommunityXp";
 import { PostCard } from "@/components/community/PostCard";
 import { ReportDialog } from "@/components/community/ReportDialog";
@@ -31,7 +32,7 @@ export default function ProfilePage() {
 
 function ProfileContent() {
   const params = useSearchParams();
-  const { uid: me, blocked, block, unblock } = useCommunity();
+  const { uid: me, blocked, block, unblock, isModerator } = useCommunity();
   const uid = params.get("uid") || me;
   const page = useMemberProfile(uid);
   const [editing, setEditing] = useState(false);
@@ -117,6 +118,7 @@ function ProfileContent() {
           community content.
         </p>
       )}
+      {!own && isModerator && me && <MemberModPanel modUid={me} uid={uid} name={profile.name} onDone={showToast} />}
       {own && editing && <EditProfile profile={profile} onDone={(msg) => { setEditing(false); if (msg) showToast(msg); }} />}
 
       <section aria-labelledby="posts-heading" className="flex flex-col gap-3">
@@ -129,7 +131,7 @@ function ProfileContent() {
           </p>
         ) : (
           <ul className="flex flex-col gap-3">
-            {page.posts.map((p) => (
+            {page.posts.filter((p) => !p.removed).map((p) => (
               <PostCard key={p.id} post={p} author={profile} blocked={false} />
             ))}
           </ul>

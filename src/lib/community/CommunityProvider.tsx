@@ -4,20 +4,22 @@
  * The signed-in member's Community state, shared by every Community page
  * (mounted once in the community layout, so moving between pages doesn't
  * refetch): where they are in joining (verified email → 13+ answer →
- * profile), their profile, rate-limit record, hidden posts and blocked
- * accounts, plus a cache of other members' public profiles. Fetched once per
- * sign-in; every action updates the local state from what it wrote.
+ * profile), their profile, rate-limit record (and any suspension), hidden
+ * posts and blocked accounts, whether they're a moderator, their unread
+ * notification count, plus a cache of other members' public profiles.
+ * Fetched once per sign-in; every action updates the local state from what
+ * it wrote.
  *
  * Never reads or writes learning XP, goals or Rồng Con data.
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { useAuth } from "@/lib/auth-context";
+import { readModeratorClaim, useAuth } from "@/lib/auth-context";
 import { friendlyCommunityError } from "./errors";
 import * as repo from "./repository";
 import { utcDay } from "./limits";
 import { EMPTY_ACTIVITY, type Activity, type CommunityProfile } from "./types";
 
-export type CommunityStatus = "loading" | "error" | "unverified" | "ask-age" | "under13" | "join" | "member";
+export type CommunityStatus = "loading" | "error" | "unverified" | "ask-age" | "under13" | "join" | "banned" | "member";
 
 export interface CommunityContextValue {
   status: CommunityStatus;
@@ -28,6 +30,13 @@ export interface CommunityContextValue {
   activity: Activity;
   hidden: ReadonlySet<string>;
   blocked: ReadonlySet<string>;
+  /** Has the `moderator` claim (scripts/community-moderator.mts). */
+  isModerator: boolean;
+  unreadCount: number;
+  /** Re-counts unread notifications (also done when the tab regains focus). */
+  refreshUnread: () => void;
+  /** Adjusts the unread count after marking notifications read. */
+  setUnreadCount: (fn: (n: number) => number) => void;
 
   answerAge: (over13: boolean) => Promise<void>;
   join: (name: string, color: string) => Promise<void>;
@@ -69,6 +78,25 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [profiles, setProfiles] = useState<Record<string, CommunityProfile>>({});
   const requested = useRef(new Set<string>());
+  const [mod, setMod] = useState<{ uid: string; is: boolean } | null>(null);
+  const [unread, setUnread] = useState<{ uid: string; count: number } | null>(null);
+
+  // The moderator claim, from a fresh token so a newly granted one shows up.
+  useEffect(() => {
+    if (!uid) return;
+    let cancelled = false;
+    readModeratorClaim(true).then(
+      (is) => {
+        if (!cancelled) setMod({ uid, is });
+      },
+      () => {
+        if (!cancelled) setMod({ uid, is: false });
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [uid]);
 
   useEffect(() => {
     if (!key || !uid) return;
@@ -101,9 +129,35 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
             ? "ask-age"
             : account.over13 === false
               ? "under13"
-              : account.profile
-                ? "member"
-                : "join";
+              : !account.profile
+                ? "join"
+                : account.profile.banned
+                  ? "banned"
+                  : "member";
+
+  const refreshUnread = useCallback(() => {
+    if (!uid) return;
+    repo.fetchUnreadCount(uid).then(
+      (count) => setUnread({ uid, count }),
+      () => {
+        // The badge just stays as it was.
+      },
+    );
+  }, [uid]);
+
+  useEffect(() => {
+    if (status !== "member") return;
+    refreshUnread();
+    const onFocus = () => {
+      if (document.visibilityState === "visible") refreshUnread();
+    };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onFocus);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onFocus);
+    };
+  }, [status, refreshUnread]);
 
   const update = useCallback(
     (fn: (a: repo.CommunityAccount) => repo.CommunityAccount) => {
@@ -150,6 +204,10 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
       activity: account?.activity ?? EMPTY_ACTIVITY,
       hidden: new Set(account?.hidden ?? []),
       blocked: new Set(account?.blocked ?? []),
+      isModerator: Boolean(uid && mod?.uid === uid && mod.is),
+      unreadCount: unread && unread.uid === uid ? unread.count : 0,
+      refreshUnread,
+      setUnreadCount: (fn) => setUnread((prev) => (uid ? { uid, count: Math.max(0, fn(prev && prev.uid === uid ? prev.count : 0)) } : prev)),
 
       answerAge: async (over13) => {
         const me = need();
@@ -210,7 +268,7 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
       ensureProfiles,
       patchProfile,
     };
-  }, [status, current, account, uid, profiles, update, need, ensureProfiles, patchProfile]);
+  }, [status, current, account, uid, profiles, update, need, ensureProfiles, patchProfile, mod, unread, refreshUnread]);
 
   return <CommunityContext.Provider value={value}>{children}</CommunityContext.Provider>;
 }

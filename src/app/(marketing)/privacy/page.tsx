@@ -96,8 +96,9 @@ const sections: LegalSection[] = [
           <li>To create and run your account, and to sign you in.</li>
           <li>To provide JustViet&apos;s features — scheduling your reviews, saving your dictionary words, tracking goals and XP.</li>
           <li>
-            To run the Community: showing your profile and posts to other members, counting votes, applying rate limits,
-            and reviewing reports to keep it safe.
+            To run the Community: showing your profile and posts to other members, counting votes, sending you
+            notifications, applying rate limits, and moderating it (reviewing reports, removing content, and warning,
+            suspending or banning accounts that break the guidelines).
           </li>
           <li>
             To send account emails you need, such as verifying your email address, resetting your password, or
@@ -144,6 +145,15 @@ const sections: LegalSection[] = [
           <li>Reports you send: what you reported, the reason, any note you add, and when.</li>
           <li>The posts you hide and the accounts you block.</li>
           <li>When you last posted, responded, voted and reported, so we can apply simple rate limits against spam.</li>
+          <li>
+            Your notifications: who answered, replied to, mentioned you or accepted your answer, on which post, when,
+            and whether you&apos;ve read it, plus messages from moderators.
+          </li>
+          <li>
+            Moderation records: whether a report was acted on or dismissed; content a moderator removed (kept privately
+            so it can be restored); warnings, suspensions and bans with their reasons; and a log of what each moderator
+            did.
+          </li>
         </ul>
         <h3>What other members can see</h3>
         <ul>
@@ -163,6 +173,14 @@ const sections: LegalSection[] = [
             kept for the JustViet team to review and never remove anything automatically.
           </li>
           <li>Your hidden posts and blocked accounts are private to you. A blocked member isn&apos;t told.</li>
+          <li>Your notifications are private to you.</li>
+          <li>
+            <strong>Moderators</strong>, members the JustViet team appoints, can see reports (with their notes),
+            content they removed, whether a member is suspended or banned, and the moderator log. Moderators can&apos;t
+            see your email address, your votes or your learning data. When a moderator acts on your content or account
+            you get a notification with the reason; you aren&apos;t told which moderator it was.
+          </li>
+          <li>If you&apos;re banned, that&apos;s recorded on your community profile.</li>
         </ul>
         <h3>How long community content is kept</h3>
         <ul>
@@ -177,6 +195,12 @@ const sections: LegalSection[] = [
             old name may remain in other members&apos; replies that mention you (&ldquo;@Name&rdquo;).
           </li>
           <li>Reports are kept as long as needed to review them and to prevent abuse.</li>
+          <li>
+            Content a moderator removed is kept privately until it&apos;s restored, or until you delete it for good
+            (you can, from the removed post or answer).
+          </li>
+          <li>Notifications are kept until you delete them, or your account is deleted.</li>
+          <li>The moderator log and records of warnings, suspensions and bans are kept as long as needed to keep the Community safe.</li>
         </ul>
       </>
     ),

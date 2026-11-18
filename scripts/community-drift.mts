@@ -61,10 +61,12 @@ const drift = findDrift({
   posts: posts.docs.map((d) => ({
     id: d.id, author: d.get("author") ?? "", up: n(d.get("up")), down: n(d.get("down")), score: n(d.get("score")),
     responses: n(d.get("responses")), erased: n(d.get("erased")), accepted: d.get("accepted") ?? null, deleted: d.get("deleted") === true,
+    removed: d.get("removed") === true,
   })),
   responses: responses.docs.map((d) => ({
     id: d.id, post: d.ref.parent.parent?.id ?? "", parent: d.get("parent") ?? null, author: d.get("author") ?? "",
     up: n(d.get("up")), down: n(d.get("down")), score: n(d.get("score")), replies: n(d.get("replies")), deleted: d.get("deleted") === true,
+    removed: d.get("removed") === true,
   })),
   votes: votes.docs.map((d) => ({ post: d.get("post"), response: d.get("response") ?? null, value: n(d.get("value")) })),
 });

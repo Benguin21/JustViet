@@ -350,6 +350,18 @@ export async function refreshUser() {
   notifyUserChanged();
 }
 
+/**
+ * Whether the signed-in account is a Community moderator (the `moderator`
+ * custom claim, set by scripts/community-moderator.mts). `refresh` fetches
+ * a new token first, so a just-granted claim shows up without signing out.
+ */
+export async function readModeratorClaim(refresh = false): Promise<boolean> {
+  const current = requireAuth().currentUser;
+  if (!current) return false;
+  const result = await current.getIdTokenResult(refresh);
+  return result.claims.moderator === true;
+}
+
 /** Re-sends the verification email to the signed-in user. */
 export async function resendVerificationEmail() {
   const current = requireUser();
