@@ -1,0 +1,38 @@
+---
+id: pron1-06-review
+title: Review the letters
+kind: pronunciation
+dialogue: en
+cast: tuoi, vinh
+status: draft
+---
+
+LETTERS abc: a ă â b c d đ e ê g h i k l m n o ô ơ p q r s t u ư v x y
+TUOI welcome: Let’s look at the whole alphabet one more time. You’ve now heard every letter in a word! Play the board to review their names.
+
+CLEAR
+WORDS r1: an, ăn, ân, me, mê, đi, y tá, to, tô, tơ, thu, thư
+TUOI: Now review the vowel families through words: [a], [ă], [â]; [e], [ê]; [i], [y]; [o], [ô], [ơ]; and [u], [ư].
+
+CLEAR
+WORDS r2: cha, ghế, giày, không, ngủ, nghe, nhà, phở, qua, tha, tra
+TUOI: We also practiced eleven letter combinations: [ch], [gh], [gi], [kh], [ng], [ngh], [nh], [ph], [qu], [th] and [tr]. Here’s one word for each.
+
+CLEAR
+BOARD r3: da | skin
+TUOI: One last question. Compare both buttons on [da] again.
+
+TUOI ask: If Thầy Vinh and I pronounce the same written word differently, does that mean one of us is wrong?
+  WRONG: Yes, each spelling has only one correct regional pronunciation. | Replay [da]: y-like in my accent, z-like in Thầy Vinh’s. Both are regional pronunciations of the same word.
+  RIGHT: No, regional accents can pronounce the same spelling differently. | Exactly! Learn to recognize both, and use one consistent model when you practice.
+
+CLEAR
+WORDS r4: ba, mẹ, đi, nhà, thư
+TUOI: You’ve practiced every letter and the common combinations at the start of words. Let’s finish with five words.
+
+BOARD r5: Giỏi lắm! | Great work!
+TUOI encourage: Here’s our final phrase. Play it, then say it with me!
+
+TUOI: Next, Thầy Vinh will guide Part 2, starting with ending sounds. We’ll also practice vowel combinations and the family name [Nguyễn].
+
+VINH encourage: And Part 3 will focus on tones. See you there!

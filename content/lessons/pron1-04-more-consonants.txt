@@ -1,0 +1,76 @@
+---
+id: pron1-04-more-consonants
+title: Consonants p to v
+kind: pronunciation
+dialogue: en
+cast: tuoi, vinh
+status: draft
+---
+
+BOARD d1: pa-tê | pâté
+TUOI explain: Next is [p]. At the start of a word it’s uncommon, and usually appears in borrowed words such as [pa-tê].
+
+BOARD d2: bếp | kitchen, stove
+TUOI explain: You’ll meet [p] more often at the end of a syllable. Close your lips to finish, without a big puff of air or an added “uh.”
+
+BOARD d3: phở | phở (noodle soup)
+TUOI explain: [ph] makes a different sound altogether: an f-like sound. Touch your upper teeth lightly to your lower lip and let the air flow.
+
+# NEW: quick check.
+TUOI ask: What sound does [ph] make?
+  RIGHT: An f-like sound | Yes! Upper teeth on your lower lip, and let the air flow.
+  WRONG: A p with a puff of air | That’s a natural guess from English, but [ph] is f-like. Replay [phở].
+
+CLEAR
+BOARD d4: ra | to go out
+  RECORD south: r-like (speakers vary; some curl or trill)
+  RECORD north: z-like beginning
+TUOI explain: Now [r]. This is another letter that sounds different between our accents. Try both buttons on [ra].
+
+POINT d4: south
+TUOI: In my Southern recording, you’ll hear an r-like sound. Its exact shape varies; some speakers use more of a curl or trill.
+
+POINT d4: north
+VINH explain: In my Hà Nội recording, [r] sounds z-like, just as [d] does. Same letter, same word, different regional pronunciation.
+
+CLEAR
+BOARD d5: xa | far
+TUOI explain: Let’s compare [s] and [x]. [x] sounds like English s in “see.”
+
+BOARD d6: sa | to fall, sink
+  RECORD south: tongue farther back (sh-like s)
+  RECORD north: plain s, the same as x
+TUOI explain: In my Southern accent, [s] has the tongue a little farther back. It may remind you of English sh, but it isn’t quite the same.
+
+CLEAR
+WORDS d7: sa, xa
+VINH explain: In my Hà Nội accent, [s] and [x] usually share an s-like sound. Play the pair with both buttons and compare.
+
+TUOI: Some Southern speakers pronounce them alike, too. Listen to the person speaking, but keep each word’s correct spelling.
+
+CLEAR
+BOARD d8: ta | we, us
+TUOI explain: Next is [t]. Put your tongue near your upper front teeth and make a clean stop, with very little puff of air.
+
+BOARD d9: tha | to forgive, release
+TUOI explain: Now add h. [th] is a [t] with a stronger puff of air. It’s never the English th in “think” or “this.”
+
+CLEAR
+WORDS d10: ta, tha
+TUOI: Hold your hand in front of your mouth. Play the pair and repeat it. Can you feel more air with [th]?
+
+TUOI ask: What makes Vietnamese [th] different from [t]?
+  RIGHT: [th] has a stronger puff of air. | Exactly! Keep the t-like tongue position and add a puff of air.
+  WRONG: [th] sounds like the start of English “think.” | Don’t put your tongue between your teeth. Vietnamese [th] is a [t] with a puff of air.
+
+CLEAR
+BOARD d11: về | to return, go home
+  RECORD north: v (upper teeth on lower lip, voiced)
+  RECORD south: y-like beginning
+POINT d11: north
+TUOI explain: Our last single consonant is [v]. Your upper teeth lightly touch your lower lip while your voice vibrates. Start with Thầy Vinh’s button.
+
+POINT d11: south
+TUOI: Now try my Southern button. I use a y-like beginning. You’ll also hear a v-like sound in the South, especially in careful speech.
+
+TUOI encourage: That completes all seventeen consonant letters! Next come the letter combinations you’ll meet constantly when reading.
