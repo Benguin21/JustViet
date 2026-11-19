@@ -9,7 +9,7 @@ import { friendlyCommunityError } from "@/lib/community/errors";
 import { MOD_REASON_MAX } from "@/lib/community/moderation";
 import * as repo from "@/lib/community/repository";
 import type { ItemRef } from "@/lib/community/types";
-import { RichText } from "./RichText";
+import { CommunityText } from "./CommunityText";
 
 const QUICK_REASONS = ["Spam or promotion", "Harassment or hate", "Personal information", "Inappropriate content", "Off-topic"];
 
@@ -157,7 +157,7 @@ export function RemovedNotice({
       {copy && (
         <div className="rounded-lg bg-surface p-3">
           {copy.title && <p className="font-heading font-extrabold text-ink-900">{copy.title}</p>}
-          <RichText text={copy.body} className="text-sm" />
+          <CommunityText text={copy.body} className="text-sm" />
           {copy.reason && <p className="mt-2 text-xs font-semibold text-ink-500">Reason: {copy.reason}</p>}
         </div>
       )}

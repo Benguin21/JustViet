@@ -9,11 +9,12 @@ import { RateLimitError } from "@/lib/community/errors";
 import { deletedResponseText, responseDeleteMode } from "@/lib/community/posts";
 import type * as repo from "@/lib/community/repository";
 import type { Post, ReportTarget, Response, VoteValue } from "@/lib/community/types";
+import { CommunityText } from "./CommunityText";
+import { FlagMenu } from "./FlagMenu";
 import { MemberLine } from "./MemberLine";
 import { ModRemoveDialog, RemovedNotice } from "./Moderation";
 import { ResponseComposer } from "./ResponseComposer";
-import { RichText } from "./RichText";
-import { RichTextEditor } from "./RichTextEditor";
+import { TextEditor } from "./TextEditor";
 import { VoteControls } from "./VoteControls";
 import { REPLY_MAX, RESPONSE_MAX, pleaseWait } from "@/lib/community/limits";
 
@@ -60,7 +61,7 @@ function Entry({
   onReply: () => void;
   extraActions?: React.ReactNode;
 }) {
-  const { uid, profiles, blocked, block, isModerator } = useCommunity();
+  const { uid, profiles, blocked, block, unblock, isModerator } = useCommunity();
   const [editing, setEditing] = useState(false);
   const [removing, setRemoving] = useState(false);
   const [draft, setDraft] = useState(r.body);
@@ -103,7 +104,7 @@ function Entry({
       <MemberLine uid={r.author} profile={author} createdAt={r.createdAt} editedAt={r.editedAt} />
       {editing ? (
         <div className="flex flex-col gap-2">
-          <RichTextEditor label={`Edit your ${noun}`} value={draft} onChange={setDraft} max={isReply ? REPLY_MAX : RESPONSE_MAX} rows={isReply ? 3 : 6} autoFocus />
+          <TextEditor label={`Edit your ${noun}`} value={draft} onChange={setDraft} max={isReply ? REPLY_MAX : RESPONSE_MAX} rows={isReply ? 3 : 6} autoFocus />
           <div className="flex justify-end gap-2">
             <Button variant="ghost" size="sm" fullWidth={false} onClick={() => setEditing(false)}>
               Cancel
@@ -124,7 +125,7 @@ function Entry({
           </div>
         </div>
       ) : (
-        <RichText text={r.body} />
+        <CommunityText text={r.body} />
       )}
       {error && (
         <p role="alert" className="text-sm font-semibold text-red-600">
@@ -132,7 +133,7 @@ function Entry({
         </p>
       )}
       {!editing && (
-        <div className="-ml-2 flex flex-wrap items-center gap-0.5">
+        <div className="-mx-2 flex flex-wrap items-center gap-0.5">
           {!post.deleted && (
             <button type="button" className={actionClass} onClick={() => actions.requireGuidelines(onReply)}>
               Reply
@@ -156,21 +157,31 @@ function Entry({
               </button>
             </>
           ) : (
-            <>
-              <button type="button" className={actionClass} onClick={() => actions.report({ kind: isReply ? "reply" : "response", post: post.id, response: r.id }, r.author)}>
-                Report
+            isModerator && (
+              <button type="button" className={`${actionClass} text-red-600`} onClick={() => setRemoving(true)}>
+                Remove
               </button>
-              {author && !blocked.has(r.author) && (
-                <button type="button" className={actionClass} disabled={busy} onClick={() => run(() => block(r.author))}>
-                  Block
-                </button>
-              )}
-              {isModerator && (
-                <button type="button" className={`${actionClass} text-red-600`} onClick={() => setRemoving(true)}>
-                  Remove
-                </button>
-              )}
-            </>
+            )
+          )}
+          {!mine && (
+            <div className="ml-auto">
+              <FlagMenu
+                label="Report or block"
+                items={[
+                  {
+                    label: `Report ${noun}`,
+                    onSelect: () => actions.report({ kind: isReply ? "reply" : "response", post: post.id, response: r.id }, r.author),
+                  },
+                  ...(author
+                    ? [
+                        blocked.has(r.author)
+                          ? { label: `Unblock ${author.name}`, disabled: busy, onSelect: () => run(() => unblock(r.author)) }
+                          : { label: `Block ${author.name}`, disabled: busy, onSelect: () => run(() => block(r.author)) },
+                      ]
+                    : []),
+                ]}
+              />
+            </div>
           )}
         </div>
       )}

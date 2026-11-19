@@ -33,6 +33,10 @@ describe("validatePost", () => {
     expect(validatePost({ ...ok, body: "x".repeat(5001) }).body).toMatch(/5,000/);
   });
   it("needs a category", () => expect(validatePost({ ...ok, category: "memes" }).category).toBeDefined());
+  it("refuses links in the title and the body", () => {
+    expect(validatePost({ ...ok, title: "Read this on example.com" }).title).toMatch(/Links aren't allowed/);
+    expect(validatePost({ ...ok, body: "I keep seeing được, see https://example.com" }).body).toMatch(/example\.com/);
+  });
 });
 
 describe("validateResponse", () => {
@@ -42,6 +46,9 @@ describe("validateResponse", () => {
     expect(validateResponse("x".repeat(5000), false)).toBeNull();
     expect(validateResponse("x".repeat(5001), false)).toMatch(/5,000/);
     expect(validateResponse("x".repeat(1001), true)).toMatch(/1,000/);
+  });
+  it("refuses links", () => {
+    expect(validateResponse("Try www.example.com", true)).toMatch(/Links aren't allowed/);
   });
 });
 

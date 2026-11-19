@@ -1,6 +1,6 @@
 /**
- * Community Phase 3 against the Firestore emulator: daily caps (lower for new members), link
- * limits, a moderator resetting a name or voiding someone's votes, and deleting an account.
+ * Community Phase 3 against the Firestore emulator: daily caps (lower for new members), no
+ * links, a moderator resetting a name or voiding someone's votes, and deleting an account.
  * Run with `npm run test:rules`.
  */
 import { readFileSync } from "node:fs";
@@ -132,13 +132,13 @@ async function vote(uid: string, postId: string, response: string | null, clicke
   return repo.castVote(uid, { post: postId, response }, clicked);
 }
 /** A hand-written post with an activity record whose counts the test chooses. */
-async function forgePost(uid: string, counts: Record<string, unknown>, body = QUESTION.body) {
+async function forgePost(uid: string, counts: Record<string, unknown>, body = QUESTION.body, title = QUESTION.title) {
   const db = dbFor(uid);
   const cur = (await read(`communityActivity/${uid}`)) ?? {};
   const id = repo.newId();
   const b = writeBatch(db);
   b.set(doc(db, `communityPosts/${id}`), {
-    ...QUESTION, body, tokens: [], author: uid, createdAt: serverTimestamp(), editedAt: null,
+    ...QUESTION, title, body, tokens: [], author: uid, createdAt: serverTimestamp(), editedAt: null,
     up: 0, down: 0, score: 0, responses: 0, erased: 0, accepted: null, deleted: false,
   });
   b.set(doc(db, `communityActivity/${uid}`), {
@@ -209,23 +209,31 @@ describe("daily caps", () => {
 });
 
 describe("links", () => {
-  const withLinks = (n: number) =>
-    `${QUESTION.body} ${Array.from({ length: n }, (_, i) => `https://example${i}.com`).join(" ")}`;
+  it("are refused in posts and titles, for every member, however they're written", async () => {
+    await expect(post(A, { ...QUESTION, body: `${QUESTION.body} https://example.com` })).rejects.toThrow(/Links aren't allowed/);
+    for (const extra of [" https://example.com", " HTTPS://sneaky.example", "\nwww.example.org", " join t.me/spam", " bit.ly", "\n\nmy-site.COM/page"]) {
+      await assertFails(forgePost(A, { dayPosts: 1 }, QUESTION.body + extra));
+    }
+    await assertFails(forgePost(A, { dayPosts: 1 }, QUESTION.body, "Read about it on example.com"));
+    // Ordinary dotted text is fine.
+    await assertSucceeds(forgePost(A, { dayPosts: 1 }, `${QUESTION.body} v.v. e.g. 3.5 TP.HCM Node.js`));
+  });
 
-  it("at most 3 per post, answer or reply; none for new members", async () => {
-    await expect(post(A, { ...QUESTION, body: withLinks(4) })).rejects.toThrow(/at most 3/);
-    const id = await post(A, { ...QUESTION, body: withLinks(3) });
-    await clearLimits(A);
-    await assertFails(forgePost(A, { dayPosts: 2 }, withLinks(4)));
-    await expect(post(N, { ...QUESTION, body: withLinks(1) })).rejects.toThrow(/New members/);
-    await assertFails(forgePost(N, { dayPosts: 1 }, `${QUESTION.body} HTTPS://sneaky.example`));
-    await expect(respond(N, id, null, "See https://example.com")).rejects.toThrow(/New members/);
-    await assertSucceeds(respond(N, id, null, "No links here."));
-    // Editing links in is held to the same limit.
+  it("are refused in answers, comments and replies, and in edits", async () => {
+    const id = await post(A);
+    await expect(respond(N, id, null, "See www.example.com")).rejects.toThrow(/Links aren't allowed/);
+    const rid = await respond(B, id, null, "A plain answer, v.v.");
+    const rPath = `communityPosts/${id}/responses/${rid}`;
+    await assertFails(updateDoc(doc(dbFor(B), rPath), { body: "Now with https://example.com", editedAt: serverTimestamp() }));
+    await assertSucceeds(updateDoc(doc(dbFor(B), rPath), { body: "Still plain.", editedAt: serverTimestamp() }));
+
     as(A);
     const p = await repo.fetchPost(id);
-    await expect(repo.editPost(p!, { ...QUESTION, body: withLinks(4) })).rejects.toThrow(/at most 3/);
-    await assertFails(updateDoc(doc(dbFor(A), `communityPosts/${id}`), { body: withLinks(5), editedAt: serverTimestamp() }));
+    await expect(repo.editPost(p!, { ...QUESTION, body: `${QUESTION.body} https://a.com` })).rejects.toThrow(/Links aren't allowed/);
+    const pPath = `communityPosts/${id}`;
+    await assertFails(updateDoc(doc(dbFor(A), pPath), { body: `${QUESTION.body} www.a.com`, editedAt: serverTimestamp() }));
+    await assertFails(updateDoc(doc(dbFor(A), pPath), { title: "Now see example.com", editedAt: serverTimestamp() }));
+    await assertSucceeds(updateDoc(doc(dbFor(A), pPath), { body: `${QUESTION.body} Edited.`, editedAt: serverTimestamp() }));
   });
 });
 

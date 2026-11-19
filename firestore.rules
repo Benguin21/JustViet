@@ -36,8 +36,8 @@ rules_version = '2';
 // request, and checked against it. Tested in community-moderation.rules.test.ts.
 //
 // Phase 3: daily caps on posts, responses and votes (counted on the activity
-// record; lower in a member's first days), at most MAX_LINKS links per text
-// (none for new members), moderators resetting offensive names and voiding
+// record; lower in a member's first days), no links in any text (titles,
+// posts, answers, comments, replies), moderators resetting offensive names and voiding
 // votes, and account deletion (a member withdraws their votes with act
 // 'leave', then deletes their profile together with its name claim; the XP
 // ledger, 13+ answer and activity record stay protected until
@@ -274,7 +274,7 @@ service cloud.firestore {
     function NEW_POSTS_PER_DAY() { return 3; }
     function NEW_RESPONSES_PER_DAY() { return 20; }
     function NEW_VOTES_PER_DAY() { return 50; }
-    function MAX_LINKS() { return 3; }
+    function LINK_PATTERN() { return '(https?://|www[.]|[a-z0-9-][.](com|net|org|edu|gov|info|biz|io|co|me|ly|gl|gg|tv|vn|xyz|app|dev|link|site|online|shop|top|club|live|ru|cn)([^a-z0-9]|$))'; }
 
     // ----- who may use the Community -----
     function me() {
@@ -298,21 +298,18 @@ service cloud.firestore {
     function notSuspendedNow() {
       return !exists(activityPath(me())) || notSuspended(get(activityPath(me())).data);
     }
-    // Links in a text: each http:// or https://, any case (mirror countLinks in limits.ts).
-    function linkCount(s) {
-      return s.split('[Hh][Tt][Tt][Pp][Ss]?://').size() - 1;
+    // Community text is plain text with no links: nothing matching LINK_PATTERN,
+    // in any case, anywhere in it (mirror findLink in limits.ts).
+    function noLinks(s) {
+      return !s.matches('(?is).*' + LINK_PATTERN() + '.*');
     }
-    // A member's first NEW_MEMBER_DAYS: lower daily caps and no links.
+    // A member's first NEW_MEMBER_DAYS: lower daily caps.
     function isNewMember(p) {
       return request.time < p.joinedAt + duration.value(NEW_MEMBER_DAYS(), 'd');
     }
-    function linksOkFor(p, s) {
-      return linkCount(s) <= (isNewMember(p) ? 0 : MAX_LINKS());
-    }
-    // A new post or response: guidelines accepted, and not too many links for this member.
+    // A new post or response: guidelines accepted, and no links.
     function contributionOk(s) {
-      let p = get(profilePath(me())).data;
-      return p.guidelinesAt != null && linksOkFor(p, s);
+      return get(profilePath(me())).data.guidelinesAt != null && noLinks(s);
     }
 
     function agePath(uid) {
@@ -668,7 +665,7 @@ service cloud.firestore {
         && d.createdAt == request.time && d.editedAt == null
         && d.up == 0 && d.down == 0 && d.score == 0 && d.responses == 0 && d.erased == 0
         && d.accepted == null && d.deleted == false
-        && contributionOk(d.body)
+        && contributionOk(d.body) && noLinks(d.title)
         && x.at == request.time && x.act == 'post' && x.target == postId && x.lastPost == request.time
         && notSuspended(x);
     }
@@ -714,7 +711,7 @@ service cloud.firestore {
         && textOk(b.title, TITLE_MIN(), TITLE_MAX()) && textOk(b.body, BODY_MIN(), BODY_MAX())
         && b.category in CATEGORIES() && tokensOk(b.tokens)
         && notSuspendedNow()
-        && linksOkFor(get(profilePath(me())).data, b.body)
+        && noLinks(b.title) && noLinks(b.body)
         && (b.type == a.type
             || (b.type in ['question', 'discussion'] && a.responses == 0 && a.erased == 0 && a.accepted == null));
     }
@@ -811,7 +808,7 @@ service cloud.firestore {
       return changed.hasOnly(['body', 'editedAt']) && b.editedAt == request.time
         && textOk(b.body, 1, a.parent == null ? RESPONSE_MAX() : REPLY_MAX())
         && notSuspendedNow()
-        && linksOkFor(get(profilePath(me())).data, b.body);
+        && noLinks(b.body);
     }
     // A moderator removes or restores an answer, comment or reply (replies carry no votes).
     function respModOk(postId, rid, a, b, changed) {

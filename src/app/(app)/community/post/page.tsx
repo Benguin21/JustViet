@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Toast } from "@/components/ui/Toast";
 import { useGuidelinesGate } from "@/components/community/Guidelines";
+import { CommunityText } from "@/components/community/CommunityText";
+import { FlagMenu } from "@/components/community/FlagMenu";
 import { MemberLine } from "@/components/community/MemberLine";
 import { PostBadges } from "@/components/community/PostCard";
 import { PostForm } from "@/components/community/PostForm";
@@ -14,7 +16,6 @@ import { ReportDialog } from "@/components/community/ReportDialog";
 import { ModRemoveDialog, RemovedNotice } from "@/components/community/Moderation";
 import { ResponseComposer } from "@/components/community/ResponseComposer";
 import { ResponseItem, actionClass, type ThreadActions } from "@/components/community/ResponseItem";
-import { RichText } from "@/components/community/RichText";
 import { VoteControls } from "@/components/community/VoteControls";
 import { useCommunity } from "@/lib/community/CommunityProvider";
 import { RateLimitError } from "@/lib/community/errors";
@@ -171,7 +172,7 @@ function PostPageContent() {
       <PostBadges post={post} />
       <h1 className="font-heading text-2xl leading-tight font-extrabold text-ink-900 [overflow-wrap:anywhere] sm:text-3xl">{post.title}</h1>
       <MemberLine uid={post.author} profile={author} createdAt={post.createdAt} editedAt={post.editedAt} size="md" />
-      <RichText text={post.body} className="mt-1" />
+      <CommunityText text={post.body} className="mt-1" />
     </>
   );
 
@@ -216,7 +217,7 @@ function PostPageContent() {
             <div className="flex min-w-0 flex-1 flex-col gap-3">
               {content}
               {!post.deleted && !editing && (
-                <div className="-ml-2 flex flex-wrap items-center gap-0.5">
+                <div className="-mx-2 flex flex-wrap items-center gap-0.5">
                   {mine ? (
                     <>
                       <button type="button" className={actionClass} onClick={() => setEditing(true)}>
@@ -227,35 +228,31 @@ function PostPageContent() {
                       </button>
                     </>
                   ) : (
-                    <>
-                      <button type="button" className={actionClass} onClick={() => setReport({ target: { kind: "post", post: post.id }, author: post.author })}>
-                        Report
+                    isModerator && (
+                      <button type="button" className={`${actionClass} text-red-600`} onClick={() => setRemoving(true)}>
+                        Remove
                       </button>
-                      {isHidden ? (
-                        <button type="button" className={actionClass} onClick={() => quick(() => unhide(post.id), "Post unhidden")}>
-                          Unhide
-                        </button>
-                      ) : (
-                        <button type="button" className={actionClass} onClick={() => quick(() => hide(post.id), "Post hidden")}>
-                          Hide post
-                        </button>
-                      )}
-                      {author &&
-                        (blocked.has(post.author) ? (
-                          <button type="button" className={actionClass} onClick={() => quick(() => unblock(post.author), `Unblocked ${author.name}`)}>
-                            Unblock {author.name}
-                          </button>
-                        ) : (
-                          <button type="button" className={actionClass} onClick={() => quick(() => block(post.author), `Blocked ${author.name}`)}>
-                            Block {author.name}
-                          </button>
-                        ))}
-                      {isModerator && (
-                        <button type="button" className={`${actionClass} text-red-600`} onClick={() => setRemoving(true)}>
-                          Remove
-                        </button>
-                      )}
-                    </>
+                    )
+                  )}
+                  {!mine && (
+                    <div className="ml-auto">
+                      <FlagMenu
+                        label="Report, hide or block"
+                        items={[
+                          { label: "Report post", onSelect: () => setReport({ target: { kind: "post", post: post.id }, author: post.author }) },
+                          isHidden
+                            ? { label: "Unhide post", onSelect: () => quick(() => unhide(post.id), "Post unhidden") }
+                            : { label: "Hide post", onSelect: () => quick(() => hide(post.id), "Post hidden") },
+                          ...(author
+                            ? [
+                                blocked.has(post.author)
+                                  ? { label: `Unblock ${author.name}`, onSelect: () => quick(() => unblock(post.author), `Unblocked ${author.name}`) }
+                                  : { label: `Block ${author.name}`, onSelect: () => quick(() => block(post.author), `Blocked ${author.name}`) },
+                              ]
+                            : []),
+                        ]}
+                      />
+                    </div>
                   )}
                 </div>
               )}

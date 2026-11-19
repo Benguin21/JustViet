@@ -56,12 +56,25 @@ describe("daily caps and links", () => {
     expect(limits.dailyLimitMessage("post", true)).toMatch(/3 posts for new members/);
   });
 
-  it("counts links like the rules do, and allows none for new members", () => {
-    expect(limits.countLinks("see https://a.com and HTTP://b.org and [x](https://c.net)")).toBe(3);
-    expect(limits.countLinks("no links, just www.example.com")).toBe(0);
-    expect(limits.linkProblem("https://a.com", joinedToday, now)).toMatch(/New members/);
-    expect(limits.linkProblem("https://a.com", joinedLongAgo, now)).toBeNull();
-    expect(limits.linkProblem("https://a.com https://b.com https://c.com https://d.com", joinedLongAgo, now)).toMatch(/at most 3/);
+  it("finds links and web addresses in any case", () => {
+    const cases: [string, string][] = [
+      ["see https://a.com/x now", "https://a.com/x"],
+      ["HTTP://b.org", "HTTP://b.org"],
+      ["Go to www.example.vn.", "www.example.vn"],
+      ["Join t.me/spam today", "t.me/spam"],
+      ["(bit.ly/abc)", "bit.ly/abc"],
+      ["“learnjustviet.com”!", "learnjustviet.com"],
+      ["Write to a@Gmail.COM", "a@Gmail.COM"],
+      ["Dòng 1\nhttps://x.io", "https://x.io"],
+    ];
+    for (const [text, link] of cases) expect(limits.findLink(text), text).toBe(link);
+    expect(limits.linkProblem("Go to www.example.vn.")).toBe("Links aren't allowed in the Community. Please remove “www.example.vn”.");
+  });
+
+  it("leaves ordinary dotted text alone", () => {
+    for (const text of ["Xin chào, v.v. và e.g. i.e. 3.5 a.m.", "TP.HCM là thành phố lớn.", "example.company", "Node.js and console.log", "Hết.\nCảm ơn."]) {
+      expect(limits.findLink(text), text).toBeNull();
+    }
   });
 });
 
@@ -95,9 +108,12 @@ describe("firestore.rules mirrors limits.ts", () => {
     "NEW_POSTS_PER_DAY",
     "NEW_RESPONSES_PER_DAY",
     "NEW_VOTES_PER_DAY",
-    "MAX_LINKS",
   ] as const)("%s", (name) => {
     expect(Number(constant(name))).toBe(limits[name]);
+  });
+
+  it("uses the same link pattern", () => {
+    expect(constant("LINK_PATTERN")).toBe(`'${limits.LINK_PATTERN}'`);
   });
 
   it("has the same categories, avatar colours and report reasons", () => {

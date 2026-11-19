@@ -61,7 +61,6 @@ import {
   dailyLeft,
   dailyLimitMessage,
   isNewMember,
-  linkProblem,
   reportsLeft,
   type CountedAction,
   utcDay,
@@ -256,11 +255,6 @@ function countFor(kind: CountedAction, activity: Activity, joinedAt: number) {
   const now = Date.now();
   if (dailyLeft(kind, activity, joinedAt, now) <= 0) throw new DailyLimitError(dailyLimitMessage(kind, isNewMember(joinedAt, now)));
   return countAction(kind, activity, now);
-}
-
-function assertLinks(text: string, joinedAt: number) {
-  const problem = linkProblem(text, joinedAt, Date.now());
-  if (problem) throw new Error(problem);
 }
 
 async function ownJoinedAt(tx: Transaction | null, uid: string): Promise<number> {
@@ -527,7 +521,6 @@ export async function createPost(uid: string, id: string, input: PostInput): Pro
     const { raw, activity } = await readActivityIn(tx, uid);
     const joinedAt = await ownJoinedAt(tx, uid);
     assertNotSuspended(activity);
-    assertLinks(f.body, joinedAt);
     const wait = waitSeconds(activity.lastPost, Date.now(), POST_INTERVAL_S);
     if (wait > 0) throw new RateLimitError(wait);
     const counts = countFor("post", activity, joinedAt);
@@ -543,7 +536,6 @@ export async function createPost(uid: string, id: string, input: PostInput): Pro
 export async function editPost(post: Post, input: PostInput): Promise<Post> {
   const f = postFields(input);
   await checkNotSuspended(post.author);
-  assertLinks(f.body, await ownJoinedAt(null, post.author));
   const type = post.responses === 0 && post.erased === 0 && post.accepted == null ? f.type : post.type;
   const { tokens, ...shown } = f;
   await updateDoc(postRef(post.id), { ...shown, tokens, type, editedAt: serverTimestamp() });
@@ -622,7 +614,6 @@ export async function createResponse(uid: string, postId: string, id: string, in
     const { raw, activity } = await readActivityIn(tx, uid);
     const joinedAt = await ownJoinedAt(tx, uid);
     assertNotSuspended(activity);
-    assertLinks(body, joinedAt);
     const wait = waitSeconds(activity.lastResponse, Date.now(), RESPONSE_INTERVAL_S);
     if (wait > 0) throw new RateLimitError(wait);
     const counts = countFor("response", activity, joinedAt);
@@ -655,7 +646,6 @@ export async function editResponse(r: Response, rawBody: string): Promise<Respon
   if (problem) throw new Error(problem);
   const body = cleanBody(rawBody);
   await checkNotSuspended(r.author);
-  assertLinks(body, await ownJoinedAt(null, r.author));
   await updateDoc(responseRef(r.post, r.id), { body, editedAt: serverTimestamp() });
   return { ...r, body, editedAt: Date.now() };
 }

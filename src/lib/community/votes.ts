@@ -11,7 +11,7 @@ import type { VoteValue } from "./types";
 
 export const COMMUNITY_XP_LABEL = "Community XP";
 export const COMMUNITY_XP_EXPLANATION = "Upvotes received minus downvotes received on your posts and answers.";
-export const VOTE_GUIDANCE = "Upvote helpful contributions. Downvote unhelpful or incorrect ones. Use Report for rule-breaking.";
+export const VOTE_GUIDANCE = "Upvote helpful contributions. Downvote unhelpful or incorrect ones. Use the flag to report rule-breaking.";
 
 /** Clicking your current vote removes it; clicking the other one switches. */
 export function nextVote(current: VoteValue, clicked: 1 | -1): VoteValue {

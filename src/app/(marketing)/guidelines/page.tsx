@@ -43,13 +43,15 @@ export default function GuidelinesPage() {
           <h2 className="font-heading text-xl font-extrabold text-ink-900">Votes, reports and blocking</h2>
           <p>
             Upvote helpful contributions and downvote unhelpful or incorrect ones. Votes are private, and low scores never hide
-            content or limit anyone. Use Report for anything that breaks these guidelines: reports are confidential and are
+            content or limit anyone. Use the flag in the corner of a post or answer to report anything that breaks these
+            guidelines: reports are confidential and are
             reviewed by the JustViet team; nothing is removed automatically. You can also hide posts and block accounts
             for yourself.
           </p>
           <p>
-            To keep spam out, everyone has daily limits on posts, answers and votes, a post or answer can include at
-            most 3 links, and new members get lower limits and can&apos;t post links for their first 3 days.
+            Posts, answers, comments and replies are plain text, and links or web addresses aren&apos;t allowed. To keep
+            spam out, everyone also has daily limits on posts, answers and votes, with lower limits for a new
+            member&apos;s first 3 days.
           </p>
           <p>
             Moderators review reports. Breaking these guidelines or our{" "}

@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Toast } from "@/components/ui/Toast";
 import { ModRemoveDialog } from "@/components/community/Moderation";
-import { RichText } from "@/components/community/RichText";
+import { CommunityText } from "@/components/community/CommunityText";
 import { useCommunity } from "@/lib/community/CommunityProvider";
 import { plainText } from "@/lib/community/format";
 import type { ModAction, ReportGroup } from "@/lib/community/moderation";
@@ -245,7 +245,7 @@ function ReportCard({
           ) : (
             <>
               {!g.response && post && <p className="font-heading font-extrabold text-ink-900 [overflow-wrap:anywhere]">{post.title}</p>}
-              <RichText text={(g.response ? response?.body : post?.body) ?? ""} className="line-clamp-6 text-sm" />
+              <CommunityText text={(g.response ? response?.body : post?.body) ?? ""} className="line-clamp-6 text-sm" />
             </>
           )}
         </div>

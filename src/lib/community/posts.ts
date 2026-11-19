@@ -11,6 +11,7 @@ import {
   RESPONSE_MIN,
   TITLE_MAX,
   TITLE_MIN,
+  linkProblem,
 } from "./limits";
 import { isCategory, isPostType, type Post, type PostType, type Response } from "./types";
 
@@ -51,8 +52,10 @@ export function validatePost(input: PostInput): PostErrors {
   if (!isCategory(input.category)) errors.category = "Choose a category.";
   if (title.length < TITLE_MIN) errors.title = `Titles need at least ${TITLE_MIN} characters.`;
   else if (title.length > TITLE_MAX) errors.title = `Titles can be up to ${TITLE_MAX} characters.`;
+  else if (linkProblem(title)) errors.title = linkProblem(title)!;
   if (body.length < BODY_MIN) errors.body = `Write at least ${BODY_MIN} characters.`;
   else if (body.length > BODY_MAX) errors.body = `Posts can be up to ${BODY_MAX.toLocaleString("en-US")} characters.`;
+  else if (linkProblem(body)) errors.body = linkProblem(body)!;
   return errors;
 }
 
@@ -65,7 +68,7 @@ export function validateResponse(body: string, isReply: boolean): string | null 
   const max = maxResponseLength(isReply);
   if (text.length < RESPONSE_MIN) return "Write something first.";
   if (text.length > max) return `${isReply ? "Replies" : "Responses"} can be up to ${max.toLocaleString("en-US")} characters.`;
-  return null;
+  return linkProblem(text);
 }
 
 /** "Edited" shows only for edits made more than five minutes after posting. */

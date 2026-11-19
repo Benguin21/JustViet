@@ -653,8 +653,8 @@ answers/comments, one reply level, votes, Community XP, accepted answers,
 search, reports, hiding, blocking, rate limits) and **Phase 2**
 (moderators, the reports queue, removing and restoring content, warnings,
 suspensions, bans, in-app notifications; see "Moderation and
-notifications" below) and **Phase 3** (daily caps, new-member and link
-limits, name resets, voiding votes, account deletion; see "Limits and
+notifications" below) and **Phase 3** (daily caps, new-member limits, no
+links, name resets, voiding votes, account deletion; see "Limits and
 account deletion" below) are built.
 
 **No backend.** Everything is enforced by `firestore.rules`, with the XP
@@ -760,10 +760,14 @@ allowed any time, then once every 30 days.
 20–5,000, a category (Grammar, Vocabulary, Pronunciation, Culture, Learning
 Tips, Other); answers/comments 1–5,000, replies 1–1,000. Lengths count
 UTF-16 units of the cleaned text (JS `.length`, which is also what the
-rules' `size()` counts). Formatting (`format.ts` → `RichText.tsx`, React
-elements only): paragraphs, bold, italic, code, bullet lists, http(s) links
-that open in a new tab with `rel="nofollow ugc noopener noreferrer"` and show
-their domain. Drafts (with the id they'll be created under) stay in
+rules' `size()` counts). **Plain text only**: no formatting and no links
+(see "No links" below). `TextEditor.tsx` is the text box (it warns about a
+link as you type); `CommunityText.tsx` shows the text as paragraphs and line
+breaks (`format.ts#paragraphs`), as React text, so markup typed in it, or
+left from before formatting was removed, shows exactly as typed. Report,
+Hide and Block sit in the small flag menu (`FlagMenu.tsx`) in the
+bottom-right corner of each post, answer, comment and reply; Edit, Delete,
+Reply, Accept and a moderator's Remove stay visible. Drafts (with the id they'll be created under) stay in
 localStorage until they post, and creates do nothing if the id exists, so
 retries can't duplicate. "Edited" shows only for edits more than 5 minutes
 after posting. Deleting: with nothing under it, removed outright; otherwise
@@ -847,10 +851,15 @@ votes. The activity record carries `countDay`, `dayPosts`,
 `dayResponses` and `dayVotes`; a post, response or vote must add exactly
 one to today's count (`countAction`), anything else leaves the counts
 alone. Like the report cap, the day comes from the browser's clock, so a
-badly wrong clock near midnight UTC can get a refusal. **Links**: at most
-`MAX_LINKS` (3) per post, answer, comment or reply, none for new members;
-counted as `http://`/`https://` occurrences (`countLinks`; the rules use
-`split`), on creates and edits. No limits use Community XP, by design
+badly wrong clock near midnight UTC can get a refusal. **No links**:
+titles, posts, answers, comments and replies can't contain a link or web
+address, on creates and edits, for any member. `LINK_PATTERN` in
+`limits.ts` defines one: `http://`/`https://`, `www.`, or a word ending in
+a common web domain (`.com`, `.vn`, `.ly`, `.me`, …; bare domains with
+rarer endings get through, but nothing in Community text is ever
+clickable). `findLink` names the offending word for the message; the rules
+use the same pattern string with `matches('(?is).*' + LINK_PATTERN() +
+'.*')`, and `limits.test.ts` checks the two are identical. No limits use Community XP, by design
 (low scores never restrict anyone; karma can be farmed).
 
 **Moderator extras.** *Reset name* (`resetMemberName`): the profile

@@ -65,8 +65,8 @@ export function pleaseWait(seconds: number): string {
 // ------------------------------------------------------- Phase 3 limits
 //
 // Daily caps (per UTC day), stricter for a member's first NEW_MEMBER_DAYS,
-// and a cap on links per text (none for new members). Like the rest of this
-// file, firestore.rules repeats every number and limits.test.ts checks.
+// and no links in any Community text. Like the rest of this file,
+// firestore.rules repeats every number and limits.test.ts checks.
 
 export const POSTS_PER_DAY = 10;
 export const RESPONSES_PER_DAY = 100;
@@ -75,9 +75,6 @@ export const NEW_MEMBER_DAYS = 3;
 export const NEW_POSTS_PER_DAY = 3;
 export const NEW_RESPONSES_PER_DAY = 20;
 export const NEW_VOTES_PER_DAY = 50;
-/** Links (http:// or https://) allowed in one post, answer, comment or reply. New members: none. */
-export const MAX_LINKS = 3;
-
 export type CountedAction = "post" | "response" | "vote";
 
 /** Within the first NEW_MEMBER_DAYS after joining. */
@@ -134,20 +131,26 @@ export function dailyLimitMessage(kind: CountedAction, newMember: boolean): stri
   return `You've reached today's limit of ${cap} ${what}${newMember ? " for new members" : ""}. Please try again tomorrow.`;
 }
 
-/** Links in a text, counted the way the rules do: each "http://" or "https://", any case. */
-export function countLinks(text: string): number {
-  return (text.match(/https?:\/\//gi) ?? []).length;
+/**
+ * What counts as a link: "http://" or "https://", "www.", or a word ending
+ * in a common web domain ("example.com", "bit.ly", "t.me"), in any case.
+ * Community text can't contain any. firestore.rules uses this exact pattern
+ * (with RE2's (?is) flags), and limits.test.ts checks they match.
+ */
+export const LINK_PATTERN =
+  "(https?://|www[.]|[a-z0-9-][.](com|net|org|edu|gov|info|biz|io|co|me|ly|gl|gg|tv|vn|xyz|app|dev|link|site|online|shop|top|club|live|ru|cn)([^a-z0-9]|$))";
+const LINK_RE = new RegExp(LINK_PATTERN, "i");
+
+/** The first word of the text that is (or contains) a link, without surrounding punctuation, or null. */
+export function findLink(text: string): string | null {
+  const match = LINK_RE.exec(text);
+  if (!match) return null;
+  const word = text.split(/\s+/).find((w) => LINK_RE.test(w)) ?? match[0];
+  return word.replace(/^[("'“‘[<]+/, "").replace(/[)"'”’\]>.,!?;:]+$/, "") || word;
 }
 
-export function maxLinks(joinedAt: number, now: number): number {
-  return isNewMember(joinedAt, now) ? 0 : MAX_LINKS;
-}
-
-/** Why a text has too many links, or null. */
-export function linkProblem(text: string, joinedAt: number, now: number): string | null {
-  const max = maxLinks(joinedAt, now);
-  if (countLinks(text) <= max) return null;
-  return max === 0
-    ? `New members can't add links for their first ${NEW_MEMBER_DAYS} days. Please remove the link.`
-    : `Use at most ${max} links.`;
+/** Why a text can't be posted because of a link, or null. */
+export function linkProblem(text: string): string | null {
+  const link = findLink(text);
+  return link ? `Links aren't allowed in the Community. Please remove “${link}”.` : null;
 }
