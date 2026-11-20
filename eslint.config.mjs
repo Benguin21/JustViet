@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // A backup of the design canvas and design system (minified bundles), not app code.
+    "design/**",
   ]),
 ]);
 
