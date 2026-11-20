@@ -50,12 +50,12 @@ describe("Goals tab", () => {
     ]);
     expect(checked("Vocab")).toEqual(["5 new flashcards per day, Small goal, 10 bonus XP"]);
     expect(filled("Vocab")).toBe("■□□□□");
-    expect(screen.getByTestId("goal-vocab-value").textContent).toBe("5 new flashcards per day.");
+    expect(screen.getByTestId("goal-vocab-value").textContent).toBe("5 new flashcards per day");
     expect(within(group("Vocab")).getAllByRole("radio").map((r) => r.textContent)).toEqual(["0", "5", "10", "15", "20", "25"]);
     // Grammar and Skills start off.
     expect(checked("Grammar")).toEqual(["0 lessons per day, goal off"]);
     expect(filled("Grammar")).toBe("□□□□□");
-    expect(screen.getByTestId("goal-grammar-value").textContent).toBe("0 lessons per day.");
+    expect(screen.getByTestId("goal-grammar-value").textContent).toBe("0 lessons per day");
     expect(screen.getByTestId("goal-grammar-tier").textContent).toBe("Goal off · 0 XP");
   });
 
@@ -72,7 +72,7 @@ describe("Goals tab", () => {
       fireEvent.click(option("Vocab", new RegExp(`^${n} new flashcards`)));
       expect(filled("Vocab")).toBe(bar);
       expect(tier()).toBe(label);
-      expect(screen.getByTestId("goal-vocab-value").textContent).toBe(`${n} new flashcards per day.`);
+      expect(screen.getByTestId("goal-vocab-value").textContent).toBe(`${n} new flashcards per day`);
     }
     fireEvent.click(option("Grammar", /^2 lessons/));
     expect(filled("Grammar")).toBe("■■□□□");
@@ -150,7 +150,7 @@ describe("Goals tab", () => {
     fireEvent.click(option("Vocab", /^20 new/));
     fireEvent.click(option("Vocab", /goal off$/));
     expect(filled("Vocab")).toBe("□□□□□");
-    expect(screen.getByTestId("goal-vocab-value").textContent).toBe("0 new flashcards per day.");
+    expect(screen.getByTestId("goal-vocab-value").textContent).toBe("0 new flashcards per day");
     expect(screen.getByTestId("goal-vocab-tier").textContent).toBe("Goal off · 0 XP");
     // Off takes effect straight away, so there's no "starts tomorrow" note.
     expect(screen.queryByText(/already underway/)).toBeNull();
@@ -169,7 +169,7 @@ describe("Goals tab", () => {
     fireEvent.click(option("Skills", /^3 activities/));
     expect(checked("Skills")).toEqual(["3 activities per day, Big goal, 30 bonus XP"]);
     expect(filled("Skills")).toBe("■■■□□");
-    expect(screen.getByTestId("goal-skills-value").textContent).toBe("3 activities per day.");
+    expect(screen.getByTestId("goal-skills-value").textContent).toBe("3 activities per day");
   });
 
   it("lets all three goals be off at once", async () => {

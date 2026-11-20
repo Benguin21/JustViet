@@ -29,19 +29,12 @@ export interface GoalCopy {
   /** What one unit of the target is, singular and plural. */
   one: string;
   many: string;
-  /** What counts toward the goal: short, so the card's target line fits one line on a phone. */
-  hint: string;
 }
 
 export const GOAL_COPY: PerGoal<GoalCopy> = {
-  grammar: { title: "Grammar", one: "lesson", many: "lessons", hint: "Lessons and reviews count." },
-  vocab: {
-    title: "Vocab",
-    one: "new flashcard",
-    many: "new flashcards",
-    hint: "First-time study only.",
-  },
-  skills: { title: "Skills", one: "activity", many: "activities", hint: "Reading and Listening count." },
+  grammar: { title: "Grammar", one: "lesson", many: "lessons" },
+  vocab: { title: "Vocab", one: "new flashcard", many: "new flashcards" },
+  skills: { title: "Skills", one: "activity", many: "activities" },
 };
 
 /**

@@ -27,7 +27,7 @@ type GoalCardProps = {
 
 /**
  * One goal on the Goals tab, kept compact so all three fit on one screen: its title and bonus
- * badge, the target in words with what counts toward it, and its 0-plus-five-blocks selector.
+ * badge, the target in words, and its 0-plus-five-blocks selector.
  */
 export function GoalCard({ id, enabled, target, locked, snapped, onOff, onPick }: GoalCardProps) {
   const copy = GOAL_COPY[id];
@@ -49,11 +49,8 @@ export function GoalCard({ id, enabled, target, locked, snapped, onOff, onPick }
           {enabled ? tierText(tier) : OFF_TEXT}
         </span>
       </div>
-      <p className="mt-0.5 text-sm leading-5 font-semibold text-ink-500">
-        <strong className="font-extrabold text-ink-900" data-testid={`goal-${id}-value`}>
-          {targetText(id, shown)}.
-        </strong>{" "}
-        {copy.hint}
+      <p className="mt-0.5 text-sm leading-5 font-extrabold text-ink-900" data-testid={`goal-${id}-value`}>
+        {targetText(id, shown)}
       </p>
 
       <GoalSelector id={id} enabled={enabled} target={target} labelledBy={titleId} onOff={onOff} onPick={onPick} />
