@@ -1,0 +1,11 @@
+<!-- @dsCard group="Forms" height=230 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>TagInput — preview</title>
+<style>body{margin:0;padding:20px;background:var(--color-paper);color:var(--color-ink-900);font-family:var(--font-body),sans-serif}</style></head>
+<body>
+<div id="root"></div>
+<script>(()=>{var j=Object.create;var c=Object.defineProperty;var E=Object.getOwnPropertyDescriptor;var b=Object.getOwnPropertyNames;var T=Object.getPrototypeOf,D=Object.prototype.hasOwnProperty;var d=(e,t)=>()=>{try{return t||e((t={exports:{}}).exports,t),t.exports}catch(a){throw t=0,a}},N=(e,t)=>{for(var a in t)c(e,a,{get:t[a],enumerable:!0})},O=(e,t,a,o)=>{if(t&&typeof t=="object"||typeof t=="function")for(let n of b(t))!D.call(e,n)&&n!==a&&c(e,n,{get:()=>t[n],enumerable:!(o=E(t,n))||o.enumerable});return e};var i=(e,t,a)=>(a=e!=null?j(T(e)):{},O(t||!e||!e.__esModule?c(a,"default",{value:e,enumerable:!0}):a,e));var f=d((V,p)=>{p.exports=window.JustViet});var v=d(($,x)=>{x.exports=window.React});var m=d((q,u)=>{var w=window.React;function g(e,t,a){var o=Object.assign({},t);return a!==void 0&&(o.key=a),w.createElement(e,o)}u.exports={jsx:g,jsxs:g,jsxDEV:g,Fragment:w.Fragment}});var s={};N(s,{Empty:()=>F,WithTags:()=>k});var y=i(f()),R=i(v()),r=i(m()),h=({initial:e})=>{let[t,a]=(0,R.useState)(e);return(0,r.jsx)("div",{style:{width:360},children:(0,r.jsx)(y.TagInput,{label:"Tags",value:t,onChange:a,placeholder:"food, travel\u2026"})})},k=()=>(0,r.jsx)(h,{initial:["food","greetings","travel"]}),F=()=>(0,r.jsx)(h,{initial:[]});var l=window.React.createElement,I=Object.keys(s).map(function(e){return l("div",{key:e,className:"flex flex-col gap-2"},l("div",{className:"text-xs font-bold tracking-wide uppercase text-ink-500"},e.replace(/([a-z])([A-Z])/g,"$1 $2")),l(s[e]))});window.ReactDOM.createRoot(document.getElementById("root")).render(l("div",{className:"flex flex-col gap-6"},I));})();
+</script>
+</body>
+</html>

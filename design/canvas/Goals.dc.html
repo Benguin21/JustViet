@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>JustViet daily goals</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/justviet/components/bundle.css">
+<script src="ds/justviet/components/bundle.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+.jv-goal-slider{-webkit-appearance:none;appearance:none;position:relative;display:block;width:100%;height:44px;margin:0;background:transparent;border-radius:14px;cursor:pointer}
+.jv-goal-slider:focus{outline:none}
+.jv-goal-slider:focus-visible{outline:3px solid var(--color-yellow-500);outline-offset:2px}
+.jv-goal-slider::-webkit-slider-runnable-track{height:12px;border-radius:9999px;background:transparent}
+.jv-goal-slider::-moz-range-track{height:12px;border-radius:9999px;background:transparent}
+.jv-goal-slider::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;box-sizing:border-box;width:28px;height:28px;margin-top:-8px;border:4px solid #fff;border-radius:50%;background:currentColor;box-shadow:0 0 0 1px rgb(147 113 92 / .45),0 3px 0 var(--color-ink-300),0 3px 8px rgb(74 47 34 / .2);transition:transform .1s ease-out}
+.jv-goal-slider::-moz-range-thumb{box-sizing:border-box;width:28px;height:28px;border:4px solid #fff;border-radius:50%;background:currentColor;box-shadow:0 0 0 1px rgb(147 113 92 / .45),0 3px 0 var(--color-ink-300),0 3px 8px rgb(74 47 34 / .2);transition:transform .1s ease-out}
+.jv-goal-slider:active::-webkit-slider-thumb{transform:scale(1.1)}
+.jv-goal-slider:active::-moz-range-thumb{transform:scale(1.1)}
+.jv-goal-slider:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 1px rgb(147 113 92 / .45),0 0 0 6px var(--color-yellow-300),0 3px 8px rgb(74 47 34 / .2)}
+.jv-goal-slider:focus-visible::-moz-range-thumb{box-shadow:0 0 0 1px rgb(147 113 92 / .45),0 0 0 6px var(--color-yellow-300),0 3px 8px rgb(74 47 34 / .2)}
+@media (prefers-reduced-motion: reduce){.jv-goal-slider::-webkit-slider-thumb{transition:none}.jv-goal-slider::-moz-range-thumb{transition:none}}
+@media (min-width: 640px){.jv-save-row{flex-direction:row !important;align-items:center !important}}
+</style>
+</helmet>
+<div class="bg-paper text-ink-900 font-body" style="min-height: 1320px; display: flex; flex-direction: column">
+<header class="bg-surface border-ink-300/30" style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; border-bottom-width: 2px; border-bottom-style: solid; padding: 16px 24px">
+<a href="HomeDraft.dc.html" aria-label="JustViet home" style="text-decoration: none">
+<x-import component-from-global-scope="JustViet.Logo"></x-import>
+</a>
+<div style="display: flex; align-items: center; gap: 16px">
+<span class="text-ink-700" style="font-size: 14px; line-height: 20px; font-weight: 700">Xin chào, [YOUR NAME]!</span>
+<button type="button" class="bg-surface text-ink-700 border-ink-300/60 hover:bg-yellow-50" style="border-radius: 12px; border-width: 2px; border-style: solid; padding: 8px 16px; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer">Log Out</button>
+</div>
+</header>
+<main style="width: 100%; max-width: 672px; margin: 0 auto; box-sizing: border-box; padding: 32px 24px; display: flex; flex-direction: column; gap: 20px">
+<div>
+<h1 class="font-heading text-ink-900" style="margin: 0; font-size: 30px; line-height: 36px; font-weight: 800">Daily goals</h1>
+<p class="text-ink-500" style="margin: 4px 0 0; font-weight: 600">Choose how much to do each day. Reach a goal, then feed Rồng Con on Home for its bonus XP.</p>
+<p class="bg-red-50 text-ink-700" style="margin: 12px 0 0; border-radius: 16px; padding: 12px 16px; font-size: 14px; line-height: 20px; font-weight: 600">A goal’s bonus comes from the target you pick: Small +10, Medium +20, Big +30 XP. Doing more than your target still earns XP for each lesson, card or activity, but not a bigger bonus.</p>
+</div>
+
+<section aria-labelledby="goal-grammar-title" class="bg-surface border-ink-300/30" style="border-radius: 24px; border-width: 1px; border-style: solid; padding: 24px">
+<div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 16px">
+<div>
+<h2 id="goal-grammar-title" class="font-heading text-ink-900" style="margin: 0; font-size: 24px; line-height: 32px; font-weight: 800">Grammar</h2>
+<p class="text-ink-500" style="margin: 0; font-size: 14px; line-height: 20px; font-weight: 600">New lessons and reviews both count.</p>
+</div>
+<x-import component-from-global-scope="JustViet.Switch" checked="{{grammar.enabled}}" onChange="{{grammar.toggle}}" label="{{grammar.switchLabel}}"></x-import>
+</div>
+<div style="margin-top: 16px">
+<div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px">
+<p class="text-ink-900" style="margin: 0; display: flex; align-items: baseline; gap: 8px">
+<span class="font-heading" style="font-size: 48px; line-height: 1; font-weight: 800; font-variant-numeric: tabular-nums">{{grammar.target}}</span>
+<span class="text-ink-700" style="font-weight: 700">{{grammar.unitText}}</span>
+</p>
+<span style="border-radius: 9999px; padding: 4px 12px; font-size: 14px; line-height: 20px; font-weight: 800; letter-spacing: 0.025em; background: {{grammar.pillBg}}; color: {{grammar.pillFg}}; box-shadow: inset 0 0 0 1px {{grammar.pillRing}}">{{grammar.tierText}}</span>
+</div>
+<div style="position: relative">
+<div aria-hidden="true" style="position: absolute; left: 0; right: 0; top: 16px; height: 12px; border-radius: 9999px; box-shadow: inset 0 1px 2px rgb(74 47 34 / 0.12); background: {{grammar.track}}"></div>
+<input type="range" class="jv-goal-slider" min="1" max="5" step="1" value="{{grammar.target}}" onChange="{{grammar.slide}}" aria-labelledby="goal-grammar-title" aria-valuetext="{{grammar.valueText}}" style="color: {{grammar.thumb}}">
+</div>
+<div class="text-ink-500" aria-hidden="true" style="margin-top: 6px; display: flex; justify-content: space-between; padding: 0 4px; font-size: 12px; line-height: 16px; font-weight: 700"><span>1</span><span>5</span></div>
+<sc-if value="{{grammar.off}}" hint-placeholder-val="{{true}}">
+<p class="text-ink-500" style="margin: 8px 0 0; font-size: 14px; line-height: 20px; font-weight: 600">Off: Home won’t show this goal.</p>
+</sc-if>
+<sc-if value="{{grammar.note}}" hint-placeholder-val="{{false}}">
+<p class="bg-yellow-50 text-ink-700" style="margin: 12px 0 0; border-radius: 16px; padding: 12px 16px; font-size: 14px; line-height: 20px; font-weight: 600; box-shadow: inset 0 0 0 1px var(--color-yellow-200)">{{grammar.note}}</p>
+</sc-if>
+</div>
+</section>
+
+<section aria-labelledby="goal-vocab-title" class="bg-surface border-ink-300/30" style="border-radius: 24px; border-width: 1px; border-style: solid; padding: 24px">
+<div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 16px">
+<div>
+<h2 id="goal-vocab-title" class="font-heading text-ink-900" style="margin: 0; font-size: 24px; line-height: 32px; font-weight: 800">Vocab</h2>
+<p class="text-ink-500" style="margin: 0; font-size: 14px; line-height: 20px; font-weight: 600">Counts cards you study for the first time.</p>
+</div>
+<x-import component-from-global-scope="JustViet.Switch" checked="{{vocab.enabled}}" onChange="{{vocab.toggle}}" label="{{vocab.switchLabel}}"></x-import>
+</div>
+<div style="margin-top: 16px">
+<div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px">
+<p class="text-ink-900" style="margin: 0; display: flex; align-items: baseline; gap: 8px">
+<span class="font-heading" style="font-size: 48px; line-height: 1; font-weight: 800; font-variant-numeric: tabular-nums">{{vocab.target}}</span>
+<span class="text-ink-700" style="font-weight: 700">{{vocab.unitText}}</span>
+</p>
+<span style="border-radius: 9999px; padding: 4px 12px; font-size: 14px; line-height: 20px; font-weight: 800; letter-spacing: 0.025em; background: {{vocab.pillBg}}; color: {{vocab.pillFg}}; box-shadow: inset 0 0 0 1px {{vocab.pillRing}}">{{vocab.tierText}}</span>
+</div>
+<div style="position: relative">
+<div aria-hidden="true" style="position: absolute; left: 0; right: 0; top: 16px; height: 12px; border-radius: 9999px; box-shadow: inset 0 1px 2px rgb(74 47 34 / 0.12); background: {{vocab.track}}"></div>
+<input type="range" class="jv-goal-slider" min="1" max="50" step="1" value="{{vocab.target}}" onChange="{{vocab.slide}}" aria-labelledby="goal-vocab-title" aria-valuetext="{{vocab.valueText}}" style="color: {{vocab.thumb}}">
+</div>
+<div class="text-ink-500" aria-hidden="true" style="margin-top: 6px; display: flex; justify-content: space-between; padding: 0 4px; font-size: 12px; line-height: 16px; font-weight: 700"><span>1</span><span>50</span></div>
+<sc-if value="{{vocab.off}}" hint-placeholder-val="{{false}}">
+<p class="text-ink-500" style="margin: 8px 0 0; font-size: 14px; line-height: 20px; font-weight: 600">Off: Home won’t show this goal.</p>
+</sc-if>
+<sc-if value="{{vocab.note}}" hint-placeholder-val="{{false}}">
+<p class="bg-yellow-50 text-ink-700" style="margin: 12px 0 0; border-radius: 16px; padding: 12px 16px; font-size: 14px; line-height: 20px; font-weight: 600; box-shadow: inset 0 0 0 1px var(--color-yellow-200)">{{vocab.note}}</p>
+</sc-if>
+</div>
+</section>
+
+<section aria-labelledby="goal-skills-title" class="bg-surface border-ink-300/30" style="border-radius: 24px; border-width: 1px; border-style: solid; padding: 24px">
+<div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 16px">
+<div>
+<h2 id="goal-skills-title" class="font-heading text-ink-900" style="margin: 0; font-size: 24px; line-height: 32px; font-weight: 800">Skills</h2>
+<p class="text-ink-500" style="margin: 0; font-size: 14px; line-height: 20px; font-weight: 600">Reading and Listening both count.</p>
+</div>
+<x-import component-from-global-scope="JustViet.Switch" checked="{{skills.enabled}}" onChange="{{skills.toggle}}" label="{{skills.switchLabel}}"></x-import>
+</div>
+<div style="margin-top: 16px">
+<div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px">
+<p class="text-ink-900" style="margin: 0; display: flex; align-items: baseline; gap: 8px">
+<span class="font-heading" style="font-size: 48px; line-height: 1; font-weight: 800; font-variant-numeric: tabular-nums">{{skills.target}}</span>
+<span class="text-ink-700" style="font-weight: 700">{{skills.unitText}}</span>
+</p>
+<span style="border-radius: 9999px; padding: 4px 12px; font-size: 14px; line-height: 20px; font-weight: 800; letter-spacing: 0.025em; background: {{skills.pillBg}}; color: {{skills.pillFg}}; box-shadow: inset 0 0 0 1px {{skills.pillRing}}">{{skills.tierText}}</span>
+</div>
+<div style="position: relative">
+<div aria-hidden="true" style="position: absolute; left: 0; right: 0; top: 16px; height: 12px; border-radius: 9999px; box-shadow: inset 0 1px 2px rgb(74 47 34 / 0.12); background: {{skills.track}}"></div>
+<input type="range" class="jv-goal-slider" min="1" max="5" step="1" value="{{skills.target}}" onChange="{{skills.slide}}" aria-labelledby="goal-skills-title" aria-valuetext="{{skills.valueText}}" style="color: {{skills.thumb}}">
+</div>
+<div class="text-ink-500" aria-hidden="true" style="margin-top: 6px; display: flex; justify-content: space-between; padding: 0 4px; font-size: 12px; line-height: 16px; font-weight: 700"><span>1</span><span>5</span></div>
+<sc-if value="{{skills.off}}" hint-placeholder-val="{{true}}">
+<p class="text-ink-500" style="margin: 8px 0 0; font-size: 14px; line-height: 20px; font-weight: 600">Off: Home won’t show this goal.</p>
+</sc-if>
+<sc-if value="{{skills.note}}" hint-placeholder-val="{{false}}">
+<p class="bg-yellow-50 text-ink-700" style="margin: 12px 0 0; border-radius: 16px; padding: 12px 16px; font-size: 14px; line-height: 20px; font-weight: 600; box-shadow: inset 0 0 0 1px var(--color-yellow-200)">{{skills.note}}</p>
+</sc-if>
+</div>
+</section>
+
+<div class="jv-save-row" style="display: flex; flex-direction: column; gap: 12px">
+<x-import component-from-global-scope="JustViet.Button" fullWidth="{{false}}" disabled="{{notDirty}}" loading="{{saving}}" onClick="{{save}}">Save goals</x-import>
+<p class="text-ink-500" aria-live="polite" style="margin: 0; font-size: 14px; line-height: 20px; font-weight: 600">{{statusText}}</p>
+</div>
+<sc-if value="{{hasResult}}" hint-placeholder-val="{{false}}">
+<ul role="status" class="bg-surface text-ink-700" style="margin: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; border-radius: 16px; padding: 16px; font-size: 14px; line-height: 20px; font-weight: 600; box-shadow: inset 0 0 0 1px rgb(201 172 151 / 0.3)">
+<sc-for list="{{resultLines}}" as="line" hint-placeholder-count="2">
+<li>{{line}}</li>
+</sc-for>
+</ul>
+</sc-if>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"vocabUnderwayAt":{"editor":"int","default":0,"min":0,"max":50,"label":"Vocab goal already underway today at (0 = not started)","section":"Today"},"$preview":{"width":1280,"height":1320}}'>
+// The Goals tab, ported from src/components/goals/GoalsForm.tsx and GoalCard.tsx, with the
+// rules from src/lib/companion/goals.ts and goalSliders.ts. Moving a slider only changes this
+// form; nothing is saved until Save goals, and saving never awards XP.
+
+const ORDER = ['grammar', 'vocab', 'skills'];
+const LIMITS = { grammar: { min: 1, max: 5 }, vocab: { min: 1, max: 50 }, skills: { min: 1, max: 5 } };
+const COPY = {
+  grammar: { title: 'Grammar', one: 'lesson', many: 'lessons' },
+  vocab: { title: 'Vocab', one: 'new flashcard', many: 'new flashcards' },
+  skills: { title: 'Skills', one: 'activity', many: 'activities' },
+};
+const BONUS = { Starter: 0, Small: 10, Medium: 20, Big: 30 };
+// The tier label beside each slider: darker with difficulty, and always in words too.
+const PILL = {
+  Starter: { bg: '#fffaeb', fg: '#6b4a38', ring: 'rgb(201 172 151 / 0.5)' },
+  Small: { bg: '#fff1ee', fg: '#b53722', ring: '#ffc0b6' },
+  Medium: { bg: '#ffe0da', fg: '#b53722', ring: '#ff9c8d' },
+  Big: { bg: '#b53722', fg: '#ffffff', ring: '#b53722' },
+};
+const TRACK_EMPTY = '#f3e6da';
+const RAMP = {
+  vocab: [[1, '#ffd6cd'], [5, '#ff9c8d'], [10, '#f15b48'], [15, '#d8452f'], [50, '#a83220']],
+  grammar: [[1, '#ff9c8d'], [2, '#f15b48'], [3, '#d8452f'], [5, '#a83220']],
+  skills: [[1, '#ff9c8d'], [2, '#f15b48'], [3, '#d8452f'], [5, '#a83220']],
+};
+// What the learner has saved. Defaults as in the app: only Vocab is on, at 5.
+const SAVED = { enabled: { grammar: false, vocab: true, skills: false }, targets: { grammar: 1, vocab: 5, skills: 1 } };
+
+function goalTier(id, target) {
+  const t = Math.floor(target);
+  let name;
+  if (id === 'vocab') name = t >= 15 ? 'Big' : t >= 10 ? 'Medium' : t >= 5 ? 'Small' : 'Starter';
+  else name = t >= 3 ? 'Big' : t === 2 ? 'Medium' : 'Small';
+  return { name, bonus: BONUS[name] };
+}
+function tierText(tier) { return tier.name + ' · +' + tier.bonus + ' XP'; }
+function unitText(id, n) { return (n === 1 ? COPY[id].one : COPY[id].many) + ' per day'; }
+function targetText(id, n) { return n + ' ' + unitText(id, n); }
+function rgb(hex) { const n = parseInt(hex.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
+function hex(c) { return '#' + ((1 << 24) | (Math.round(c[0]) << 16) | (Math.round(c[1]) << 8) | Math.round(c[2])).toString(16).slice(1); }
+function rampColor(id, value) {
+  const ramp = RAMP[id];
+  const v = Math.max(ramp[0][0], Math.min(ramp[ramp.length - 1][0], value));
+  for (let i = 1; i < ramp.length; i++) {
+    const b = ramp[i][0];
+    if (v > b) continue;
+    const a = ramp[i - 1][0];
+    const t = b === a ? 1 : (v - a) / (b - a);
+    const x = rgb(ramp[i - 1][1]);
+    const y = rgb(ramp[i][1]);
+    return hex([x[0] + (y[0] - x[0]) * t, x[1] + (y[1] - x[1]) * t, x[2] + (y[2] - x[2]) * t]);
+  }
+  return ramp[ramp.length - 1][1];
+}
+function at(id, value) {
+  const { min, max } = LIMITS[id];
+  const f = Math.max(0, Math.min(1, (value - min) / (max - min)));
+  return 'calc(14px + (100% - 28px) * ' + (+f.toFixed(4)) + ')';
+}
+// The whole difficulty ramp laid along the track, with the part past the thumb covered in cream.
+function trackBackground(id, value) {
+  const stops = RAMP[id].map(([v, c]) => c + ' ' + at(id, v)).join(', ');
+  const edge = at(id, value);
+  return 'linear-gradient(to right, transparent ' + edge + ', ' + TRACK_EMPTY + ' ' + edge + '), linear-gradient(to right, ' + stops + ')';
+}
+function lockNote(id, target, locked) {
+  if (locked == null || locked === target) return '';
+  return 'Today’s goal is already underway, so today stays at ' + locked + ' ' + (locked === 1 ? COPY[id].one : COPY[id].many) + ' (' + tierText(goalTier(id, locked)) + '). This target starts tomorrow.';
+}
+function describeSave(prev, next, locked) {
+  const lines = [];
+  for (const id of ORDER) {
+    const title = COPY[id].title;
+    if (prev.enabled[id] !== next.enabled[id]) {
+      lines.push(next.enabled[id] ? title + ' is on, so it shows on Home.' : title + ' is off, so Home won’t show it.');
+    }
+    const t = next.targets[id];
+    if (prev.targets[id] === t) continue;
+    const today = locked[id];
+    if (today != null && today !== t) {
+      lines.push(title + ': ' + targetText(id, t) + ' from tomorrow. Today’s goal is already underway, so it stays at ' + today + ' (' + tierText(goalTier(id, today)) + ').');
+    } else {
+      lines.push(title + ': ' + targetText(id, t) + ', starting today.');
+    }
+  }
+  return lines;
+}
+function same(a, b) { return ORDER.every((id) => a.enabled[id] === b.enabled[id] && a.targets[id] === b.targets[id]); }
+function copySettings(s) { return { enabled: { ...s.enabled }, targets: { ...s.targets } }; }
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { saved: copySettings(SAVED), form: copySettings(SAVED), saving: false, result: null };
+  }
+
+  locked() {
+    const at = Math.round(this.props.vocabUnderwayAt ?? 0);
+    return at > 0 ? { vocab: Math.min(50, at) } : {};
+  }
+
+  edit(change) {
+    this.setState((s) => ({ form: change(copySettings(s.form)), result: null }));
+  }
+
+  goal(id) {
+    const f = this.state.form;
+    const target = f.targets[id];
+    const enabled = f.enabled[id];
+    const tier = goalTier(id, target);
+    const pill = PILL[tier.name];
+    return {
+      enabled,
+      off: !enabled,
+      switchLabel: enabled ? 'On' : 'Off',
+      target,
+      unitText: unitText(id, target),
+      tierText: tierText(tier),
+      pillBg: pill.bg,
+      pillFg: pill.fg,
+      pillRing: pill.ring,
+      track: trackBackground(id, target),
+      thumb: rampColor(id, target),
+      valueText: targetText(id, target) + ', ' + tier.name + ' goal, ' + tier.bonus + ' bonus XP',
+      note: lockNote(id, target, this.locked()[id]),
+      toggle: (on) => this.edit((s) => { s.enabled[id] = on; return s; }),
+      slide: (e) => {
+        const n = Math.round(Number(e.target.value));
+        this.edit((s) => { s.targets[id] = n; return s; });
+      },
+    };
+  }
+
+  save() {
+    if (this.state.saving) return;
+    this.setState({ saving: true });
+    setTimeout(() => {
+      this.setState((s) => ({
+        saving: false,
+        result: describeSave(s.saved, s.form, this.locked()),
+        saved: copySettings(s.form),
+      }));
+    }, 500);
+  }
+
+  renderVals() {
+    const dirty = !same(this.state.form, this.state.saved);
+    const result = this.state.result;
+    return {
+      grammar: this.goal('grammar'),
+      vocab: this.goal('vocab'),
+      skills: this.goal('skills'),
+      notDirty: !dirty || this.state.saving,
+      saving: this.state.saving,
+      save: () => this.save(),
+      statusText: dirty ? 'You have unsaved changes.' : result ? 'Goals saved.' : '',
+      hasResult: !!(result && result.length),
+      resultLines: result || [],
+    };
+  }
+}
+</script>
+</body>
+</html>

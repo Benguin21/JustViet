@@ -1,0 +1,11 @@
+<!-- @dsCard group="Forms" height=420 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Textarea — preview</title>
+<style>body{margin:0;padding:20px;background:var(--color-paper);color:var(--color-ink-900);font-family:var(--font-body),sans-serif}</style></head>
+<body>
+<div id="root"></div>
+<script>(()=>{var h=Object.create;var c=Object.defineProperty;var g=Object.getOwnPropertyDescriptor;var E=Object.getOwnPropertyNames;var y=Object.getPrototypeOf,b=Object.prototype.hasOwnProperty;var x=(e,t)=>()=>{try{return t||e((t={exports:{}}).exports,t),t.exports}catch(a){throw t=0,a}},j=(e,t)=>{for(var a in t)c(e,a,{get:t[a],enumerable:!0})},R=(e,t,a,o)=>{if(t&&typeof t=="object"||typeof t=="function")for(let l of E(t))!b.call(e,l)&&l!==a&&c(e,l,{get:()=>t[l],enumerable:!(o=g(t,l))||o.enumerable});return e};var d=(e,t,a)=>(a=e!=null?h(y(e)):{},R(t||!e||!e.__esModule?c(a,"default",{value:e,enumerable:!0}):a,e));var f=x((D,w)=>{w.exports=window.JustViet});var p=x((F,u)=>{var v=window.React;function m(e,t,a){var o=Object.assign({},t);return a!==void 0&&(o.key=a),v.createElement(e,o)}u.exports={jsx:m,jsxs:m,jsxDEV:m,Fragment:v.Fragment}});var s={};j(s,{ExampleSentence:()=>V,Placeholder:()=>N,WithError:()=>O});var n=d(f()),r=d(p()),V=()=>(0,r.jsx)("div",{style:{width:360},children:(0,r.jsx)(n.Textarea,{label:"Example sentence",defaultValue:"T\xF4i \u0103n c\u01A1m v\u1EDBi gia \u0111\xECnh m\u1ED7i t\u1ED1i.",rows:3})}),N=()=>(0,r.jsx)("div",{style:{width:360},children:(0,r.jsx)(n.Textarea,{label:"Notes",placeholder:"T\xF4i \u0103n c\u01A1m.",rows:3})}),O=()=>(0,r.jsx)("div",{style:{width:360},children:(0,r.jsx)(n.Textarea,{label:"Paste from your spreadsheet",defaultValue:"hello",rows:3,error:"Each row needs an English and a Vietnamese column."})});var i=window.React.createElement,T=Object.keys(s).map(function(e){return i("div",{key:e,className:"flex flex-col gap-2"},i("div",{className:"text-xs font-bold tracking-wide uppercase text-ink-500"},e.replace(/([a-z])([A-Z])/g,"$1 $2")),i(s[e]))});window.ReactDOM.createRoot(document.getElementById("root")).render(i("div",{className:"flex flex-col gap-6"},T));})();
+</script>
+</body>
+</html>

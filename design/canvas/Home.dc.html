@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>JustViet home</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/justviet/components/bundle.css">
+<script src="ds/justviet/components/bundle.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div class="bg-paper text-ink-900 font-body" style="min-height: 640px; display: flex; flex-direction: column">
+<header class="bg-surface border-ink-300/30" style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; border-bottom-width: 2px; border-bottom-style: solid; padding: 16px 24px">
+<a href="#" aria-label="JustViet home" style="text-decoration: none">
+<x-import component-from-global-scope="JustViet.Logo"></x-import>
+</a>
+<div style="display: flex; align-items: center; gap: 16px">
+<span class="text-ink-700" style="font-size: 14px; line-height: 20px; font-weight: 700">Xin chào, [YOUR NAME]!</span>
+<button type="button" class="bg-surface text-ink-700 border-ink-300/60 hover:bg-yellow-50" style="border-radius: 12px; border-width: 2px; border-style: solid; padding: 8px 16px; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer">Log Out</button>
+</div>
+</header>
+<main style="width: 100%; max-width: 1024px; margin: 0 auto; box-sizing: border-box; padding: 40px 24px; display: flex; flex-direction: column; gap: 32px">
+<div>
+<h1 class="font-heading text-ink-900" style="margin: 0; font-size: 30px; line-height: 36px; font-weight: 800">Chào mừng bạn! 👋</h1>
+<p class="text-ink-500" style="margin: 4px 0 0; font-size: 16px; line-height: 24px; font-weight: 600">Where do you want to learn today?</p>
+</div>
+<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px">
+<x-import component-from-global-scope="JustViet.NavCard" href="#goals" icon="🎯" label="Goals" description="Set and track your learning targets" tone="red"></x-import>
+<x-import component-from-global-scope="JustViet.NavCard" href="#grammar" icon="📖" label="Grammar" description="Learn how Vietnamese sentences work" tone="yellow"></x-import>
+<x-import component-from-global-scope="JustViet.NavCard" href="#dictionary" icon="🔎" label="Dictionary" description="Look up words and their meanings" tone="red"></x-import>
+<x-import component-from-global-scope="JustViet.NavCard" href="#vocab-srs" icon="🧠" label="Vocab SRS" description="Review words with spaced repetition" tone="yellow"></x-import>
+<x-import component-from-global-scope="JustViet.NavCard" href="#skills" icon="🌟" label="Skills" description="Practice reading, listening, and speaking" tone="red"></x-import>
+<x-import component-from-global-scope="JustViet.NavCard" href="#community" icon="💬" label="Community" description="Connect with other learners" tone="yellow"></x-import>
+</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":640}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+<!-- @dsCard group="Status" height=80 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>StatusBadge — preview</title>
+<style>body{margin:0;padding:20px;background:var(--color-paper);color:var(--color-ink-900);font-family:var(--font-body),sans-serif}</style></head>
+<body>
+<div id="root"></div>
+<script>(()=>{var v=Object.create;var c=Object.defineProperty;var y=Object.getOwnPropertyDescriptor;var j=Object.getOwnPropertyNames;var R=Object.getPrototypeOf,E=Object.prototype.hasOwnProperty;var x=(e,t)=>()=>{try{return t||e((t={exports:{}}).exports,t),t.exports}catch(a){throw t=0,a}},b=(e,t)=>{for(var a in t)c(e,a,{get:t[a],enumerable:!0})},N=(e,t,a,n)=>{if(t&&typeof t=="object"||typeof t=="function")for(let l of j(t))!E.call(e,l)&&l!==a&&c(e,l,{get:()=>t[l],enumerable:!(n=y(t,l))||n.enumerable});return e};var d=(e,t,a)=>(a=e!=null?v(R(e)):{},N(t||!e||!e.__esModule?c(a,"default",{value:e,enumerable:!0}):a,e));var m=x((A,f)=>{f.exports=window.JustViet});var u=x((B,w)=>{var g=window.React;function p(e,t,a){var n=Object.assign({},t);return a!==void 0&&(n.key=a),g.createElement(e,n)}w.exports={jsx:p,jsxs:p,jsxDEV:p,Fragment:g.Fragment}});var i={};b(i,{AllStatuses:()=>O});var r=d(m()),s=d(u()),O=()=>(0,s.jsxs)("div",{style:{display:"flex",gap:8,flexWrap:"wrap"},children:[(0,s.jsx)(r.StatusBadge,{status:"new"}),(0,s.jsx)(r.StatusBadge,{status:"learning"}),(0,s.jsx)(r.StatusBadge,{status:"review"}),(0,s.jsx)(r.StatusBadge,{status:"relearning"}),(0,s.jsx)(r.StatusBadge,{status:"suspended"})]});var o=window.React.createElement,S=Object.keys(i).map(function(e){return o("div",{key:e,className:"flex flex-col gap-2"},o("div",{className:"text-xs font-bold tracking-wide uppercase text-ink-500"},e.replace(/([a-z])([A-Z])/g,"$1 $2")),o(i[e]))});window.ReactDOM.createRoot(document.getElementById("root")).render(o("div",{className:"flex flex-col gap-6"},S));})();
+</script>
+</body>
+</html>

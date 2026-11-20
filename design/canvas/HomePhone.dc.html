@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>JustViet home: phone</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="width: 390px; min-height: 2100px; background: #fffaf1">
+<dc-import name="HomeDraft" ledger-key="phone" vocab-enabled="{{vocabEnabled}}" grammar-enabled="{{grammarEnabled}}" skills-enabled="{{skillsEnabled}}" daily-word-goal="{{dailyWordGoal}}" grammar-lessons="{{grammarLessons}}" skills-sessions="{{skillsSessions}}" words-studied-today="{{wordsStudiedToday}}" grammar-done-today="{{grammarDoneToday}}" skills-done-today="{{skillsDoneToday}}" xp-before-today="{{xpBeforeToday}}" greeting="{{greeting}}" start-from="{{startFrom}}" restart-demo="{{restartDemo}}" replay-intro="{{replayIntro}}" user-id="{{userId}}" menu-day-offset="{{menuDayOffset}}" show-test-tips="{{showTestTips}}" hint-size="390px,2100px"></dc-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;vocabEnabled&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;label&quot;:&quot;Vocab SRS goal on&quot;,&quot;section&quot;:&quot;Goals settings (mock)&quot;},&quot;grammarEnabled&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;label&quot;:&quot;Grammar goal on&quot;,&quot;section&quot;:&quot;Goals settings (mock)&quot;},&quot;skillsEnabled&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;label&quot;:&quot;Skills goal on&quot;,&quot;section&quot;:&quot;Goals settings (mock)&quot;},&quot;dailyWordGoal&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:5,&quot;min&quot;:1,&quot;max&quot;:50,&quot;section&quot;:&quot;Goals settings (mock)&quot;},&quot;grammarLessons&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:1,&quot;min&quot;:1,&quot;max&quot;:5,&quot;section&quot;:&quot;Goals settings (mock)&quot;},&quot;skillsSessions&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:1,&quot;min&quot;:1,&quot;max&quot;:5,&quot;section&quot;:&quot;Goals settings (mock)&quot;},&quot;wordsStudiedToday&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:5,&quot;min&quot;:0,&quot;max&quot;:30,&quot;step&quot;:1,&quot;section&quot;:&quot;Demo data&quot;},&quot;grammarDoneToday&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:1,&quot;min&quot;:0,&quot;max&quot;:10,&quot;step&quot;:1,&quot;section&quot;:&quot;Demo data&quot;},&quot;skillsDoneToday&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:1,&quot;min&quot;:0,&quot;max&quot;:10,&quot;step&quot;:1,&quot;section&quot;:&quot;Demo data&quot;},&quot;xpBeforeToday&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:0,&quot;min&quot;:0,&quot;max&quot;:6000,&quot;step&quot;:10,&quot;section&quot;:&quot;Demo data&quot;},&quot;greeting&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;once per day&quot;,&quot;every visit&quot;],&quot;default&quot;:&quot;every visit&quot;,&quot;section&quot;:&quot;Demo data&quot;},&quot;startFrom&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;saved progress&quot;,&quot;fresh day&quot;],&quot;default&quot;:&quot;fresh day&quot;,&quot;section&quot;:&quot;Demo data&quot;},&quot;restartDemo&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:0,&quot;min&quot;:0,&quot;max&quot;:999,&quot;section&quot;:&quot;Demo data&quot;},&quot;replayIntro&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:0,&quot;min&quot;:0,&quot;max&quot;:999,&quot;label&quot;:&quot;Replay intro (change to replay)&quot;,&quot;section&quot;:&quot;Demo data&quot;},&quot;showTestTips&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;label&quot;:&quot;Show test tips&quot;,&quot;section&quot;:&quot;Demo data&quot;},&quot;userId&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;demo-learner&quot;,&quot;label&quot;:&quot;Learner ID (picks the menu)&quot;,&quot;section&quot;:&quot;Demo data&quot;},&quot;menuDayOffset&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:0,&quot;min&quot;:0,&quot;max&quot;:6,&quot;step&quot;:1,&quot;section&quot;:&quot;Demo data&quot;},&quot;$preview&quot;:{&quot;width&quot;:390,&quot;height&quot;:2100}}">
+// The phone board shows the Home draft at 390px with its own saved progress, and
+// passes its own demo Tweaks through so it can be tested on its own.
+class Component extends DCLogic {
+  renderVals() {
+    var p = this.props || {};
+    function pick(k, d) { return p[k] != null ? p[k] : d; }
+    // Passed on as words, so a switched-off goal can't be lost as an empty attribute.
+    function sw(k) { return isOn(pick(k, true)) ? 'on' : 'off'; }
+    function isOn(v) { return !(v === false || v === 'false' || v === 'off' || v === 0 || v === '0'); }
+    return {
+      vocabEnabled: sw('vocabEnabled'),
+      grammarEnabled: sw('grammarEnabled'),
+      skillsEnabled: sw('skillsEnabled'),
+      dailyWordGoal: pick('dailyWordGoal', 5),
+      grammarLessons: pick('grammarLessons', 1),
+      skillsSessions: pick('skillsSessions', 1),
+      wordsStudiedToday: pick('wordsStudiedToday', 0),
+      grammarDoneToday: pick('grammarDoneToday', 0),
+      skillsDoneToday: pick('skillsDoneToday', 0),
+      xpBeforeToday: pick('xpBeforeToday', 0),
+      greeting: pick('greeting', 'every visit'),
+      startFrom: pick('startFrom', 'fresh day'),
+      restartDemo: pick('restartDemo', 0),
+      replayIntro: pick('replayIntro', 0),
+      userId: pick('userId', 'demo-learner'),
+      menuDayOffset: pick('menuDayOffset', 0),
+      showTestTips: sw('showTestTips')
+    };
+  }
+}
+</script>
+</body>
+</html>

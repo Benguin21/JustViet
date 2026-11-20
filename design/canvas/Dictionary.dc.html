@@ -1,0 +1,821 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>JustViet dictionary</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/justviet/components/bundle.css">
+<script src="ds/justviet/components/bundle.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+.jv-row{background:var(--color-surface);border-color:transparent;transition:background-color .15s,border-color .15s}
+.jv-row:hover{background:var(--color-yellow-50);border-color:var(--color-yellow-200)}
+.jv-row.jv-row-hl,.jv-row.jv-row-hl:hover{background:var(--color-yellow-100);border-color:var(--color-yellow-400)}
+.jv-letter{font-family:inherit;width:36px;height:36px;border:0;border-radius:12px;background:transparent;color:var(--color-ink-700);cursor:pointer;transition:background-color .15s,color .15s}
+.jv-letter:hover:not(:disabled){background:var(--color-yellow-100);color:var(--color-red-500)}
+.jv-letter:disabled{cursor:default;color:rgb(201 172 151 / .6)}
+.jv-letter:focus-visible,.jv-word:focus-visible{outline:3px solid var(--color-yellow-300);outline-offset:2px}
+.jv-search input{padding-left:44px !important}
+@media (max-width: 639px){.jv-letters{flex-wrap:nowrap !important;min-width:max-content}}
+.jv-search input::-webkit-search-cancel-button{cursor:pointer}
+</style>
+</helmet>
+<div class="bg-paper text-ink-900 font-body" style="min-height: 1320px; display: flex; flex-direction: column">
+<header class="bg-surface border-ink-300/30" style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; border-bottom-width: 2px; border-bottom-style: solid; padding: 16px 24px">
+<a href="HomeDraft.dc.html" aria-label="JustViet home" style="text-decoration: none">
+<x-import component-from-global-scope="JustViet.Logo"></x-import>
+</a>
+<div style="display: flex; align-items: center; gap: 16px">
+<span class="text-ink-700" style="font-size: 14px; line-height: 20px; font-weight: 700">Xin chào, [YOUR NAME]!</span>
+<button type="button" class="bg-surface text-ink-700 border-ink-300/60 hover:bg-yellow-50" style="border-radius: 12px; border-width: 2px; border-style: solid; padding: 8px 16px; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer">Log Out</button>
+</div>
+</header>
+
+<main style="width: 100%; max-width: 768px; margin: 0 auto; box-sizing: border-box; padding: 40px 24px; display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px">
+<div>
+<h1 class="font-heading text-ink-900" style="margin: 0; font-size: 30px; line-height: 36px; font-weight: 800">Dictionary</h1>
+<p class="text-ink-500" style="margin: 4px 0 0; font-weight: 600">{{countText}}</p>
+</div>
+<x-import component-from-global-scope="JustViet.Button" variant="secondary" fullWidth="{{false}}" onClick="{{openCreate}}">+ Add Word</x-import>
+</div>
+
+<div class="bg-paper" style="position: sticky; top: 0; z-index: 10; margin: 0 -24px; padding: 8px 24px 12px; display: flex; flex-direction: column; gap: 8px; background: rgb(255 250 241 / 0.95); backdrop-filter: blur(8px)">
+<div class="jv-search" style="position: relative">
+<x-import component-from-global-scope="JustViet.TextField" type="search" value="{{query}}" onChange="{{setQuery}}" placeholder="Search Vietnamese or English…" aria-label="Search the dictionary" lang="vi"></x-import>
+<span class="text-ink-300" aria-hidden="true" style="pointer-events: none; position: absolute; top: 50%; left: 16px; transform: translateY(-50%)">🔎</span>
+</div>
+<sc-if value="{{notSearching}}" hint-placeholder-val="{{true}}">
+<nav aria-label="Jump to letter" style="margin: 0 -4px; overflow-x: auto">
+<ul class="jv-letters" style="margin: 0; padding: 0 4px; list-style: none; display: flex; flex-wrap: wrap; gap: 4px">
+<sc-for list="{{letters}}" as="l" hint-placeholder-count="29">
+<li><button type="button" class="jv-letter font-heading" disabled="{{l.disabled}}" onClick="{{l.jump}}" aria-label="{{l.aria}}" style="font-size: 16px; line-height: 24px; font-weight: 700; text-transform: uppercase">{{l.letter}}</button></li>
+</sc-for>
+</ul>
+</nav>
+</sc-if>
+</div>
+
+<sc-if value="{{searching}}" hint-placeholder-val="{{false}}">
+<p class="text-ink-500" aria-live="polite" style="margin: 0; font-size: 14px; line-height: 20px; font-weight: 600">{{resultText}}</p>
+</sc-if>
+
+<sc-if value="{{noResults}}" hint-placeholder-val="{{false}}">
+<div class="border-ink-300/40" style="display: flex; flex-direction: column; align-items: center; gap: 12px; border-radius: 24px; border-width: 2px; border-style: dashed; padding: 48px 24px; text-align: center">
+<span aria-hidden="true" style="font-size: 48px; line-height: 1">📖</span>
+<p class="text-ink-500" style="margin: 0; max-width: 384px; font-weight: 600">Can't find it? Add it to your own dictionary.</p>
+<x-import component-from-global-scope="JustViet.Button" fullWidth="{{false}}" onClick="{{openCreateFromQuery}}">{{addQueryLabel}}</x-import>
+</div>
+</sc-if>
+
+<div role="list" aria-label="Dictionary words">
+<sc-for list="{{rows}}" as="row" hint-placeholder-count="8">
+<sc-if value="{{row.isLetter}}" hint-placeholder-val="{{false}}">
+<div id="{{row.id}}" role="presentation" style="height: 72px; box-sizing: border-box; display: flex; align-items: flex-end; padding: 0 8px 8px; scroll-margin-top: 172px">
+<span class="font-heading text-red-500" style="font-size: 30px; line-height: 36px; font-weight: 800; text-transform: uppercase">{{row.letter}}</span>
+</div>
+</sc-if>
+<sc-if value="{{row.isEntry}}" hint-placeholder-val="{{true}}">
+<div id="{{row.id}}" role="listitem" style="height: 72px; box-sizing: border-box; padding: 4px 0; scroll-margin-top: 200px">
+<div class="jv-row {{row.tone}}" style="height: 100%; box-sizing: border-box; display: flex; align-items: center; gap: 12px; border-radius: 16px; border-width: 2px; border-style: solid; padding: 0 16px">
+<button type="button" class="jv-word" onClick="{{row.open}}" aria-label="{{row.aria}}" style="flex: 1; min-width: 0; align-self: stretch; display: flex; flex-direction: column; justify-content: center; gap: 0; border: 0; padding: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; border-radius: 12px">
+<span style="display: flex; align-items: center; gap: 8px; min-width: 0; max-width: 100%">
+<span lang="vi" class="font-heading text-ink-900" style="font-size: 18px; line-height: 1.25; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{row.headword}}</span>
+<sc-if value="{{row.mine}}" hint-placeholder-val="{{false}}"><x-import component-from-global-scope="JustViet.Badge" tone="yellow">Mine</x-import></sc-if>
+<sc-if value="{{row.similar}}" hint-placeholder-val="{{false}}"><span class="text-ink-300" style="font-size: 12px; line-height: 16px; font-weight: 600">similar spelling</span></sc-if>
+</span>
+<span class="text-ink-500" style="max-width: 100%; font-size: 14px; line-height: 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{row.brief}}</span>
+</button>
+<div style="flex-shrink: 0">
+<sc-if value="{{row.inVocab}}" hint-placeholder-val="{{false}}">
+<span role="status" class="font-heading bg-success/15 text-success-dark" style="display: inline-flex; align-items: center; gap: 6px; border-radius: 16px; padding: 6px 12px; font-size: 12px; line-height: 16px; font-weight: 700; letter-spacing: 0.025em; text-transform: uppercase"><span aria-hidden="true">✓</span>In Vocab</span>
+</sc-if>
+<sc-if value="{{row.notInVocab}}" hint-placeholder-val="{{true}}">
+<x-import component-from-global-scope="JustViet.Button" size="sm" variant="outline" fullWidth="{{false}}" loading="{{row.adding}}" onClick="{{row.add}}">+ Add</x-import>
+</sc-if>
+</div>
+</div>
+</div>
+</sc-if>
+</sc-for>
+</div>
+</main>
+
+<sc-if value="{{showDetail}}" hint-placeholder-val="{{false}}">
+<x-import component-from-global-scope="JustViet.Modal" title="Dictionary" maxWidth="lg" onClose="{{closeDetail}}">
+<div style="display: flex; flex-direction: column; gap: 24px">
+<div style="display: flex; flex-direction: column; gap: 20px">
+<div>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px">
+<sc-if value="{{open.level}}" hint-placeholder-val="{{true}}"><x-import component-from-global-scope="JustViet.Badge" tone="blue">{{open.level}}</x-import></sc-if>
+<sc-if value="{{open.myWord}}" hint-placeholder-val="{{false}}"><x-import component-from-global-scope="JustViet.Badge" tone="yellow">My word</x-import></sc-if>
+</div>
+<h3 lang="vi" class="font-heading text-ink-900" style="margin: 8px 0 0; font-size: 36px; line-height: 40px; font-weight: 800">{{open.headword}}</h3>
+</div>
+
+<sc-if value="{{open.hasShared}}" hint-placeholder-val="{{true}}">
+<ul style="margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 16px">
+<sc-for list="{{open.sharedSenses}}" as="sense" hint-placeholder-count="1">
+<li style="display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px">
+<sc-if value="{{sense.number}}" hint-placeholder-val="{{false}}"><span class="font-heading text-red-500" style="font-size: 14px; line-height: 20px; font-weight: 800">{{sense.number}}.</span></sc-if>
+<span class="text-ink-900" style="font-size: 18px; line-height: 28px; font-weight: 700">{{sense.english}}</span>
+<sc-for list="{{sense.pos}}" as="pos" hint-placeholder-count="1"><x-import component-from-global-scope="JustViet.Badge" tone="gray">{{pos}}</x-import></sc-for>
+</div>
+<sc-if value="{{sense.hasDef}}" hint-placeholder-val="{{true}}">
+<div class="text-ink-700">
+<p class="text-ink-500" style="margin: 0; font-size: 12px; line-height: 16px; font-weight: 700; letter-spacing: 0.025em; text-transform: uppercase">Định nghĩa</p>
+<sc-if value="{{sense.oneDef}}" hint-placeholder-val="{{true}}"><p lang="vi" style="margin: 0">{{sense.def}}</p></sc-if>
+<sc-if value="{{sense.manyDefs}}" hint-placeholder-val="{{false}}"><ol lang="vi" style="margin: 0; padding-left: 20px; list-style: decimal"><sc-for list="{{sense.defs}}" as="d" hint-placeholder-count="2"><li>{{d}}</li></sc-for></ol></sc-if>
+</div>
+</sc-if>
+<sc-for list="{{sense.examples}}" as="ex" hint-placeholder-count="1">
+<div class="bg-yellow-50" style="border-radius: 12px; padding: 8px 16px">
+<p lang="vi" class="text-ink-900" style="margin: 0; font-weight: 600">{{ex.vi}}</p>
+<sc-if value="{{ex.en}}" hint-placeholder-val="{{true}}"><p class="text-ink-500" style="margin: 0; font-size: 14px; line-height: 20px; font-style: italic">{{ex.en}}</p></sc-if>
+</div>
+</sc-for>
+</li>
+</sc-for>
+</ul>
+</sc-if>
+
+<sc-if value="{{open.hasPersonal}}" hint-placeholder-val="{{false}}">
+<section style="border-radius: 16px; border: {{open.myBorder}}; padding: {{open.myPad}}">
+<sc-if value="{{open.myBoxed}}" hint-placeholder-val="{{true}}"><h4 class="text-yellow-600" style="margin: 0 0 12px; font-size: 14px; line-height: 20px; font-weight: 700; letter-spacing: 0.025em; text-transform: uppercase">My meanings</h4></sc-if>
+<ul style="margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 16px">
+<sc-for list="{{open.mySenses}}" as="sense" hint-placeholder-count="1">
+<li style="display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px">
+<sc-if value="{{sense.number}}" hint-placeholder-val="{{false}}"><span class="font-heading text-red-500" style="font-size: 14px; line-height: 20px; font-weight: 800">{{sense.number}}.</span></sc-if>
+<span class="text-ink-900" style="font-size: 18px; line-height: 28px; font-weight: 700">{{sense.english}}</span>
+<sc-for list="{{sense.pos}}" as="pos" hint-placeholder-count="1"><x-import component-from-global-scope="JustViet.Badge" tone="gray">{{pos}}</x-import></sc-for>
+</div>
+<sc-for list="{{sense.examples}}" as="ex" hint-placeholder-count="1">
+<div class="bg-yellow-50" style="border-radius: 12px; padding: 8px 16px">
+<p lang="vi" class="text-ink-900" style="margin: 0; font-weight: 600">{{ex.vi}}</p>
+<sc-if value="{{ex.en}}" hint-placeholder-val="{{true}}"><p class="text-ink-500" style="margin: 0; font-size: 14px; line-height: 20px; font-style: italic">{{ex.en}}</p></sc-if>
+</div>
+</sc-for>
+</li>
+</sc-for>
+</ul>
+</section>
+</sc-if>
+
+<sc-if value="{{open.notes}}" hint-placeholder-val="{{false}}">
+<div>
+<h4 class="text-ink-500" style="margin: 0; font-size: 12px; line-height: 16px; font-weight: 700; letter-spacing: 0.025em; text-transform: uppercase">My notes</h4>
+<p class="text-ink-700" style="margin: 0">{{open.notes}}</p>
+</div>
+</sc-if>
+</div>
+
+<div class="bg-paper" style="border-radius: 16px; padding: 16px">
+<p class="text-ink-500" style="margin: 0 0 12px; font-size: 14px; line-height: 20px; font-weight: 600">{{open.srsText}}</p>
+<sc-if value="{{open.inVocab}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px">
+<span role="status" class="font-heading bg-success/15 text-success-dark" style="display: inline-flex; align-items: center; gap: 6px; border-radius: 16px; padding: 12px 20px; font-size: 14px; line-height: 20px; font-weight: 700; letter-spacing: 0.025em; text-transform: uppercase"><span aria-hidden="true">✓</span>Added to Vocabulary</span>
+<a href="#" class="text-red-500" style="font-size: 14px; line-height: 20px; font-weight: 700; text-decoration: none">View in Vocab →</a>
+</div>
+</sc-if>
+<sc-if value="{{open.notInVocab}}" hint-placeholder-val="{{true}}">
+<x-import component-from-global-scope="JustViet.Button" fullWidth="{{false}}" loading="{{open.adding}}" onClick="{{open.add}}">+ Add to Vocabulary</x-import>
+</sc-if>
+</div>
+
+<div class="border-ink-300/20" style="display: flex; flex-wrap: wrap; gap: 8px; border-top-width: 2px; border-top-style: solid; padding-top: 16px">
+<sc-if value="{{open.hasPersonal}}" hint-placeholder-val="{{false}}">
+<x-import component-from-global-scope="JustViet.Button" variant="outline" size="sm" fullWidth="{{false}}" onClick="{{open.edit}}">{{open.editLabel}}</x-import>
+<x-import component-from-global-scope="JustViet.Button" variant="danger" size="sm" fullWidth="{{false}}" onClick="{{open.askDelete}}">{{open.deleteLabel}}</x-import>
+</sc-if>
+<sc-if value="{{open.noPersonal}}" hint-placeholder-val="{{true}}">
+<x-import component-from-global-scope="JustViet.Button" variant="ghost" size="sm" fullWidth="{{false}}" onClick="{{open.addMeaning}}">+ Add my own meaning</x-import>
+</sc-if>
+</div>
+</div>
+</x-import>
+</sc-if>
+
+<sc-if value="{{showConfirm}}" hint-placeholder-val="{{false}}">
+<x-import component-from-global-scope="JustViet.ConfirmDialog" title="{{confirm.title}}" description="{{confirm.description}}" confirmLabel="{{confirm.label}}" onConfirm="{{confirm.yes}}" onCancel="{{confirm.no}}"></x-import>
+</sc-if>
+
+<sc-if value="{{showForm}}" hint-placeholder-val="{{false}}">
+<x-import component-from-global-scope="JustViet.Modal" title="{{form.title}}" maxWidth="lg" onClose="{{closeForm}}">
+<form noValidate="{{true}}" onSubmit="{{form.submit}}" style="display: flex; flex-direction: column; gap: 16px">
+<sc-if value="{{form.locked}}" hint-placeholder-val="{{false}}">
+<div>
+<p class="text-ink-700" style="margin: 0; font-size: 14px; line-height: 20px; font-weight: 700; letter-spacing: 0.025em; text-transform: uppercase">Vietnamese</p>
+<p lang="vi" class="font-heading text-ink-900" style="margin: 0; font-size: 24px; line-height: 32px; font-weight: 800">{{form.headword}}</p>
+<sc-if value="{{form.spellingHint}}" hint-placeholder-val="{{false}}"><p class="text-ink-500" style="margin: 0; font-size: 12px; line-height: 16px">To change the spelling, delete this word and add it again.</p></sc-if>
+</div>
+</sc-if>
+<sc-if value="{{form.editable}}" hint-placeholder-val="{{true}}">
+<div style="display: flex; flex-direction: column; gap: 8px">
+<x-import component-from-global-scope="JustViet.TextField" label="Vietnamese word or phrase" value="{{form.headword}}" onChange="{{form.setHeadword}}" error="{{form.headwordError}}" lang="vi" placeholder="xin chào"></x-import>
+<sc-if value="{{form.existing}}" hint-placeholder-val="{{false}}">
+<div role="status" class="border-yellow-300 bg-yellow-50" style="border-radius: 12px; border-width: 2px; border-style: solid; padding: 12px 16px">
+<p class="text-ink-700" style="margin: 0; font-size: 14px; line-height: 20px; font-weight: 600"><span lang="vi" style="font-weight: 700">{{form.existing.headword}}</span> is already in your dictionary.</p>
+<div style="margin-top: 8px; display: flex; flex-wrap: wrap; gap: 8px">
+<x-import component-from-global-scope="JustViet.Button" type="button" size="sm" variant="outline" fullWidth="{{false}}" onClick="{{form.viewExisting}}">View entry</x-import>
+<x-import component-from-global-scope="JustViet.Button" type="button" size="sm" variant="secondary" fullWidth="{{false}}" onClick="{{form.addToExisting}}">Add my meaning to it</x-import>
+</div>
+</div>
+</sc-if>
+</div>
+</sc-if>
+
+<div class="grid grid-cols-1 sm:grid-cols-2" style="gap: 16px">
+<x-import component-from-global-scope="JustViet.TextField" label="English meaning" value="{{form.english}}" onChange="{{form.setEnglish}}" error="{{form.englishError}}" placeholder="hello"></x-import>
+<x-import component-from-global-scope="JustViet.Select" label="Part of speech" value="{{form.pos}}" onChange="{{form.setPos}}">
+<option value="">—</option>
+<option value="n">Noun</option>
+<option value="v">Verb</option>
+<option value="adj">Adjective</option>
+<option value="adv">Adverb</option>
+<option value="pron">Pronoun</option>
+<option value="prep">Preposition</option>
+<option value="conj">Conjunction</option>
+<option value="num">Number</option>
+<option value="cl">Classifier</option>
+<option value="part">Particle</option>
+<option value="det">Determiner</option>
+<option value="interj">Interjection</option>
+<option value="phr">Phrase</option>
+</x-import>
+</div>
+
+<details class="border-ink-300/30" open="{{form.moreOpen}}" style="border-radius: 12px; border-width: 1px; border-style: solid; padding: 12px 16px">
+<summary class="text-ink-500" style="cursor: pointer; font-size: 14px; line-height: 20px; font-weight: 700">More fields (optional)</summary>
+<div style="margin-top: 12px; display: flex; flex-direction: column; gap: 16px">
+<x-import component-from-global-scope="JustViet.Textarea" label="Other meanings (one per line)" value="{{form.more}}" onChange="{{form.setMore}}" rows="2" placeholder="hi"></x-import>
+<div class="grid grid-cols-1 sm:grid-cols-2" style="gap: 16px">
+<x-import component-from-global-scope="JustViet.TextField" label="Example (Vietnamese)" value="{{form.exVi}}" onChange="{{form.setExVi}}" lang="vi" placeholder="Xin chào cô!"></x-import>
+<x-import component-from-global-scope="JustViet.TextField" label="Example (English)" value="{{form.exEn}}" onChange="{{form.setExEn}}" placeholder="Hello, teacher!"></x-import>
+</div>
+<x-import component-from-global-scope="JustViet.Textarea" label="Personal notes" value="{{form.notes}}" onChange="{{form.setNotes}}" placeholder="Used any time of day"></x-import>
+</div>
+</details>
+
+<sc-if value="{{form.formError}}" hint-placeholder-val="{{false}}">
+<p class="bg-red-50 text-red-600" style="margin: 0; border-radius: 12px; padding: 8px 16px; font-size: 14px; line-height: 20px; font-weight: 600">{{form.formError}}</p>
+</sc-if>
+
+<div style="margin-top: 8px; display: flex; gap: 12px">
+<x-import component-from-global-scope="JustViet.Button" type="button" variant="outline" fullWidth="{{false}}" onClick="{{closeForm}}">Cancel</x-import>
+<x-import component-from-global-scope="JustViet.Button" type="submit" fullWidth="{{false}}" loading="{{form.submitting}}">{{form.submitLabel}}</x-import>
+</div>
+</form>
+</x-import>
+</sc-if>
+
+<sc-if value="{{showCreated}}" hint-placeholder-val="{{false}}">
+<x-import component-from-global-scope="JustViet.Modal" title="Word Added" maxWidth="md" onClose="{{closeCreated}}">
+<div style="display: flex; flex-direction: column; align-items: center; gap: 16px; text-align: center">
+<span aria-hidden="true" style="font-size: 48px; line-height: 1">🎉</span>
+<p class="text-ink-700" style="margin: 0; font-weight: 600"><span lang="vi" class="font-heading text-ink-900" style="font-size: 24px; line-height: 32px; font-weight: 800">{{created.headword}}</span><br>is now in your dictionary.</p>
+<p class="text-ink-500" style="margin: 0; font-size: 14px; line-height: 20px">Want to practice it with spaced repetition too?</p>
+<sc-if value="{{created.inVocab}}" hint-placeholder-val="{{false}}">
+<span role="status" class="font-heading bg-success/15 text-success-dark" style="display: inline-flex; align-items: center; gap: 6px; border-radius: 16px; padding: 12px 20px; font-size: 14px; line-height: 20px; font-weight: 700; letter-spacing: 0.025em; text-transform: uppercase"><span aria-hidden="true">✓</span>Added to Vocabulary</span>
+</sc-if>
+<sc-if value="{{created.notInVocab}}" hint-placeholder-val="{{true}}">
+<x-import component-from-global-scope="JustViet.Button" fullWidth="{{false}}" loading="{{created.adding}}" onClick="{{created.add}}">+ Add to Vocabulary</x-import>
+</sc-if>
+<div style="width: 100%; margin-top: 8px"><x-import component-from-global-scope="JustViet.Button" variant="outline" onClick="{{closeCreated}}">Done</x-import></div>
+</div>
+</x-import>
+</sc-if>
+
+<sc-if value="{{toast}}" hint-placeholder-val="{{false}}">
+<x-import component-from-global-scope="JustViet.Toast" message="{{toast}}"></x-import>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"wordCount":{"editor":"int","default":950,"min":0,"max":100000,"label":"Words in the real dictionary (the board holds a sample)"},"startInVocab":{"editor":"text","default":"anh, ăn, cảm ơn, chào","label":"Words already in the Vocab SRS"},"$preview":{"width":1280,"height":1320}}'>
+// The Dictionary tab, ported from src/app/(app)/dictionary/page.tsx and src/components/dictionary/*.
+// Search, ordering and matching follow src/lib/dictionary (normalize.ts, collation.ts,
+// dictionary-index.ts). WORDS is a sample of the shared dataset (public/dictionary/shared.json):
+// the first three words of every letter plus a few everyday ones, with their real definitions.
+// Words you add here and "Add to Vocabulary" stay on this board only.
+
+const WORDS = [
+  {"key": "à", "headword": "à", "level": "Beginner III", "senses": [{"english": "oh / right? (confirmation particle)", "pos": ["particle"], "def": "Trợ từ đặt cuối câu hỏi, biểu thị sự ngạc nhiên hoặc muốn xác nhận lại điều mình vừa biết hay vừa đoán ra.", "examples": [{"vi": "Bạn là người Mỹ à?", "en": "You're American, huh?"}]}]},
+  {"key": "ạ", "headword": "ạ", "level": "Beginner II", "senses": [{"english": "(polite particle)", "pos": ["particle"], "def": "Trợ từ đặt cuối câu, biểu thị thái độ kính trọng, lễ phép đối với người nghe, thường là người lớn tuổi hoặc bề trên.", "examples": [{"vi": "Vâng, em đến ngay ạ.", "en": "Yes, I'll come right away (polite)."}]}]},
+  {"key": "ai", "headword": "ai", "level": "Beginner I", "senses": [{"english": "who / whoever", "pos": ["pronoun"], "def": "1. Đại từ dùng để hỏi về người mà mình chưa biết. 2. Bất cứ người nào, không trừ một người nào.", "examples": [{"vi": "Ai đến?", "en": "Who is coming?"}]}]},
+  {"key": "anh", "headword": "anh", "level": "Beginner I", "senses": [{"english": "older brother / you (to older male)", "pos": ["pronoun", "noun"], "def": "1. Người con trai sinh ra trước mình trong cùng một gia đình. 2. Từ dùng để gọi người đàn ông lớn tuổi hơn mình hoặc ngang hàng, với ý tôn trọng hay thân mật.", "examples": [{"vi": "Anh ấy đọc sách.", "en": "He reads a book."}]}]},
+  {"key": "ăn", "headword": "ăn", "level": "Beginner I", "senses": [{"english": "to eat", "pos": ["verb"], "def": "Đưa thức ăn vào miệng, nhai và nuốt để nuôi sống cơ thể.", "examples": [{"vi": "Tôi ăn cơm.", "en": "I eat rice."}]}]},
+  {"key": "âm tiết", "headword": "âm tiết", "level": "Intermediate I", "senses": [{"english": "syllable", "pos": ["noun"], "def": "Đơn vị phát âm nhỏ nhất của lời nói; trong tiếng Việt, mỗi âm tiết là một tiếng và mang một thanh điệu.", "examples": [{"vi": "Tiếng Việt có nhiều âm tiết mang thanh điệu.", "en": "Vietnamese has many tone-bearing syllables."}]}]},
+  {"key": "ấy", "headword": "ấy", "level": "Beginner II", "senses": [{"english": "that (3rd person marker) / that one", "pos": ["particle", "pronoun"], "def": "1. Từ đặt sau danh từ hoặc đại từ chỉ người để chỉ ngôi thứ ba (anh ấy, chị ấy). 2. Từ dùng để chỉ người, vật hoặc sự việc đã được nhắc đến, không ở gần người nói.", "examples": [{"vi": "Anh ấy đọc sách.", "en": "He reads a book."}]}]},
+  {"key": "ba", "headword": "ba", "level": "Beginner I", "senses": [{"english": "three / father (Southern)", "pos": ["number", "noun"], "def": "1. Số tiếp theo số hai trong dãy số tự nhiên (3). 2. (Phương ngữ Nam Bộ) Người đàn ông sinh ra mình; cha, bố.", "examples": [{"vi": "Cái áo này giá ba trăm nghìn đồng.", "en": "This shirt costs three hundred thousand đồng."}]}]},
+  {"key": "bà", "headword": "bà", "level": "Beginner II", "senses": [{"english": "grandmother / Mrs. / you (to an older woman)", "pos": ["noun", "pronoun"], "def": "1. Người sinh ra cha hoặc mẹ mình. 2. Từ dùng để gọi hoặc chỉ người phụ nữ lớn tuổi hoặc có địa vị xã hội, với ý tôn trọng (bà Lan).", "examples": [{"vi": "Tết này tôi ra Hà Nội thăm bà.", "en": "This Tết I'm going up to Hanoi to visit Grandma."}]}]},
+  {"key": "bác", "headword": "bác", "level": "Beginner II", "senses": [{"english": "uncle/aunt (parent's older sibling)", "pos": ["noun"], "def": "Anh hoặc chị của cha hay mẹ mình; cũng dùng để gọi người lớn tuổi hơn cha mẹ mình với ý kính trọng.", "examples": [{"vi": "Sau này tôi muốn làm bác sĩ.", "en": "Later, I want to be a doctor."}]}]},
+  {"key": "bạn", "headword": "bạn", "level": "Beginner I", "senses": [{"english": "friend / you (to peer)", "pos": ["pronoun", "noun"], "def": "1. Người có quan hệ thân thiết, gần gũi với mình do quen biết, cùng học, cùng làm hoặc hợp nhau. 2. Từ dùng để gọi người ngang hàng, cùng lứa tuổi với mình.", "examples": [{"vi": "Bạn ăn gì?", "en": "What are you eating?"}]}]},
+  {"key": "cà phê", "headword": "cà phê", "level": "Beginner II", "senses": [{"english": "coffee", "pos": ["noun"], "def": "Loại cây có hạt dùng để rang, xay làm đồ uống; cũng chỉ thức uống pha từ bột của hạt này.", "examples": [{"vi": "Bạn uống cà phê hay trà?", "en": "Do you drink coffee or tea?"}]}]},
+  {"key": "cả", "headword": "cả", "level": "Beginner III", "senses": [{"english": "all / the whole / even", "pos": ["adverb", "determiner"], "def": "1. Toàn bộ, tất cả, không trừ phần nào (cả nhà, cả ngày). 2. Từ dùng để nhấn mạnh, có nghĩa là ngay đến, kể cả (Cả tôi cũng không biết).", "examples": [{"vi": "Tôi không biết gì cả.", "en": "I don't know anything at all."}]}]},
+  {"key": "cả hai", "headword": "cả hai", "level": "Beginner III", "senses": [{"english": "both", "pos": ["phrase"], "def": "Cả hai người, hai vật hoặc hai sự việc, không trừ bên nào.", "examples": [{"vi": "Cả hai đều ngon.", "en": "Both are delicious."}]}]},
+  {"key": "cảm ơn", "headword": "cảm ơn", "level": "Beginner I", "senses": [{"english": "to thank / thank you", "pos": ["verb"], "def": "Nói lời bày tỏ lòng biết ơn đối với người đã giúp đỡ hoặc làm điều tốt cho mình; cũng là lời nói để bày tỏ điều đó.", "examples": [{"vi": "Cảm ơn chị nhiều.", "en": "Thank you very much (to an older woman)."}]}]},
+  {"key": "chào", "headword": "chào", "level": "Beginner I", "senses": [{"english": "hello / goodbye / to greet", "pos": ["interjection", "verb"], "def": "1. Lời nói hoặc cử chỉ tỏ sự quan tâm, kính trọng khi gặp nhau hoặc khi chia tay. 2. Thực hiện lời nói hoặc cử chỉ đó đối với người khác.", "examples": [{"vi": "Em chào anh.", "en": "Hello (younger to older male)."}]}]},
+  {"key": "cơm", "headword": "cơm", "level": "Beginner II", "senses": [{"english": "cooked rice / meal", "pos": ["noun"], "def": "1. Gạo nấu chín, là món ăn chính của người Việt. 2. Bữa ăn nói chung (ăn cơm).", "examples": [{"vi": "Tôi ăn cơm.", "en": "I eat rice."}]}]},
+  {"key": "da", "headword": "da", "level": "Intermediate I", "senses": [{"english": "skin / leather", "pos": ["noun"], "def": "1. Lớp mô bọc bên ngoài cơ thể người và động vật. 2. Da động vật đã được thuộc để làm đồ dùng (túi da, giày da).", "examples": [{"vi": "Cái túi da này rất bền.", "en": "This leather bag is very durable."}]}]},
+  {"key": "dạ", "headword": "dạ", "level": "Beginner II", "senses": [{"english": "yes (respectful) / polite acknowledgment", "pos": ["particle", "interjection"], "def": "Tiếng đáp lời lễ phép, biểu thị sự kính trọng đối với người lớn tuổi hoặc bề trên; cũng dùng để đồng ý hoặc tỏ ý đã nghe.", "examples": [{"vi": "Dạ, con hiểu rồi.", "en": "Yes, I understand (to a parent/elder)."}]}]},
+  {"key": "dám", "headword": "dám", "level": "Intermediate I", "senses": [{"english": "to dare / dare to", "pos": ["verb"], "def": "Có đủ can đảm, không sợ để làm một việc khó khăn hoặc nguy hiểm.", "examples": [{"vi": "Tôi không dám nói.", "en": "I dare not speak / I'm afraid to say."}]}]},
+  {"key": "đa", "headword": "đa", "level": "Advanced I", "senses": [{"english": "banyan tree", "pos": ["noun"], "def": "Loại cây to, sống lâu năm, có nhiều rễ phụ mọc từ cành buông xuống đất, thường trồng ở đầu làng, sân đình.", "examples": [{"vi": "Chàng hẹn nàng dưới gốc đa.", "en": "He arranged to meet her under the banyan tree."}]}]},
+  {"key": "đã", "headword": "đã", "level": "Beginner III", "senses": [{"english": "already / past tense marker", "pos": ["adverb", "particle"], "def": "1. Từ đặt trước động từ để chỉ hành động đã xảy ra trong quá khứ hoặc đã hoàn thành. 2. (Đặt cuối câu) Trước hết, trước khi làm việc khác (Ăn cơm đã).", "examples": [{"vi": "Tôi đã nói rồi mà!", "en": "I already told you, you know!"}]}]},
+  {"key": "đã từng", "headword": "đã từng", "level": "Intermediate I", "senses": [{"english": "have ever / used to", "pos": ["verb"], "def": "Đã có lần làm hoặc trải qua một việc gì đó trong quá khứ.", "examples": [{"vi": "Bạn đã từng đến Đà Nẵng chưa?", "en": "Have you ever been to Da Nang?"}]}]},
+  {"key": "e rằng", "headword": "e rằng", "level": "Intermediate III", "senses": [{"english": "I'm afraid that", "pos": ["phrase"], "def": "Tổ hợp dùng để nêu một điều mình lo là có thể xảy ra, thường là điều không mong muốn; sợ rằng.", "examples": [{"vi": "E rằng anh ấy không đồng ý.", "en": "I'm afraid he won't agree."}]}]},
+  {"key": "em", "headword": "em", "level": "Beginner I", "senses": [{"english": "younger sibling / I (to older person)", "pos": ["noun", "pronoun"], "def": "1. Người sinh ra sau mình trong cùng một gia đình, họ hàng (em trai, em gái). 2. Từ người nhỏ tuổi hơn dùng để tự xưng khi nói với người lớn tuổi hơn như anh, chị; cũng dùng để gọi người nhỏ tuổi hơn mình.", "examples": [{"vi": "Em mấy tuổi?", "en": "How old are you (to a child)?"}]}]},
+  {"key": "em bé", "headword": "em bé", "level": "Beginner III", "senses": [{"english": "baby / infant", "pos": ["noun"], "def": "Đứa trẻ còn rất nhỏ, mới sinh ra hoặc mới vài tuổi.", "examples": [{"vi": "Em bé này đáng yêu quá!", "en": "This baby is so adorable!"}]}]},
+  {"key": "ê", "headword": "ê", "level": "Beginner III", "senses": [{"english": "hey (blunt vocative)", "pos": ["particle"], "def": "(Khẩu ngữ) Tiếng gọi suồng sã để gây sự chú ý, thường dùng với người ngang hàng hoặc ít tuổi hơn.", "examples": [{"vi": "Ê, đi đâu đấy?", "en": "Hey, where are you going?"}]}]},
+  {"key": "gặp", "headword": "gặp", "level": "Beginner II", "senses": [{"english": "to meet", "pos": ["verb"], "def": "Thấy và tiếp xúc với ai do tình cờ hoặc có hẹn trước.", "examples": [{"vi": "Bạn gặp ai?", "en": "Whom did you meet?"}]}]},
+  {"key": "gặp nhau", "headword": "gặp nhau", "level": "Beginner III", "senses": [{"english": "to meet each other", "pos": ["verb"], "def": "Cùng thấy và tiếp xúc với nhau tại một nơi, do tình cờ hoặc có hẹn.", "examples": [{"vi": "Ngày mai gặp nhau được không?", "en": "Can we meet tomorrow?"}]}]},
+  {"key": "gần", "headword": "gần", "level": "Beginner III", "senses": [{"english": "near / almost", "pos": ["adjective", "adverb"], "def": "1. Ở khoảng cách ngắn, không xa về không gian hoặc thời gian. 2. Sắp đạt tới, xấp xỉ (gần một trăm người).", "examples": [{"vi": "Khách sạn ở gần biển.", "en": "The hotel is near the beach."}]}]},
+  {"key": "hà", "headword": "hà", "level": "Advanced I", "senses": [{"english": "(Southern emphatic particle)", "pos": ["particle"], "def": "(Phương ngữ Nam Bộ, khẩu ngữ) Trợ từ đặt cuối câu để nhấn mạnh, khẳng định hoặc biểu thị sự ngạc nhiên, thân mật (Đẹp quá hà!).", "examples": [{"vi": "Ngày mai tôi sẽ đi Hà Nội.", "en": "Tomorrow I will go to Hanoi."}]}]},
+  {"key": "hả", "headword": "hả", "level": "Beginner III", "senses": [{"english": "huh? / right? (blunt confirmation)", "pos": ["particle"], "def": "(Khẩu ngữ) Trợ từ đặt cuối câu hỏi để hỏi lại, xác nhận hoặc biểu thị sự ngạc nhiên, thường có sắc thái suồng sã.", "examples": [{"vi": "Anh ấy chưa về hả?", "en": "He hasn't come back yet, huh?"}]}]},
+  {"key": "hai", "headword": "hai", "level": "Beginner I", "senses": [{"english": "two", "pos": ["number"], "def": "Số tiếp theo số một trong dãy số tự nhiên (2).", "examples": [{"vi": "Tôi có hai mươi lăm quyển sách.", "en": "I have twenty-five books."}]}]},
+  {"key": "học", "headword": "học", "level": "Beginner II", "senses": [{"english": "to study / to learn", "pos": ["verb"], "def": "Tiếp thu kiến thức, rèn luyện kỹ năng qua sự dạy bảo, đọc sách hoặc thực hành.", "examples": [{"vi": "Tôi học tiếng Việt được hai năm rồi.", "en": "I've been studying Vietnamese for two years."}]}]},
+  {"key": "ít", "headword": "ít", "level": "Beginner II", "senses": [{"english": "little / few", "pos": ["adjective"], "def": "Có số lượng hoặc mức độ nhỏ, không nhiều.", "examples": [{"vi": "Ai cũng ít nhiều có lỗi.", "en": "Everyone is at fault to some degree."}]}]},
+  {"key": "ít nhiều", "headword": "ít nhiều", "level": "Advanced II", "senses": [{"english": "more or less / to some extent", "pos": ["adverb"], "def": "Không nhiều thì ít, ở một mức độ nào đó.", "examples": [{"vi": "Ai cũng ít nhiều có lỗi.", "en": "Everyone is at fault to some degree."}]}]},
+  {"key": "kém", "headword": "kém", "level": "Beginner III", "senses": [{"english": "less / poor (at); minus (in telling time)", "pos": ["adjective"], "def": "1. Ít hơn, thấp hơn so với người hoặc vật khác. 2. Không giỏi, dưới mức trung bình về khả năng hoặc chất lượng. 3. Dùng khi nói giờ để chỉ còn thiếu bao nhiêu phút nữa mới đến giờ đó (bảy giờ kém mười lăm).", "examples": [{"vi": "Bây giờ là 9 giờ kém 10.", "en": "It's ten to nine now."}]}]},
+  {"key": "kẻo", "headword": "kẻo", "level": "Intermediate III", "senses": [{"english": "or else / otherwise (warning)", "pos": ["conjunction"], "def": "Liên từ dùng để nêu kết quả không hay có thể xảy ra nếu không làm theo điều vừa nói; nếu không thì (Mặc áo vào kẻo lạnh).", "examples": [{"vi": "Đi nhanh lên kẻo trễ.", "en": "Hurry up or else you'll be late."}]}]},
+  {"key": "kể", "headword": "kể", "level": "Intermediate I", "senses": [{"english": "to tell / to narrate", "pos": ["verb"], "def": "Nói lại cho người khác biết một câu chuyện, một sự việc đã xảy ra theo trình tự.", "examples": [{"vi": "Kể cho em nghe đi mà!", "en": "Come on, tell me!"}]}]},
+  {"key": "là", "headword": "là", "level": "Beginner I", "senses": [{"english": "to be (identity) / that", "pos": ["verb", "conjunction"], "def": "1. Từ nối chủ ngữ với phần giải thích, xác định chủ ngữ là ai, là gì (Tôi là sinh viên). 2. Liên từ dùng để dẫn ra nội dung của suy nghĩ, lời nói (Tôi nghĩ là anh đúng).", "examples": [{"vi": "Bạn tên là gì?", "en": "What's your name?"}]}]},
+  {"key": "lạc", "headword": "lạc", "level": "Intermediate I", "senses": [{"english": "lost / to get lost", "pos": ["adjective", "verb"], "def": "Bị mất phương hướng, không tìm được đường đi; cũng chỉ việc bị thất lạc, không biết ở đâu.", "examples": [{"vi": "Có vẻ như chúng ta bị lạc rồi.", "en": "It looks like we're lost."}]}]},
+  {"key": "lái", "headword": "lái", "level": "Beginner III", "senses": [{"english": "to drive / to steer", "pos": ["verb"], "def": "Điều khiển phương tiện giao thông cho chạy theo hướng mong muốn (lái xe, lái tàu).", "examples": [{"vi": "Mãi đến năm 30 tuổi tôi mới học lái xe.", "en": "I didn't learn to drive until I was 30."}]}]},
+  {"key": "mà", "headword": "mà", "level": "Intermediate I", "senses": [{"english": "but / yet / that (multi-function particle)", "pos": ["particle", "conjunction", "pronoun"], "def": "1. Liên từ dùng để nối hai ý trái ngược nhau; nhưng. 2. Từ dùng để nối danh từ với phần bổ nghĩa đứng sau (người mà tôi gặp). 3. Trợ từ đặt cuối câu để nhấn mạnh, khẳng định (Tôi đã nói rồi mà!).", "examples": [{"vi": "Phở ngon nhưng mà đắt.", "en": "The phở is good but expensive."}]}]},
+  {"key": "mà thôi", "headword": "mà thôi", "level": "Intermediate III", "senses": [{"english": "that's all", "pos": ["phrase"], "def": "Tổ hợp đặt cuối câu để nhấn mạnh rằng chỉ có như vậy, không hơn.", "examples": [{"vi": "Tôi chỉ hỏi mà thôi.", "en": "I was only asking, that's all."}]}]},
+  {"key": "má", "headword": "má", "level": "Beginner III", "senses": [{"english": "mother (Southern)", "pos": ["noun"], "def": "(Phương ngữ Nam Bộ) Người phụ nữ sinh ra mình; mẹ.", "examples": [{"vi": "Má ơi, con đói rồi!", "en": "Mom, I'm hungry!"}]}]},
+  {"key": "nam", "headword": "nam", "level": "Beginner III", "senses": [{"english": "south / male", "pos": ["noun", "adjective"], "def": "1. Một trong bốn phương chính, đối diện với phương bắc. 2. Thuộc giới đàn ông, con trai (học sinh nam).", "examples": [{"vi": "Đây là lần đầu tiên tôi đến Việt Nam.", "en": "This is the first time I've come to Vietnam."}]}]},
+  {"key": "nàng", "headword": "nàng", "level": "Advanced II", "senses": [{"english": "she / young woman (literary, romantic)", "pos": ["pronoun", "noun"], "def": "(Văn chương) Từ dùng để chỉ hoặc gọi người phụ nữ trẻ, thường mang sắc thái trìu mến, lãng mạn.", "examples": [{"vi": "Chàng hẹn nàng dưới gốc đa.", "en": "He arranged to meet her under the banyan tree."}]}]},
+  {"key": "nào", "headword": "nào", "level": "Beginner II", "senses": [{"english": "which / let's (softening imperative particle)", "pos": ["pronoun", "particle"], "def": "1. Từ dùng để hỏi về người, vật hoặc sự việc cần được xác định trong số nhiều (Cái nào?). 2. Trợ từ dùng để mời gọi, thúc giục một cách nhẹ nhàng (Đi nào!).", "examples": [{"vi": "Phở ở đây như thế nào?", "en": "What is the phở here like?"}]}]},
+  {"key": "nước", "headword": "nước", "level": "Beginner I", "senses": [{"english": "water / country", "pos": ["noun"], "def": "1. Chất lỏng trong suốt, không màu, không mùi, có trong sông, hồ, biển và nước mưa. 2. Đất nước, quốc gia (nước Việt Nam).", "examples": [{"vi": "Anh là người nước nào?", "en": "What country are you from? (lit. 'a person of which country')"}]}]},
+  {"key": "ô", "headword": "ô", "level": "Beginner III", "senses": [{"english": "umbrella", "pos": ["noun"], "def": "Đồ dùng có cán và tán vải căng ra để che mưa, che nắng; dù.", "examples": [{"vi": "Trời mưa mà tôi không có ô.", "en": "It's raining and I don't have an umbrella (so I'm in trouble)."}]}]},
+  {"key": "ốm", "headword": "ốm", "level": "Beginner III", "senses": [{"english": "sick (Northern) / thin (Southern)", "pos": ["adjective"], "def": "1. (Phương ngữ Bắc Bộ) Ở trạng thái có bệnh, không khỏe. 2. (Phương ngữ Nam Bộ) Gầy, có thân hình mảnh, ít thịt.", "examples": [{"vi": "Cô ấy không đến, bởi vì cô ấy bị ốm.", "en": "She didn't come, because she was sick."}]}]},
+  {"key": "ông", "headword": "ông", "level": "Beginner II", "senses": [{"english": "grandfather / Mr. / you (to an older man)", "pos": ["noun", "pronoun"], "def": "1. Người sinh ra cha hoặc mẹ mình. 2. Từ dùng để gọi hoặc chỉ người đàn ông lớn tuổi hoặc có địa vị xã hội, với ý tôn trọng (ông Nam).", "examples": [{"vi": "Ngày xửa ngày xưa, có một ông vua...", "en": "Once upon a time, there was a king..."}]}]},
+  {"key": "ở", "headword": "ở", "level": "Beginner II", "senses": [{"english": "at / in / to live", "pos": ["preposition", "verb"], "def": "1. Từ chỉ nơi chốn, vị trí xảy ra sự việc (ở nhà, ở Hà Nội). 2. Sống, cư trú thường xuyên tại một nơi.", "examples": [{"vi": "Có ai ở nhà không?", "en": "Is anyone home?"}]}]},
+  {"key": "ơi", "headword": "ơi", "level": "Beginner II", "senses": [{"english": "hey / (vocative particle — respectful/affectionate)", "pos": ["particle"], "def": "Tiếng dùng để gọi hoặc đáp lại lời gọi, biểu thị sự thân mật hoặc kính trọng (Mẹ ơi!).", "examples": [{"vi": "Mẹ ơi, con đói!", "en": "Mom, I'm hungry!"}]}]},
+  {"key": "phải", "headword": "phải", "level": "Beginner III", "senses": [{"english": "must / have to / right / correct", "pos": ["modal", "adjective"], "def": "1. Bắt buộc, cần thiết phải làm (Tôi phải đi). 2. Đúng, hợp với lẽ phải hoặc sự thật. 3. Bên phải, phía tay phải.", "examples": [{"vi": "Bạn có phải là sinh viên không?", "en": "Are you a student?"}]}]},
+  {"key": "phải chăng", "headword": "phải chăng", "level": "Superior", "senses": [{"english": "could it be that / is it not (rhetorical)", "pos": ["phrase"], "def": "(Văn chương) Tổ hợp dùng để đặt câu hỏi có tính chất phỏng đoán hoặc tu từ, có nghĩa là \"có phải là... không\".", "examples": [{"vi": "Phải chăng đó là lý do anh ấy buồn?", "en": "Could it be that that is why he is sad?"}]}]},
+  {"key": "phải không", "headword": "phải không", "level": "Beginner III", "senses": [{"english": "right? / isn't it? (tag question)", "pos": ["phrase"], "def": "Tổ hợp đặt cuối câu để hỏi lại, xác nhận điều mình đã nói hoặc nghĩ là đúng.", "examples": [{"vi": "Bạn là sinh viên, phải không?", "en": "You're a student, right?"}]}]},
+  {"key": "phở", "headword": "phở", "level": "Beginner II", "senses": [{"english": "phở (Vietnamese noodle soup)", "pos": ["noun"], "def": "Món ăn đặc trưng của Việt Nam, gồm bánh phở làm từ gạo, thịt bò hoặc gà và nước dùng ninh từ xương.", "examples": [{"vi": "Phở ngon.", "en": "The phở is delicious."}]}]},
+  {"key": "qua", "headword": "qua", "level": "Beginner III", "senses": [{"english": "to pass / across / over to (Southern) / last (time)", "pos": ["verb", "preposition", "adverb"], "def": "1. Đi từ phía này sang phía khác, vượt qua một nơi (qua sông). 2. (Phương ngữ Nam Bộ) Sang, đến (qua nhà bạn). 3. Đã trôi qua, thuộc về thời gian liền trước (hôm qua, năm qua).", "examples": [{"vi": "Những người tôi gặp hôm qua rất tốt.", "en": "The (specific) people I met yesterday were very kind."}]}]},
+  {"key": "quà", "headword": "quà", "level": "Beginner III", "senses": [{"english": "gift", "pos": ["noun"], "def": "Vật đem tặng người khác để tỏ tình cảm hoặc nhân một dịp đặc biệt.", "examples": [{"vi": "Tôi mua quà cho mẹ nhân ngày sinh nhật.", "en": "I bought a gift for Mom on her birthday."}]}]},
+  {"key": "quả", "headword": "quả", "level": "Beginner III", "senses": [{"english": "fruit / indeed (quả thật)", "pos": ["noun", "adverb"], "def": "1. Bộ phận của cây do hoa phát triển thành, bên trong có hạt; trái. 2. Thật vậy, đúng là như thế (quả là đẹp, quả thật).", "examples": [{"vi": "Quả thật là anh ấy rất giỏi.", "en": "He is truly very talented."}]}]},
+  {"key": "ra", "headword": "ra", "level": "Beginner III", "senses": [{"english": "out / outward / (result marker in state change)", "pos": ["adverb", "verb"], "def": "1. Di chuyển từ trong ra ngoài (ra khỏi phòng). 2. Từ đặt sau động từ để chỉ kết quả, sự xuất hiện hoặc thay đổi trạng thái (nhận ra, hóa ra).", "examples": [{"vi": "Ngoài ra, tôi còn học tiếng Pháp.", "en": "In addition, I also study French."}]}]},
+  {"key": "rảnh", "headword": "rảnh", "level": "Beginner III", "senses": [{"english": "free (not busy)", "pos": ["adjective"], "def": "Không có việc phải làm, có thời gian rỗi.", "examples": [{"vi": "Thứ mấy bạn rảnh?", "en": "Which day of the week are you free?"}]}]},
+  {"key": "rau", "headword": "rau", "level": "Beginner II", "senses": [{"english": "vegetables", "pos": ["noun"], "def": "Tên gọi chung các loại cây có lá, thân, hoa hoặc củ dùng làm thức ăn.", "examples": [{"vi": "Bạn nên ăn nhiều rau.", "en": "You should eat more vegetables."}]}]},
+  {"key": "sách", "headword": "sách", "level": "Beginner II", "senses": [{"english": "book", "pos": ["noun"], "def": "Tập giấy có chữ in hoặc viết, đóng lại thành quyển, để đọc, học hoặc tra cứu.", "examples": [{"vi": "Anh ấy đọc sách.", "en": "He reads a book."}]}]},
+  {"key": "sản phẩm", "headword": "sản phẩm", "level": "Intermediate II", "senses": [{"english": "product", "pos": ["noun"], "def": "Vật hoặc kết quả được tạo ra từ lao động, sản xuất.", "examples": [{"vi": "Hai sản phẩm này khác nhau ở chỗ giá cả.", "en": "These two products differ in price."}]}]},
+  {"key": "sản xuất", "headword": "sản xuất", "level": "Intermediate II", "senses": [{"english": "production / to produce", "pos": ["noun", "verb"], "def": "Tạo ra hàng hóa, của cải vật chất bằng lao động; cũng chỉ hoạt động đó.", "examples": [{"vi": "Công ty mở rộng sản xuất, đồng thời tuyển thêm nhân viên.", "en": "The company expanded production and, at the same time, hired more staff."}]}]},
+  {"key": "ta", "headword": "ta", "level": "Intermediate I", "senses": [{"english": "we / us / I (literary/archaic)", "pos": ["pronoun"], "def": "1. (Văn chương, cổ) Đại từ ngôi thứ nhất dùng để tự xưng; tôi. 2. Chúng ta, gồm cả người nói và người nghe (ta đi thôi).", "examples": [{"vi": "Chúng ta đi ăn nhé!", "en": "Let's go eat (you and me)!"}]}]},
+  {"key": "tai nạn", "headword": "tai nạn", "level": "Intermediate I", "senses": [{"english": "accident", "pos": ["noun"], "def": "Sự việc bất ngờ xảy ra gây thương tích, thiệt hại cho người hoặc tài sản.", "examples": [{"vi": "Tai nạn xảy ra do lái xe nhanh.", "en": "The accident happened due to fast driving."}]}]},
+  {"key": "tái chế", "headword": "tái chế", "level": "Intermediate III", "senses": [{"english": "to recycle", "pos": ["verb"], "def": "Xử lý chất thải hoặc đồ đã dùng để làm thành nguyên liệu hay sản phẩm mới.", "examples": [{"vi": "Chúng ta nên tái chế chai nhựa.", "en": "We should recycle plastic bottles."}]}]},
+  {"key": "tôi", "headword": "tôi", "level": "Beginner I", "senses": [{"english": "I / me", "pos": ["pronoun"], "def": "Đại từ ngôi thứ nhất số ít, dùng để tự xưng một cách trung tính, lịch sự.", "examples": [{"vi": "Tôi ăn cơm.", "en": "I eat rice."}]}]},
+  {"key": "ủa", "headword": "ủa", "level": "Intermediate I", "senses": [{"english": "huh? (surprise — Southern)", "pos": ["interjection"], "def": "(Phương ngữ Nam Bộ, khẩu ngữ) Tiếng thốt ra biểu thị sự ngạc nhiên hoặc thắc mắc.", "examples": [{"vi": "Ủa, sao em về sớm vậy?", "en": "Huh? Why are you home so early?"}]}]},
+  {"key": "uống", "headword": "uống", "level": "Beginner I", "senses": [{"english": "to drink", "pos": ["verb"], "def": "Đưa chất lỏng vào miệng và nuốt xuống.", "examples": [{"vi": "Bạn uống cà phê hay trà?", "en": "Do you drink coffee or tea?"}]}]},
+  {"key": "ừ", "headword": "ừ", "level": "Beginner II", "senses": [{"english": "yeah / uh-huh (informal yes)", "pos": ["interjection"], "def": "(Khẩu ngữ) Tiếng đáp lời biểu thị sự đồng ý hoặc đã nghe, dùng với người ngang hàng hoặc ít tuổi hơn.", "examples": [{"vi": "— Bạn có thích phở không? — Ừ, thích.", "en": "— Do you like phở? — Yeah, I do."}]}]},
+  {"key": "ước", "headword": "ước", "level": "Intermediate II", "senses": [{"english": "to wish", "pos": ["verb"], "def": "Mong muốn điều gì đó, thường là điều khó đạt được hoặc không có thật.", "examples": [{"vi": "Ước gì tôi có nhiều thời gian hơn.", "en": "I wish I had more time."}]}]},
+  {"key": "và", "headword": "và", "level": "Beginner I", "senses": [{"english": "and", "pos": ["conjunction"], "def": "Liên từ dùng để nối các từ, cụm từ hoặc câu có quan hệ ngang hàng với nhau.", "examples": [{"vi": "Cả tôi và anh ấy đều đi.", "en": "Both he and I are going."}]}]},
+  {"key": "vài", "headword": "vài", "level": "Beginner III", "senses": [{"english": "a few / several", "pos": ["determiner"], "def": "Một số lượng ít, khoảng hai, ba.", "examples": [{"vi": "Tôi có vài câu hỏi.", "en": "I have a few questions."}]}]},
+  {"key": "vạn", "headword": "vạn", "level": "Intermediate III", "senses": [{"english": "ten thousand", "pos": ["number"], "def": "Số bằng mười nghìn (10.000).", "examples": [{"vi": "Thành phố đó có hàng vạn người.", "en": "That city has tens of thousands of people."}]}]},
+  {"key": "xa", "headword": "xa", "level": "Beginner III", "senses": [{"english": "far", "pos": ["adjective"], "def": "Có khoảng cách lớn về không gian hoặc thời gian.", "examples": [{"vi": "Một mặt tôi muốn đi du học, mặt khác tôi không muốn xa gia đình.", "en": "On one hand I want to study abroad; on the other, I don't want to be far from my family."}]}]},
+  {"key": "xảy ra", "headword": "xảy ra", "level": "Intermediate II", "senses": [{"english": "to happen (unexpected event)", "pos": ["verb"], "def": "Diễn ra, xuất hiện như một sự việc, thường là bất ngờ.", "examples": [{"vi": "Tai nạn xảy ra do lái xe nhanh.", "en": "The accident happened due to fast driving."}]}]},
+  {"key": "xăng", "headword": "xăng", "level": "Intermediate I", "senses": [{"english": "gasoline", "pos": ["noun"], "def": "Nhiên liệu lỏng chiết xuất từ dầu mỏ, dùng để chạy động cơ xe máy, ô tô.", "examples": [{"vi": "Giá xăng tăng 5 phần trăm.", "en": "Gas prices rose 5 percent."}]}]},
+  {"key": "yêu", "headword": "yêu", "level": "Beginner II", "senses": [{"english": "to love", "pos": ["verb"], "def": "Có tình cảm thắm thiết, gắn bó và quý mến đối với người, vật hoặc nơi chốn.", "examples": [{"vi": "Yêu nhau bao nhiêu, nhớ nhau bấy nhiêu.", "en": "As much as we love, that much we miss each other."}]}]},
+  {"key": "yêu cầu", "headword": "yêu cầu", "level": "Intermediate II", "senses": [{"english": "to demand / to formally request", "pos": ["verb"], "def": "Đề nghị người khác làm việc gì, thường một cách chính thức hoặc dứt khoát; cũng chỉ điều được đòi hỏi.", "examples": [{"vi": "Ban tổ chức yêu cầu xuất trình vé.", "en": "The organizers require you to show your ticket."}]}]}
+];
+
+const ALPHABET = ['a', 'ă', 'â', 'b', 'c', 'd', 'đ', 'e', 'ê', 'g', 'h', 'i', 'k', 'l', 'm', 'n', 'o', 'ô', 'ơ', 'p', 'q', 'r', 's', 't', 'u', 'ư', 'v', 'x', 'y'];
+const POS_LABELS = { n: 'noun', v: 'verb', adj: 'adjective', adv: 'adverb', pron: 'pronoun', prep: 'preposition', conj: 'conjunction', num: 'number', part: 'particle', cl: 'classifier', det: 'determiner', phr: 'phrase', interj: 'interjection' };
+
+// ---- normalize.ts ----
+const INVISIBLES = /[​-‍⁠﻿]/g;
+function cleanHeadword(t) { return String(t || '').normalize('NFC').replace(INVISIBLES, '').replace(/\s+/g, ' ').trim(); }
+function headwordKey(t) { return cleanHeadword(t).toLowerCase().normalize('NFC'); }
+function foldDiacritics(t) { return headwordKey(t).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').normalize('NFC'); }
+function normalizeSearchText(t) { return String(t || '').normalize('NFC').replace(INVISIBLES, '').replace(/\s+/g, ' ').trim().toLowerCase(); }
+const TONE_RANK = { '̀': 1, '̉': 2, '̃': 3, '́': 4, '̣': 5 }; // huyền hỏi ngã sắc nặng (ngang = 0)
+function decomposeSyllable(s) {
+  let tone = 0; let rest = '';
+  for (const ch of s.toLowerCase().normalize('NFD')) {
+    const mark = TONE_RANK[ch];
+    if (mark) { if (!tone) tone = mark; } else rest += ch;
+  }
+  return { letters: rest.normalize('NFC'), tone };
+}
+
+// ---- collation.ts: Vietnamese alphabet order, letters first, then tone, syllable by syllable ----
+const LETTER_RANK = new Map(Array.from('aăâbcdđeêfghijklmnoôơpqrstuưvwxyz').map((ch, i) => [ch, i + 100]));
+function charRank(ch) {
+  const r = LETTER_RANK.get(ch);
+  if (r !== undefined) return r;
+  if (ch >= '0' && ch <= '9') return ch.charCodeAt(0);
+  return 1000 + (ch.codePointAt(0) || 0);
+}
+function sortKey(h) {
+  return headwordKey(h).split(/[\s-]+/).filter(Boolean).map((syl) => {
+    const d = decomposeSyllable(syl);
+    return { ranks: Array.from(d.letters).map(charRank), tone: d.tone };
+  });
+}
+function compareSortKeys(a, b) {
+  const n = Math.min(a.length, b.length);
+  for (let i = 0; i < n; i++) {
+    const x = a[i]; const y = b[i];
+    const m = Math.min(x.ranks.length, y.ranks.length);
+    for (let j = 0; j < m; j++) if (x.ranks[j] !== y.ranks[j]) return x.ranks[j] - y.ranks[j];
+    if (x.ranks.length !== y.ranks.length) return x.ranks.length - y.ranks.length;
+    if (x.tone !== y.tone) return x.tone - y.tone;
+  }
+  return a.length - b.length;
+}
+function firstLetter(h) {
+  const ch = Array.from(decomposeSyllable(headwordKey(h).split(' ')[0] || '').letters)[0] || '';
+  return ALPHABET.includes(ch) ? ch : '#';
+}
+
+// ---- dictionary-index.ts ----
+function glosses(w) { return [...(w.shared ? w.shared.senses : []), ...(w.personal ? w.personal.senses : [])].map((s) => s.english).filter(Boolean); }
+function briefDefinition(w) { return Array.from(new Set(glosses(w))).join('; '); }
+function escapeRegExp(t) { return t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+function buildIndex(personal) {
+  const map = new Map();
+  for (const w of WORDS) map.set(w.key, { key: w.key, headword: w.headword, shared: { level: w.level, senses: w.senses } });
+  for (const key of Object.keys(personal)) {
+    const p = personal[key];
+    const existing = map.get(key);
+    if (existing) existing.personal = p; else map.set(key, { key, headword: p.headword, personal: p });
+  }
+  const list = Array.from(map.values()).map((w) => ({ ...w, sk: sortKey(w.headword) }));
+  list.sort((a, b) => compareSortKeys(a.sk, b.sk) || (a.headword < b.headword ? -1 : a.headword > b.headword ? 1 : 0));
+  return list.map((w) => ({ ...w, letter: firstLetter(w.headword), folded: foldDiacritics(w.key), english: normalizeSearchText(glosses(w).join(' | ')) }));
+}
+function search(index, query, limit) {
+  const qKey = headwordKey(query);
+  if (!qKey) return [];
+  const qFold = foldDiacritics(qKey);
+  const englishWord = new RegExp('(^|[^\\p{L}])' + escapeRegExp(normalizeSearchText(query)), 'u');
+  const typed = qKey !== qFold;
+  const loose = typed ? 'similar-spelling' : 'headword';
+  const scored = [];
+  index.forEach((w, order) => {
+    const add = (rank, kind, tie) => scored.push({ w, rank, kind, tie: tie || 0, order });
+    const contains = w.key.includes(qKey);
+    if (w.key === qKey) add(0, 'exact');
+    else if (w.key.startsWith(qKey)) add(1, 'headword');
+    else if (typed && contains) add(2, 'headword');
+    else if (w.folded === qFold) add(3, loose);
+    else if (contains) add(4, 'headword');
+    else if (w.folded.startsWith(qFold)) add(5, loose);
+    else if (w.folded.includes(qFold)) add(6, loose);
+    else if (englishWord.test(w.english)) add(7, 'english', w.english.length);
+  });
+  scored.sort((a, b) => a.rank - b.rank || a.tie - b.tie || a.order - b.order);
+  return scored.slice(0, limit).map((s) => ({ w: s.w, kind: s.kind }));
+}
+
+// ---- EntryDetails.tsx ----
+function splitNumbered(text) {
+  const parts = text.split(/\s*(?:^|\s)\d+\.\s+/).filter(Boolean);
+  return parts.length > 1 ? parts : [text];
+}
+function senseView(s, number) {
+  const defs = s.def ? splitNumbered(s.def) : [];
+  return {
+    number: number || 0,
+    english: s.english,
+    pos: s.pos || [],
+    hasDef: defs.length > 0,
+    oneDef: defs.length === 1,
+    manyDefs: defs.length > 1,
+    def: defs[0] || '',
+    defs,
+    examples: (s.examples || []).map((x) => ({ vi: x.vi, en: x.en || '' })),
+  };
+}
+
+// ---- entries.ts: the Add Word form's input → personal senses ----
+const clean = (t) => String(t || '').normalize('NFC').replace(/\s+/g, ' ').trim();
+function sensesFromForm(f) {
+  const pos = clean(f.pos);
+  const exVi = clean(f.exVi);
+  const exEn = clean(f.exEn);
+  const primary = { english: clean(f.english), pos: pos ? [POS_LABELS[pos] || pos] : [], posRaw: pos, examples: exVi ? [{ vi: exVi, en: exEn }] : [] };
+  const seen = new Set([normalizeSearchText(primary.english)]);
+  const out = [primary];
+  for (const m of String(f.more || '').split('\n').map(clean).filter(Boolean)) {
+    const n = normalizeSearchText(m);
+    if (seen.has(n)) continue;
+    seen.add(n);
+    out.push({ english: m, pos: [], examples: [] });
+  }
+  return out;
+}
+function appendSenses(senses, extra) {
+  const out = senses.slice();
+  for (const s of extra) if (!out.some((o) => normalizeSearchText(o.english) === normalizeSearchText(s.english))) out.push(s);
+  return out;
+}
+const EMPTY_FORM = { headword: '', english: '', pos: '', more: '', exVi: '', exEn: '', notes: '' };
+const TITLES = { create: 'Add Word', edit: 'Edit Word', 'add-meaning': 'Add a Meaning' };
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    const start = String(props.startInVocab ?? 'anh, ăn, cảm ơn, chào').split(',').map(headwordKey).filter(Boolean);
+    this.state = {
+      query: '',
+      personal: {},
+      inVocab: start,
+      adding: '',
+      openKey: null,
+      form: null,
+      created: null,
+      confirming: false,
+      toast: '',
+      highlight: null,
+    };
+    this.index = null;
+    this.indexFor = null;
+    this.timers = [];
+    this.pendingScroll = null;
+  }
+
+  componentWillUnmount() { this.timers.forEach(clearTimeout); }
+
+  later(fn, ms) { this.timers.push(setTimeout(fn, ms)); }
+
+  getIndex() {
+    if (this.indexFor !== this.state.personal) {
+      this.index = buildIndex(this.state.personal);
+      this.indexFor = this.state.personal;
+    }
+    return this.index;
+  }
+
+  find(text) {
+    const key = headwordKey(text);
+    return key ? this.getIndex().find((w) => w.key === key) : undefined;
+  }
+
+  showToast(message) {
+    this.setState({ toast: message });
+    this.later(() => this.setState((s) => (s.toast === message ? { toast: '' } : null)), 2500);
+  }
+
+  addToVocab(w) {
+    if (!w || this.state.inVocab.includes(w.key) || this.state.adding) return;
+    this.setState({ adding: w.key });
+    this.later(() => {
+      this.setState((s) => ({ adding: '', inVocab: s.inVocab.concat(w.key) }));
+      this.showToast('“' + w.headword + '” added to your Vocabulary');
+    }, 400);
+  }
+
+  jumpTo(letter) {
+    const el = document.getElementById('letter-' + letter);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  componentDidUpdate() {
+    if (!this.pendingScroll || this.state.created) return;
+    const el = document.getElementById('word-' + this.pendingScroll);
+    this.pendingScroll = null;
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  openForm(mode, extra) {
+    this.setState({ form: { mode, ...EMPTY_FORM, errors: {}, formError: '', submitting: false, ...extra }, openKey: mode === 'create' ? null : this.state.openKey });
+  }
+
+  setField(name, value) {
+    this.setState((s) => (s.form ? { form: { ...s.form, [name]: value } } : null));
+  }
+
+  submitForm(e) {
+    if (e && e.preventDefault) e.preventDefault();
+    const f = this.state.form;
+    if (!f || f.submitting) return;
+    const errors = {};
+    if (!cleanHeadword(f.headword)) errors.headword = 'Enter the Vietnamese word or phrase.';
+    if (!clean(f.english)) errors.english = 'Enter its English meaning.';
+    if (Object.keys(errors).length) { this.setState({ form: { ...f, errors, formError: '' } }); return; }
+    if (f.mode === 'create' && this.find(f.headword)) { this.setState({ form: { ...f, errors: {}, formError: 'This word is already in your dictionary.' } }); return; }
+    this.setState({ form: { ...f, errors: {}, formError: '', submitting: true } });
+    this.later(() => {
+      const senses = sensesFromForm(f);
+      const key = headwordKey(f.headword);
+      this.setState((s) => {
+        const personal = { ...s.personal };
+        if (f.mode === 'create') {
+          personal[key] = { headword: cleanHeadword(f.headword), senses, notes: clean(f.notes) };
+          this.pendingScroll = key;
+          return { personal, form: null, query: '', created: key, highlight: key };
+        }
+        if (f.mode === 'edit') {
+          personal[key] = { ...personal[key], senses, notes: clean(f.notes) };
+          return { personal, form: null, openKey: key };
+        }
+        const prev = personal[key];
+        const display = (this.find(f.headword) || {}).headword || cleanHeadword(f.headword);
+        personal[key] = prev
+          ? { ...prev, senses: appendSenses(prev.senses, senses), notes: clean(f.notes) || prev.notes }
+          : { headword: display, senses, notes: clean(f.notes) };
+        return { personal, form: null, openKey: key };
+      });
+      if (f.mode === 'create') this.later(() => this.setState((s) => (s.highlight === key ? { highlight: null } : null)), 2500);
+      else if (f.mode === 'edit') this.showToast('Changes saved');
+      else this.showToast('Meaning added');
+    }, 400);
+  }
+
+  formVals() {
+    const f = this.state.form;
+    if (!f) return {};
+    const editable = f.mode === 'create';
+    const existing = editable ? this.find(f.headword) : undefined;
+    const w = !editable ? this.find(f.headword) : undefined;
+    return {
+      title: f.mode === 'edit' && w && w.shared ? 'Edit My Meanings' : TITLES[f.mode],
+      editable,
+      locked: !editable,
+      spellingHint: f.mode === 'edit' && !(w && w.shared),
+      headword: f.headword,
+      english: f.english,
+      pos: f.pos,
+      more: f.more,
+      exVi: f.exVi,
+      exEn: f.exEn,
+      notes: f.notes,
+      moreOpen: f.mode === 'edit',
+      headwordError: f.errors.headword || '',
+      englishError: f.errors.english || '',
+      formError: f.formError,
+      submitting: f.submitting,
+      submitLabel: f.mode === 'create' ? 'Add Word' : f.mode === 'edit' ? 'Save Changes' : 'Add Meaning',
+      existing: existing ? { headword: existing.headword } : null,
+      setHeadword: (e) => this.setField('headword', e.target.value),
+      setEnglish: (e) => this.setField('english', e.target.value),
+      setPos: (e) => this.setField('pos', e.target.value),
+      setMore: (e) => this.setField('more', e.target.value),
+      setExVi: (e) => this.setField('exVi', e.target.value),
+      setExEn: (e) => this.setField('exEn', e.target.value),
+      setNotes: (e) => this.setField('notes', e.target.value),
+      viewExisting: () => existing && this.setState({ form: null, openKey: existing.key }),
+      addToExisting: () => existing && this.setState((s) => ({ form: { ...s.form, mode: 'add-meaning', headword: existing.headword, formError: '' }, openKey: existing.key })),
+      submit: (e) => this.submitForm(e),
+    };
+  }
+
+  openVals(w) {
+    if (!w) return {};
+    const shared = w.shared ? w.shared.senses : [];
+    const mine = w.personal ? w.personal.senses : [];
+    const inVocab = this.state.inVocab.includes(w.key);
+    const custom = !w.shared;
+    return {
+      headword: w.headword,
+      level: w.shared ? w.shared.level || '' : '',
+      myWord: custom,
+      hasShared: shared.length > 0,
+      sharedSenses: shared.map((s, i) => senseView(s, shared.length > 1 ? i + 1 : 0)),
+      hasPersonal: mine.length > 0,
+      noPersonal: !w.personal,
+      mySenses: mine.map((s, i) => senseView(s, mine.length > 1 ? i + 1 : 0)),
+      myBoxed: !custom,
+      myBorder: custom ? '0' : '2px dashed var(--color-yellow-300)',
+      myPad: custom ? '0' : '16px',
+      notes: w.personal ? w.personal.notes || '' : '',
+      srsText: inVocab ? "You're studying this word in your Vocab SRS." : 'Want to remember this word? Add it to your spaced-repetition practice.',
+      inVocab,
+      notInVocab: !inVocab,
+      adding: this.state.adding === w.key,
+      add: () => this.addToVocab(w),
+      editLabel: custom ? 'Edit word' : 'Edit my meanings',
+      deleteLabel: custom ? 'Delete word' : 'Remove my meanings',
+      edit: () => {
+        const p = w.personal;
+        const first = p.senses[0] || { english: '', examples: [] };
+        const ex = (first.examples || [])[0] || {};
+        this.openForm('edit', {
+          headword: w.headword,
+          english: first.english,
+          pos: first.posRaw || '',
+          more: p.senses.slice(1).map((s) => s.english).join('\n'),
+          exVi: ex.vi || '',
+          exEn: ex.en || '',
+          notes: p.notes || '',
+        });
+      },
+      askDelete: () => this.setState({ confirming: true }),
+      addMeaning: () => this.openForm('add-meaning', { headword: w.headword }),
+    };
+  }
+
+  renderVals() {
+    const index = this.getIndex();
+    const q = this.state.query;
+    const searching = q.trim().length > 0;
+    const inVocab = this.state.inVocab;
+    const entryRow = (w, kind) => ({
+      isEntry: true,
+      isLetter: false,
+      id: 'word-' + w.key,
+      headword: w.headword,
+      brief: briefDefinition(w),
+      aria: w.headword + ': ' + briefDefinition(w),
+      mine: !w.shared,
+      similar: kind === 'similar-spelling',
+      tone: this.state.highlight === w.key ? 'jv-row-hl' : '',
+      inVocab: inVocab.includes(w.key),
+      notInVocab: !inVocab.includes(w.key),
+      adding: this.state.adding === w.key,
+      open: () => this.setState({ openKey: w.key }),
+      add: () => this.addToVocab(w),
+    });
+
+    let rows = [];
+    if (searching) {
+      rows = search(index, q, 500).map((r) => entryRow(r.w, r.kind));
+    } else {
+      let current = '';
+      for (const w of index) {
+        if (w.letter !== current) {
+          current = w.letter;
+          rows.push({ isLetter: true, isEntry: false, id: 'letter-' + w.letter, letter: w.letter });
+        }
+        rows.push(entryRow(w));
+      }
+    }
+    const available = new Set(index.map((w) => w.letter));
+    const personalCount = index.filter((w) => w.personal && !w.shared).length;
+    const total = Math.round(this.props.wordCount ?? 950) + personalCount;
+    const trimmed = q.trim();
+
+    const openWord = this.state.openKey ? index.find((w) => w.key === this.state.openKey) : null;
+    const createdWord = this.state.created ? index.find((w) => w.key === this.state.created) : null;
+    const confirmWord = this.state.confirming ? openWord : null;
+    const custom = confirmWord && !confirmWord.shared;
+
+    return {
+      query: q,
+      setQuery: (e) => this.setState({ query: e.target.value }),
+      countText: total.toLocaleString('en-US') + ' words' + (personalCount > 0 ? ' · ' + personalCount + ' added by you' : ''),
+      searching,
+      notSearching: !searching,
+      letters: ALPHABET.map((l) => ({ letter: l, disabled: !available.has(l), aria: 'Jump to ' + l.toUpperCase(), jump: () => this.jumpTo(l) })),
+      resultText: rows.length === 0 ? 'No words match “' + trimmed + '”.' : rows.length + (rows.length === 500 ? '+' : '') + ' result' + (rows.length === 1 ? '' : 's'),
+      noResults: searching && rows.length === 0,
+      addQueryLabel: '+ Add “' + trimmed + '”',
+      rows,
+      openCreate: () => this.openForm('create', {}),
+      openCreateFromQuery: () => this.openForm('create', { headword: trimmed }),
+
+      showDetail: !!openWord && !this.state.form,
+      open: this.openVals(openWord),
+      closeDetail: () => this.setState({ openKey: null, confirming: false }),
+
+      showConfirm: !!confirmWord && !this.state.form,
+      confirm: confirmWord ? {
+        title: custom ? 'Delete this word?' : 'Remove your meanings?',
+        description: custom
+          ? '"' + confirmWord.headword + '" will be removed from your dictionary.' + (inVocab.includes(confirmWord.key) ? ' Your vocab card for it — and its review history — will stay.' : '')
+          : 'Your own meanings and notes for "' + confirmWord.headword + '" will be removed. The dictionary\'s definition stays.',
+        label: custom ? 'Delete' : 'Remove',
+        yes: () => {
+          const key = confirmWord.key;
+          this.setState((s) => {
+            const personal = { ...s.personal };
+            delete personal[key];
+            return { personal, confirming: false, openKey: custom ? null : s.openKey };
+          });
+          this.showToast(custom ? 'Word deleted' : 'Your meanings were removed');
+        },
+        no: () => this.setState({ confirming: false }),
+      } : {},
+
+      showForm: !!this.state.form,
+      form: this.formVals(),
+      closeForm: () => this.setState({ form: null }),
+
+      showCreated: !!createdWord,
+      created: createdWord ? {
+        headword: createdWord.headword,
+        inVocab: inVocab.includes(createdWord.key),
+        notInVocab: !inVocab.includes(createdWord.key),
+        adding: this.state.adding === createdWord.key,
+        add: () => this.addToVocab(createdWord),
+      } : {},
+      closeCreated: () => this.setState({ created: null }),
+
+      toast: this.state.toast,
+    };
+  }
+}
+</script>
+</body>
+</html>
