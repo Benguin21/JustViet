@@ -50,3 +50,15 @@
   the converter's ds-bundle/ .d.ts, so run the converter first. tokens.json, README.md, component READMEs and the
   cover were hand-written into the Artifact; re-sync by reading them back from the Artifact and editing in place.
 - bundle.css wraps the app's unlayered `:root` token block in `@layer base` so the Artifact's tokens.css wins.
+
+## 2026-11-07 re-sync
+- The 15 synced components were unchanged since 2026-10-15 (bundle.js, index.d.ts and every preview rebuilt
+  byte-identical); only `bundle.css` was republished to the Artifact.
+- layout.tsx now loads Nunito 900 and the Vietnamese subset: the Google Fonts import in `artifact-build.mjs` now
+  asks for 900 too (Google's css2 endpoint serves the Vietnamese subset on its own).
+- Tailwind scans the whole of `src/components`, so classes come and go with app code: gap-8 and lg:grid-cols-3
+  disappeared once the old dashboard was replaced. `tailwind.css` now safelists grid-cols-1..6 and a gap scale
+  (with sm/md/lg) because conventions.md promises those work.
+- Validator in the cloud container: don't install playwright@1.56 into `.ds-sync`; symlink the preinstalled global
+  `playwright` into `.ds-sync/node_modules/` instead (the container ships chromium-1243, not 1194).
+- Not synced: the Rồng Con homepage (`src/components/companion/`), which is pure props but a whole page.

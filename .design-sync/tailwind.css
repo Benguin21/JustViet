@@ -18,3 +18,10 @@
 @source inline("{bg,text,border,ring}-red-{50,100,200,300,400,500,600,700}");
 @source inline("{bg,text,border,ring}-ink-{300,500,700,900}");
 @source inline("font-{heading,body}");
+
+/* Safelist a common layout scale too: the conventions header tells the design
+   agent gap-* / grid-cols-* just work, so they can't depend on whatever the
+   app's pages happen to use this week (gap-8 and lg:grid-cols-3 vanished once
+   the old dashboard grid was replaced). */
+@source inline("{,sm:,md:,lg:}grid-cols-{1,2,3,4,5,6}");
+@source inline("{,sm:,md:,lg:}gap-{0,1,2,3,4,5,6,8,10,12}");
