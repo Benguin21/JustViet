@@ -116,6 +116,18 @@ describe("activity XP", () => {
     expect(((await read(`users/${UID}/days/${today()}`))?.done as { grammar: number }).grammar).toBe(2);
   });
 
+  it("lists the Grammar lessons finished (new ones only, not reviews or other XP), for the Grammar map", async () => {
+    await xp.completeGrammarLesson(UID, "lesson-1");
+    await xp.completeGrammarLesson(UID, "lesson-2");
+    await xp.completeSkill(UID, "skills.reading", "r1");
+    await seed(`users/${UID}/xpEvents/grammar-review_2000-1-1_lesson-3`, {
+      uid: UID, kind: "grammar.review", amount: 10, day: "2000-1-1", source: "lesson-3", lesson: "lesson-3",
+    });
+    expect([...(await xp.fetchCompletedGrammarLessons(UID))].sort()).toEqual(["lesson-1", "lesson-2"]);
+    holder.db = env.authenticatedContext("bob").firestore();
+    await assertFails(xp.fetchCompletedGrammarLessons(UID));
+  });
+
   it("pays Reading and Listening 30 each, once per activity a day", async () => {
     await xp.completeSkill(UID, "skills.reading", "r1");
     await xp.completeSkill(UID, "skills.reading", "r1");

@@ -23,6 +23,9 @@ Firestore).
   the Google Fonts on this network (its downloader doesn't share Node's
   network settings); `npx next build --webpack` builds the same app and
   downloads fonts through Node.
+- `npm run grammar:import` — rebuilds the grammar curriculum
+  (`src/lib/grammar/curriculum.json`) from
+  `data/grammar/just-viet-grammar.xlsx` (see Grammar tab).
 - `npm run deploy` — publishes the site to Firebase Hosting (project
   `just-viet`, live at https://learnjustviet.com and
   https://just-viet.web.app). It runs `next build --webpack` (the app is a
@@ -101,9 +104,9 @@ landing page, not a redirect.)
   `src/components/auth/*Form.tsx`.
 - `src/app/(app)/` — route group for everything behind `RequireAuth`:
   `home/` (Rồng Con's homepage), `goals/` (the Goals tab), `vocab-srs/` and
-  `dictionary/`, `community/` (all below), plus a stub page per remaining
-  nav section (`grammar/`, `skills/`), each just rendering `<ComingSoon />`
-  with its own copy. Flesh these out in place as features land.
+  `dictionary/`, `grammar/`, `community/` (all below), plus a stub page for
+  `skills/`, rendering `<ComingSoon />` with its own copy. Flesh it out in
+  place when it lands.
 - `src/app/(app)/layout.tsx` renders `AppHeader` (logo + user greeting +
   logout) and wraps children in `RequireAuth`.
 
@@ -643,7 +646,81 @@ can pin `teacher` if a course is ever reordered. Lesson content never
 names its teacher; the Grammar/Skills lesson screens, when built, should
 call `teacherForLesson` once per lesson and keep that teacher through every
 explanation, exercise and piece of feedback. `guides.ts` re-exports
-`TEACHERS` for the homepage intro.
+`TEACHERS` for the homepage intro. Every Grammar lesson has its teacher
+pinned by the curriculum import (below), so pass the lesson's `teacher`.
+
+## Grammar tab
+
+`/grammar` (`GrammarScreen`): a winding path of every grammar lesson, from
+Beginner I at the bottom to Master at the top, over scenery that climbs with
+the levels: a lotus lake (Beginner I–II), flooded paddies (Beginner III),
+fields and plains (Intermediate I–II), terraced rice fields (Intermediate
+III, Advanced I), mountains (Advanced II), a stone staircase (Advanced III)
+and the chùa (Master). Each lesson is a circle matching its scene (lily pad,
+stone, paddy, rock, step, lacquered tile) with a lotus on it: a closed bud,
+or in bloom once finished. The learner's avatar stands on their lesson.
+Tapping a lesson opens its card (`LessonCard`): the title and two buttons,
+the interactive lesson with its teacher and the quick grammar guide. The ☰
+button opens `GrammarDirectory`: every lesson by level, with an
+accent-insensitive search. Everything is open from the start; nothing is
+locked.
+
+**The curriculum.** The source of truth is the spreadsheet
+`data/grammar/just-viet-grammar.xlsx` (columns: App Title, Difficulty, ID,
+optional Teacher; the cell notes are the author's and aren't imported).
+`npm run grammar:import` (`scripts/import-grammar.mts`, rules in
+`src/lib/grammar/curriculum-import.ts`) turns it into
+`src/lib/grammar/curriculum.json`, which the app bundles; never edit the JSON
+by hand. To change the course, edit the spreadsheet, re-run the import and
+commit both. Row order within a level is the path order.
+- **IDs never change.** A lesson's ID (`ids.ts`: lowercase, digits, hyphens)
+  is what progress, its teacher and its content are filed under, so it stays
+  the same when the lesson is renamed, moved or has lessons inserted around
+  it. A new row needs a new ID; the import refuses a missing (and suggests
+  one), malformed or repeated ID and then writes nothing. Never reuse an ID.
+- **Teachers stay put.** The import keeps each lesson's teacher from the
+  previous `curriculum.json`; a new lesson takes the opposite of the lesson
+  before it, so inserting one never swaps the teachers around it. A Teacher
+  column pins one.
+
+**Progress** is the XP ledger: a lesson is finished once its
+`grammar-new_{id}` event exists (`completeGrammarLesson`), read with
+`fetchCompletedGrammarLessons` (a single-field query on `kind`) by
+`useGrammarProgress`, so no new data or rules. The avatar stands after the
+furthest finished lesson (`progress.ts#avatarIndex`), not the first
+unfinished one, so a lesson inserted behind the learner shows as a bud
+without pulling them back. The map opens scrolled to it; when the learner has
+moved on (up to 6 lessons) since their last visit, the avatar glides there
+(the last spot is in localStorage, `jv.grammar.spot.<uid>`).
+
+**Content (not built yet).** `src/lib/grammar/content.ts` lists which
+lessons have their interactive lesson and/or guide built; until then the
+card shows that button greyed out with "Coming soon". The planned routes are
+`/grammar/lesson?id=` and `/grammar/guide?id=` (`GRAMMAR_ROUTES`; query
+parameters because of the static export). A guide ends with a "Đi lớp"
+button to its lesson. Once a lesson's guide exists, picking it in the
+directory opens the guide instead of the card. A finished interactive lesson
+must call `completeGrammarLesson(uid, lessonId)`.
+
+**Files.** Pure and tested (`grammar.test.ts`): `levels.ts` (the 10 levels
+and their scenes), `curriculum.ts`, `search.ts`, `progress.ts`,
+`map-layout.ts` (the path's geometry: a fixed 340px column so it works at
+any width, one full S-swing per 8 lessons, narrowing to the centre in
+Master; stone steps from Advanced III up), `scenery.ts` (each level's
+colours, which drawings it scatters, seeded so the map never changes).
+`src/components/grammar/`: `GrammarMap` (the map), `LessonNode` and `Lotus`
+(the circles and markers), `SceneryArt` (the drawings as SVG symbols, each
+scene's tiled texture, the chùa), `grammar-map.css` (animations).
+
+**Avatar.** `src/lib/avatar/characters.ts#avatarFor(xp)` is the learner's
+character and current form; anything outside Home that shows the learner
+uses it. Today that's always Rồng Con, whose form follows the XP level
+(`evolutionFor`: the egg, then hatched at Level 5, a new form every 10
+levels). `AvatarFigure` draws it: a still copy of Home's egg and dragon
+(`HomeView.tsx`), so a change to Home's art should be copied there. More
+characters (each with its own forms) are planned: add them to `CHARACTERS`,
+draw them in `AvatarFigure`, and save the learner's choice with their
+profile.
 
 ## Community
 

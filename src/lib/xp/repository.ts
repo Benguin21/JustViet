@@ -102,6 +102,21 @@ export async function fetchDayEvents(uid: string, day: string): Promise<XpEvent[
 }
 
 /**
+ * Every Grammar lesson the learner has finished: the lessons with a `grammar.new` event (filed
+ * once, the first time a lesson is finished). A single-field query, so it needs no composite
+ * index. The Grammar map shows these as bloomed lotuses.
+ */
+export async function fetchCompletedGrammarLessons(uid: string): Promise<Set<string>> {
+  const snap = await getDocs(query(eventsCol(uid), where("kind", "==", "grammar.new")));
+  return new Set(
+    snap.docs.map((d) => {
+      const e = d.data() as Partial<XpEvent>;
+      return e.lesson ?? e.source ?? d.id.replace(/^grammar-new_/, "");
+    }),
+  );
+}
+
+/**
  * Home's bookkeeping on the day record (the dish each goal was fed, the lines already said).
  * Merged, and it never touches the XP fields.
  */
