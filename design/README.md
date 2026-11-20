@@ -1,7 +1,7 @@
 # JustViet design backup
 
 A copy of the JustViet design work that lives in Claude artifacts, kept in the
-repo in case those links ever stop working. Snapshot taken 2026-11-17 (canvas refreshed after the Goals and Dictionary boards were added).
+repo in case those links ever stop working. Snapshot taken 2026-11-17 (canvas refreshed after the Goals and Dictionary boards were added); the Goals board was refreshed on 2026-11-20 (canvas version `1795163900-e4b3`) for the five-block goal selectors.
 
 | Folder | Source artifact | What it is |
 | --- | --- | --- |
@@ -21,7 +21,7 @@ copied here.
 - `HomeDraft.dc.html` — the Rồng Con homepage design (1280×1320). This is the
   source `scripts/home-board-to-app.py` turns into `src/components/companion/`.
 - `HomePhone.dc.html` — the same homepage embedded at phone width (390×2100).
-- `Goals.dc.html` — the Goals tab: a card per goal with its switch, slider and tier (1280×1320).
+- `Goals.dc.html` — the Goals tab: a compact card per goal with its bonus badge and a 0-plus-five-blocks target selector (1280×1320). Its Tweaks set a Vocab goal already underway today and a Vocab target saved under the old slider.
 - `Dictionary.dc.html` — the Dictionary tab: A–Y browse, search and Add to Vocabulary (1280×1320).
 - `ds/justviet/` — the copy of the design system the canvas was built with.
 
