@@ -51,6 +51,16 @@ Firestore).
   finishes deleting accounts whose sign-in account is gone (run it at least
   monthly; see "Deleting an account").
 
+## CI and hosting
+
+`.github/workflows/ci.yml` runs on every pull request and every push to
+`main`: one check runs lint, unit tests and `next build`; a second runs
+`npm run test:rules`. Neither needs secrets (the build works with Firebase
+unconfigured). Keep both green before merging. Hosting is Vercel's GitHub
+integration (no config file in the repo): each PR gets a preview URL and
+`main` deploys to production. The `NEXT_PUBLIC_FIREBASE_*` values live in
+the Vercel project's Environment Variables, not in the repo.
+
 ## Environment / Firebase setup
 
 Auth is Firebase Auth; app data (vocab cards, review logs, SRS settings) is
