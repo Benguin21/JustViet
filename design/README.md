@@ -1,7 +1,7 @@
 # JustViet design backup
 
 A copy of the JustViet design work that lives in Claude artifacts, kept in the
-repo in case those links ever stop working. Snapshot taken 2026-11-17 (canvas refreshed after the Goals and Dictionary boards were added); the Goals board was refreshed on 2026-11-20 (canvas version `1795163489-1526`) for the five-block goal selectors.
+repo in case those links ever stop working. Snapshot taken 2026-11-17 (canvas refreshed after the Goals and Dictionary boards were added); the Goals board was refreshed on 2026-11-20 (canvas version `1795163900-e4b3`) for the five-block goal selectors.
 
 | Folder | Source artifact | What it is |
 | --- | --- | --- |
