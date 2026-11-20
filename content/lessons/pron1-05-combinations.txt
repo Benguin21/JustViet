@@ -1,0 +1,61 @@
+---
+id: pron1-05-combinations
+title: Letter combinations
+kind: pronunciation
+dialogue: en
+cast: tuoi, vinh
+status: draft
+---
+
+BOARD e1: cha | father
+TUOI explain: We’ve already practiced [gh], [ph], [qu] and [th]. Our next pair is [ch] and [tr].
+
+TUOI explain: For [ch], raise the front of your tongue toward the roof of your mouth, then make a brief stop and release. English ch is close.
+
+BOARD e2: tra | to look up, investigate
+  RECORD south: tongue farther back than for ch
+  RECORD north: the same as ch
+POINT e2: south
+TUOI: For the Southern [tr] I’m modeling, move your tongue a little farther back. Try my button on [tra].
+
+CLEAR
+WORDS e3: cha, tra
+VINH explain: In my Hà Nội accent, [ch] and [tr] usually sound alike. Compare our recordings of the pair.
+
+TUOI: Again, speakers vary. A difference in pronunciation doesn’t change how we spell the word.
+
+CLEAR
+BOARD e4: giày | shoe
+  RECORD south: y-like beginning
+  RECORD north: z-like beginning
+TUOI explain: Next is [gi]. It has the same beginning sound as [d] in our accents: y-like in mine, z-like in Thầy Vinh’s. Try both buttons.
+
+TUOI: Don’t pronounce [gi] as an English g followed by an i. Listen to the combination as one unit.
+
+BOARD e5: không | no, not
+TUOI explain: Now [kh]. Make a narrow gap toward the back of your mouth and let air flow through it, with your voice switched off.
+
+TUOI: If you know the ch in German “Bach” or Scottish “loch,” that’s a useful comparison. [kh] isn’t just k followed by h.
+
+BOARD e6: nhà | house, home
+TUOI explain: Next is [nh]. Raise the middle of your tongue toward the roof of your mouth and let the sound pass through your nose.
+
+TUOI: The ny in English “canyon” can help you start, but aim for one smooth consonant sound.
+
+CLEAR
+WORDS e7:
+  ngủ | to sleep
+  nghe | to listen
+TUOI explain: Finally, [ng] and [ngh]. They’re the same sound: the ng at the end of English “sing.” Vietnamese can start a syllable with it, too.
+
+TUOI: Start directly with that sound instead of adding “uh” first. Replay both accents to practice.
+
+WORDS e8:
+  nghe | to listen
+  nghề | occupation
+  nghĩ | to think
+TUOI explain: Use [ngh] before [e], [ê] and [i]. In other common positions, you’ll see [ng].
+
+TUOI ask: Do [ng] and [ngh] stand for two different consonant sounds?
+  WRONG: Yes, say an extra h in [ngh]. | Replay [ngủ] and [nghe]. The beginning consonant is the same.
+  RIGHT: No, they stand for the same sound. | Exactly! The spelling changes, but we don’t add an h sound.

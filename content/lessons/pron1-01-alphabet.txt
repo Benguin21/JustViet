@@ -1,0 +1,70 @@
+---
+id: pron1-01-alphabet
+title: Hello and the alphabet
+kind: pronunciation
+dialogue: en
+cast: tuoi, vinh
+status: draft
+---
+
+# Two-teacher lesson: Cô Tươi records the Southern audio, Thầy Vinh the Northern.
+
+BOARD greet: Chào các em! | Hello, students!
+TUOI welcome: Hello, everyone! I’m Cô Tươi. Let’s start with our classroom greeting.
+
+TUOI: Today, we’re exploring the whole Vietnamese alphabet, every vowel and every consonant!
+
+TUOI explain: I speak Southern Vietnamese, and Thầy Vinh speaks Northern Vietnamese. Each board has a play button for each of us.
+
+TUOI: Tap either button to hear exactly what’s written, then try saying it yourself.
+
+# NEW: "Hi, I’m Thầy Vinh." added so he introduces himself.
+VINH welcome: Hi, I’m Thầy Vinh. Try both buttons on this greeting.
+
+VINH: Our recordings represent two regional accents. Other Vietnamese speakers may sound a little different from either of us, and that’s normal.
+
+TUOI encourage: You can choose one voice to imitate while learning to understand both. You don’t need to remember everything yet. Today is your first introduction!
+
+# REVIEW: the draft called Hà Nội speech "often called the official pronunciation".
+# Softened, because no law makes one accent official. Please check the wording.
+VINH explain: Northern speech, especially from Hà Nội, is widely treated as the standard reference, for example in many textbooks.
+
+VINH: But both Northern and Southern varieties are widely spoken. You can learn either one. Neither is the only valid way to speak Vietnamese.
+
+BOARD qn: chữ Quốc ngữ | the Vietnamese writing system
+TUOI explain: Vietnamese uses a Latin-based writing system called [chữ Quốc ngữ]. Listen to its name and practice it.
+
+CLEAR
+LETTERS abc: a ă â b c d đ e ê g h i k l m n o ô ơ p q r s t u ư v x y
+  RECORD: each letter’s name, in alphabet order
+# DECIDE: which letter names to record (a, á, ớ, bê, xê… or the school names bờ, cờ…).
+# Both voices must use the same system.
+TUOI explain: The alphabet has twenty-nine letters. Play the board to hear their names in order. Later, we’ll practice the sounds they make in words.
+
+TUOI: You won’t see f, j, w or z in the standard Vietnamese alphabet, though they can appear in foreign names and borrowed words.
+
+MARK abc: a, ă, â, e, ê, i, o, ô, ơ, u, ư, y
+TUOI explain: The twelve highlighted letters are vowels. The other seventeen are consonants.
+
+TUOI: We’ll group similar letters together, so you can hear and feel the differences.
+
+MARK abc: ă, â, ê, ô, ơ, ư
+TUOI explain: Notice the little shapes on [ă], [â], [ê], [ô], [ơ] and [ư]. Those shapes are part of the letters. They aren’t tone marks!
+
+MARK abc: a, ă, â
+TUOI: For example, [a], [ă] and [â] are three different vowel letters.
+
+CLEAR
+WORDS tone:
+  ê | the vowel ê
+  ế | ê with a rising tone
+TUOI explain: A vowel can also carry a tone mark. Look at [ê] and [ế]. The little roof belongs to the vowel. The slanted mark adds a rising tone.
+
+TUOI: Play either voice to hear the vowel without the tone mark, then with it.
+
+# NEW: quick check, so the lesson has a question.
+TUOI ask: In [ế], which mark is the tone mark?
+  WRONG: The roof (ˆ) | The roof is part of the letter [ê]. The tone mark sits on top of it.
+  RIGHT: The slanted mark (´) | Yes! The slanted mark adds the rising tone. The roof stays part of [ê].
+
+TUOI encourage: We’ll explore tones in Part 3. For now, copy the whole word you hear, including its tone.

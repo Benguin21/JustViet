@@ -1,0 +1,16 @@
+# The order of every lesson. "##" starts a unit; each other line is a lesson id.
+# Reorder or move lessons here only. A lesson's id never changes.
+
+## Pronunciation 1 · Letters and sounds
+pron1-01-alphabet
+pron1-02-vowels
+pron1-03-consonants
+pron1-04-more-consonants
+pron1-05-combinations
+pron1-06-review
+
+## Pronunciation 2 · Endings and vowel combinations
+# Thầy Vinh leads. Not written yet.
+
+## Pronunciation 3 · Tones
+# Not written yet. Learners choose their accent and teacher when it ends.

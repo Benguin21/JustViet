@@ -1,0 +1,96 @@
+---
+id: pron1-03-consonants
+title: Consonants b to g
+kind: pronunciation
+dialogue: en
+cast: tuoi, vinh
+status: draft
+---
+
+BOARD c1: ba | three
+TUOI explain: Let’s move on to consonants, starting with [b], [m], [n], [l] and [h].
+
+TUOI explain: For [b], bring your lips together, then release them with your voice. It’s close to English b, but may feel softer or more inward.
+
+BOARD c2: mẹ | mother
+TUOI explain: For [m], keep your lips together and let the sound hum through your nose.
+
+BOARD c3: no | full (after eating)
+TUOI explain: For [n], touch your tongue near the ridge behind your upper front teeth and let the sound pass through your nose.
+
+BOARD c4: lá | leaf
+TUOI explain: For [l], touch your tongue to that same area, but let the air pass around the sides.
+
+BOARD c5: hoa | flower
+TUOI explain: For [h], breathe out gently. Don’t turn it into a hard sound at the back of your mouth.
+
+CLEAR
+WORDS c6: ba, mẹ, no, lá, hoa
+TUOI: Let’s practice those five beginning sounds together. Play either recording and repeat each word.
+
+# NEW: quick check.
+TUOI ask: Which letter hums through your nose with your lips closed?
+  RIGHT: [m] | Yes! Lips together, and the sound hums through your nose.
+  WRONG: [l] | For [l], your lips stay open and air passes around your tongue. Replay [mẹ].
+
+CLEAR
+BOARD c7: đa | banyan tree
+TUOI explain: Now compare [d] and [đ]. That little crossbar makes a big difference! [đ] sounds roughly like English d.
+
+TUOI: Touch your tongue near your upper teeth and release it with your voice.
+
+BOARD c8: da | skin
+  RECORD south: y-like beginning
+  RECORD north: z-like beginning
+POINT c8: south
+TUOI explain: Plain [d] sounds like English y in my Southern accent. Play my button on [da].
+
+POINT c8: north
+VINH explain: Now try my Northern button on the same word. In my accent, plain [d] sounds like English z.
+
+CLEAR
+WORDS c9: da, đa
+TUOI: Compare [da] and [đa] with both buttons. Plain [d] changes between our accents, while [đ] keeps its d-like beginning.
+
+BOARD c10: đi | to go
+# REVIEW: the board shows đi, so learners can answer by sight. A listening
+# question (which word starts z-like in Thầy Vinh's accent?) would test the ear.
+TUOI ask: Play [đi]. Which letter makes its d-like beginning?
+  WRONG: [d] | Plain [d] sounds y-like in my accent and z-like in Thầy Vinh’s. Replay [đi] and look for the crossbar.
+  RIGHT: [đ] | Exactly! [đi] starts with the crossed letter, [đ].
+
+CLEAR
+BOARD c11: cá | fish
+TUOI explain: Next are [c], [k] and [q]. They’re all connected to a k-like sound, but spelling uses them in different places.
+
+TUOI: [c] is hard, like the k in English “skip.” It never becomes an s sound, as c sometimes does in English.
+
+BOARD c12: kem | ice cream
+TUOI explain: [k] stands for the same basic sound. You’ll usually see it before [e], [ê] and [i].
+
+BOARD c13: qua | to pass, go through
+  RECORD north: k-like start, then lip rounding (“kw”)
+  RECORD south: w-like start
+TUOI: [q] normally appears with [u], forming [qu]. Compare both buttons on [qua].
+
+POINT c13: north
+VINH explain: In my Northern recording, you can hear a k-like beginning followed by lip rounding, roughly “kw.”
+
+POINT c13: south
+TUOI explain: In my Southern recording, [qu] sounds more like English w. The spelling is still [qu].
+
+# NEW: quick check.
+TUOI ask: Which letter do you usually see before [e], [ê] and [i]?
+  WRONG: [c] | [c] and [k] stand for the same sound, but [k] is the one used before [e], [ê] and [i], as in [kem].
+  RIGHT: [k] | Right! Like [kem].
+
+CLEAR
+BOARD c14: gà | chicken
+TUOI explain: Now [g]. It’s made toward the back of your mouth, with your voice switched on.
+
+TUOI: English g is a starting point, but Vietnamese [g] often lets air flow through a narrow gap instead of stopping completely.
+
+WORDS c15:
+  gà | chicken
+  ghế | chair
+TUOI explain: You’ll also see [gh] before [e], [ê] and [i]. It’s the same sound. Don’t pronounce the h separately.

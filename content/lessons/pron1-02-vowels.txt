@@ -1,0 +1,99 @@
+---
+id: pron1-02-vowels
+title: The twelve vowels
+kind: pronunciation
+dialogue: en
+cast: tuoi, vinh
+status: draft
+---
+
+BOARD v1: ba | three
+TUOI explain: Let’s begin with [a], [ă] and [â]. For [a], open your mouth comfortably wide.
+
+TUOI: It’s roughly like the vowel in English “father,” although English accents vary. Play [ba].
+
+BOARD v2: ăn | to eat
+TUOI explain: [ă] is also an open vowel, but it’s shorter. You’ll hear it with a consonant after it, as in [ăn].
+
+BOARD v3: ân | kindness, favor
+TUOI explain: For [â], bring your tongue a little higher and make a short, central vowel. A short “uh” is a rough starting point.
+
+CLEAR
+WORDS v4:
+  an | safe, peaceful
+  ăn | to eat
+  ân | kindness, favor
+TUOI: Now compare all three. Listen for the longer open vowel, the shorter open vowel, and the short central vowel.
+
+POINT v4: north
+VINH: Try my Northern button, then Cô Tươi’s Southern button. The exact vowels may differ a little between our accents.
+
+VINH encourage: Use your chosen voice as your model when you repeat.
+
+TUOI ask: Are [a], [ă] and [â] just the same vowel with different tones?
+  WRONG: Yes, only the tone changes. | These are three separate vowel letters, not tone marks. Replay the board and compare the vowels.
+  RIGHT: No, they are different vowel letters. | Exactly! The letter changes the vowel. A tone mark does a different job.
+
+CLEAR
+BOARD v5: me | tamarind
+TUOI explain: Next are [e] and [ê]. For [e], open your mouth a little wider. It’s roughly like the vowel in English “bed.”
+
+BOARD v6: mê | to be fascinated by
+TUOI explain: For [ê], close your mouth a little more and raise your tongue. It’s somewhat like the start of English “say.”
+
+TUOI: Hold the vowel steady. Don’t slide into an extra “ee.”
+
+WORDS v7: me, mê
+TUOI: Play the pair and notice how your mouth closes a little for [ê]. Compare both of our recordings.
+
+CLEAR
+WORDS v8:
+  đi | to go
+  y tá | nurse
+TUOI explain: Now [i] and [y]. When either one is the whole vowel, both can sound like “ee.” Listen to the vowel in each word.
+
+WORDS v9:
+  i ngắn | “short i”
+  y dài | “long y”
+TUOI: You may hear [i] called [i ngắn] and [y] called [y dài]. Those names tell the two letters apart.
+
+TUOI: They don’t mean you should stretch [y] longer than [i]. Play the names to practice them.
+
+TUOI explain: Don’t swap [i] and [y] freely, though. Their roles in vowel combinations differ, and words have established spellings.
+
+CLEAR
+BOARD v10: to | big
+TUOI explain: Our next family is [o], [ô] and [ơ]. For [o], round your lips and keep your mouth fairly open.
+
+TUOI: Think of an open “aw”-like sound, then use the recording as your guide.
+
+BOARD v11: tô | bowl
+TUOI explain: For [ô], keep your lips rounded, but close your mouth a little more. It’s roughly like “oh,” without the English glide at the end.
+
+BOARD v12: tơ | silk thread
+TUOI explain: For [ơ], relax your lips so they aren’t rounded. Think of an “uh”-like vowel, then copy the recording.
+
+CLEAR
+WORDS v13: to, tô, tơ
+TUOI: Compare the three. The first two use rounded lips; the third doesn’t. Try both buttons, then repeat with your chosen voice.
+
+WORDS v14:
+  cân | to weigh
+  cơn | a bout, a spell
+TUOI explain: Remember [â], our short central vowel? [ơ] is related in sound but usually longer. Compare [cân] and [cơn].
+
+CLEAR
+BOARD v15: thu | autumn
+TUOI explain: Our final pair is [u] and [ư]. For [u], round your lips as if you’re saying “oo.”
+
+BOARD v16: thư | letter, mail
+TUOI explain: For [ư], keep your tongue high and toward the back, but relax your lips. It’s a new mouth position for many English speakers.
+
+WORDS v17: thu, thư
+TUOI: Play the pair. Notice the rounded lips for [u] and the unrounded lips for [ư].
+
+TUOI ask: Which vowel do we make with unrounded lips?
+  WRONG: [u] | Replay the pair. Make [u] first, then relax your lips without moving your tongue much. That brings you toward [ư].
+  RIGHT: [ư] | Yes! [u] uses rounded lips. For [ư], relax that rounding.
+
+TUOI encourage: You’ve met all twelve vowel letters! Twelve letters doesn’t mean twelve different sounds. Remember [i] and [y]?
