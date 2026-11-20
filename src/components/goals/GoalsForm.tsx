@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
-import { TIER_BONUS, type GoalId, type GoalSettings, type PerGoal } from "@/lib/companion/goals";
+import type { GoalId, GoalSettings, PerGoal } from "@/lib/companion/goals";
 import { GOALS_TAB_ORDER, describeSave, formFromSaved, snapNote } from "@/lib/companion/goalSelectors";
 import { GoalCard } from "./GoalCard";
 
@@ -56,16 +56,11 @@ export function GoalsForm({ saved, locked, onSave }: GoalsFormProps) {
   };
 
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-col gap-5 px-4 py-8 sm:px-6">
+    <main className="mx-auto flex w-full max-w-2xl flex-col gap-2.5 px-4 py-3 sm:gap-3 sm:px-6 sm:py-5">
       <header>
-        <h1 className="font-heading text-3xl font-extrabold text-ink-900">Daily goals</h1>
-        <p className="mt-1 font-semibold text-ink-500">
-          Choose how much to do each day. Reach a goal, then feed Rồng Con on Home for its bonus XP.
-        </p>
-        <p className="mt-3 rounded-2xl bg-red-50 px-4 py-3 text-sm font-semibold text-ink-700">
-          A goal’s bonus comes from the target you pick: Small +{TIER_BONUS.Small}, Medium +{TIER_BONUS.Medium}, Big +
-          {TIER_BONUS.Big} XP. Doing more than your target still earns XP for each lesson, card or activity, but not a
-          bigger bonus.
+        <h1 className="font-heading text-2xl leading-8 font-extrabold text-ink-900 sm:text-3xl sm:leading-9">Daily goals</h1>
+        <p className="text-sm leading-5 font-semibold text-ink-500 sm:text-base sm:leading-6">
+          Reach a goal, then feed Rồng Con for bonus XP.
         </p>
       </header>
 
@@ -82,8 +77,8 @@ export function GoalsForm({ saved, locked, onSave }: GoalsFormProps) {
         />
       ))}
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <Button onClick={save} loading={saving} disabled={!dirty} fullWidth={false} className="w-full sm:w-auto">
+      <div className="flex items-center gap-3">
+        <Button onClick={save} loading={saving} disabled={!dirty} fullWidth={false} className="shrink-0">
           Save goals
         </Button>
         <p className="text-sm font-semibold text-ink-500" aria-live="polite">
@@ -96,7 +91,7 @@ export function GoalsForm({ saved, locked, onSave }: GoalsFormProps) {
         </p>
       )}
       {result && result.lines.length > 0 && (
-        <ul role="status" className="flex flex-col gap-1 rounded-2xl bg-surface p-4 text-sm font-semibold text-ink-700 ring-1 ring-ink-300/30">
+        <ul role="status" className="flex flex-col gap-1 rounded-2xl bg-surface p-3 text-sm font-semibold text-ink-700 ring-1 ring-ink-300/30">
           {result.lines.map((l) => (
             <li key={l}>{l}</li>
           ))}

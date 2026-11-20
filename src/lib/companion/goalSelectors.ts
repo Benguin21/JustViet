@@ -29,19 +29,19 @@ export interface GoalCopy {
   /** What one unit of the target is, singular and plural. */
   one: string;
   many: string;
-  /** What counts toward the goal. */
+  /** What counts toward the goal: short, so the card's target line fits one line on a phone. */
   hint: string;
 }
 
 export const GOAL_COPY: PerGoal<GoalCopy> = {
-  grammar: { title: "Grammar", one: "lesson", many: "lessons", hint: "New lessons and reviews both count." },
+  grammar: { title: "Grammar", one: "lesson", many: "lessons", hint: "Lessons and reviews count." },
   vocab: {
     title: "Vocab",
     one: "new flashcard",
     many: "new flashcards",
-    hint: "Counts cards you study for the first time.",
+    hint: "First-time study only.",
   },
-  skills: { title: "Skills", one: "activity", many: "activities", hint: "Reading and Listening both count." },
+  skills: { title: "Skills", one: "activity", many: "activities", hint: "Reading and Listening count." },
 };
 
 /**
@@ -99,9 +99,9 @@ export function choiceLabel(id: GoalId, target: number): string {
   return `${targetText(id, target)}, ${tier.name} goal, ${tier.bonus} bonus XP`;
 }
 
-/** What a screen reader announces for the selector's Off option. */
+/** What a screen reader announces for the selector's 0 option, which switches the goal off. */
 export function offLabel(id: GoalId): string {
-  return `${GOAL_COPY[id].title} goal off`;
+  return `${targetText(id, 0)}, goal off`;
 }
 
 /** The pale cream of an empty block. */
@@ -161,6 +161,11 @@ export function rampColor(id: GoalId, value: number): string {
     return hex([x[0] + (y[0] - x[0]) * t, x[1] + (y[1] - x[1]) * t, x[2] + (y[2] - x[2]) * t]);
   }
   return ramp[ramp.length - 1][1];
+}
+
+/** The number inside a block: dark on the pale fills, white on the deep reds, for contrast. */
+export function blockTextColor(fill: string): string {
+  return luminance(fill) > 0.25 ? "#4a2f22" : "#ffffff"; // --color-ink-900 or white
 }
 
 /** Relative luminance (WCAG), for checking that the blocks darken. */

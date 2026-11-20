@@ -1,7 +1,7 @@
 "use client";
 
 import { goalTier, type GoalId, type TierName } from "@/lib/companion/goals";
-import { GOAL_COPY, OFF_TEXT, lockNote, tierText } from "@/lib/companion/goalSelectors";
+import { GOAL_COPY, OFF_TEXT, lockNote, targetText, tierText } from "@/lib/companion/goalSelectors";
 import { GoalSelector } from "./GoalSelector";
 
 /** The badge beside each target: darker with difficulty, and always in words too. */
@@ -25,56 +25,49 @@ type GoalCardProps = {
   onPick: (target: number) => void;
 };
 
-/** One goal on the Goals tab: its target, its bonus badge and its Off-plus-five-blocks selector. */
+/**
+ * One goal on the Goals tab, kept compact so all three fit on one screen: its title and bonus
+ * badge, the target in words with what counts toward it, and its 0-plus-five-blocks selector.
+ */
 export function GoalCard({ id, enabled, target, locked, snapped, onOff, onPick }: GoalCardProps) {
   const copy = GOAL_COPY[id];
   const tier = goalTier(id, target);
   const note = lockNote(id, enabled, target, locked);
   const titleId = `goal-${id}-title`;
+  const shown = enabled ? target : 0;
 
   return (
-    <section aria-labelledby={titleId} className="rounded-3xl border border-ink-300/30 bg-surface p-5 sm:p-6">
-      <div>
-        <h2 id={titleId} className="font-heading text-2xl font-extrabold text-ink-900">
+    <section aria-labelledby={titleId} className="rounded-3xl border border-ink-300/30 bg-surface px-4 py-3 sm:px-5 sm:py-3.5">
+      <div className="flex items-center justify-between gap-3">
+        <h2 id={titleId} className="font-heading text-xl leading-7 font-extrabold text-ink-900">
           {copy.title}
         </h2>
-        <p className="text-sm font-semibold text-ink-500">{copy.hint}</p>
+        <span
+          className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs leading-5 font-extrabold tracking-wide ${TIER_PILL[enabled ? tier.name : "Off"]}`}
+          data-testid={`goal-${id}-tier`}
+        >
+          {enabled ? tierText(tier) : OFF_TEXT}
+        </span>
       </div>
+      <p className="mt-0.5 text-sm leading-5 font-semibold text-ink-500">
+        <strong className="font-extrabold text-ink-900" data-testid={`goal-${id}-value`}>
+          {targetText(id, shown)}.
+        </strong>{" "}
+        {copy.hint}
+      </p>
 
-      <div className="mt-4">
-        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-          <p className="flex items-baseline gap-2 text-ink-900" data-testid={`goal-${id}-value`}>
-            {enabled ? (
-              <>
-                <span className="font-heading text-5xl leading-none font-extrabold tabular-nums">{target}</span>
-                <span className="font-bold text-ink-700">{target === 1 ? copy.one : copy.many} per day</span>
-              </>
-            ) : (
-              <span className="font-heading text-5xl leading-none font-extrabold text-ink-500">Off</span>
-            )}
-          </p>
-          <span
-            className={`rounded-full px-3 py-1 text-sm font-extrabold tracking-wide ${TIER_PILL[enabled ? tier.name : "Off"]}`}
-            data-testid={`goal-${id}-tier`}
-          >
-            {enabled ? tierText(tier) : OFF_TEXT}
-          </span>
-        </div>
+      <GoalSelector id={id} enabled={enabled} target={target} labelledBy={titleId} onOff={onOff} onPick={onPick} />
 
-        <GoalSelector id={id} enabled={enabled} target={target} labelledBy={titleId} onOff={onOff} onPick={onPick} />
-
-        {!enabled && <p className="mt-2 text-sm font-semibold text-ink-500">Off: Home won’t show this goal.</p>}
-        {enabled && snapped && (
-          <p className="mt-3 rounded-2xl bg-yellow-50 px-4 py-3 text-sm font-semibold text-ink-700 ring-1 ring-yellow-200">
-            {snapped}
-          </p>
-        )}
-        {note && (
-          <p className="mt-3 rounded-2xl bg-yellow-50 px-4 py-3 text-sm font-semibold text-ink-700 ring-1 ring-yellow-200">
-            {note}
-          </p>
-        )}
-      </div>
+      {enabled && snapped && (
+        <p className="mt-2.5 rounded-xl bg-yellow-50 px-3 py-2 text-xs leading-4 font-semibold text-ink-700 ring-1 ring-yellow-200">
+          {snapped}
+        </p>
+      )}
+      {note && (
+        <p className="mt-2.5 rounded-xl bg-yellow-50 px-3 py-2 text-xs leading-4 font-semibold text-ink-700 ring-1 ring-yellow-200">
+          {note}
+        </p>
+      )}
     </section>
   );
 }

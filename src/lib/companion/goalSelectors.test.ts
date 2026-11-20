@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_GOAL_SETTINGS, TARGET_LIMITS, goalTier, type GoalSettings } from "./goals";
 import {
   BLOCK_EMPTY,
+  blockTextColor,
   GOALS_TAB_ORDER,
   OFF_TEXT,
   TARGET_CHOICES,
@@ -64,7 +65,7 @@ describe("Goals tab selectors", () => {
     expect(targetText("vocab", 15)).toBe("15 new flashcards per day");
     expect(targetText("skills", 3)).toBe("3 activities per day");
     expect(choiceLabel("vocab", 15)).toBe("15 new flashcards per day, Big goal, 30 bonus XP");
-    expect(offLabel("vocab")).toBe("Vocab goal off");
+    expect(offLabel("vocab")).toBe("0 new flashcards per day, goal off");
   });
 
   it("darkens each block toward the harder end, from a pale empty block", () => {
@@ -73,6 +74,20 @@ describe("Goals tab selectors", () => {
       for (let i = 1; i < shades.length; i++) expect(shades[i], `${id} block ${i + 1}`).toBeLessThan(shades[i - 1]);
     }
     expect(luminance(BLOCK_EMPTY)).toBeGreaterThan(0.75);
+  });
+
+  it("writes each block's number in a colour that stands out from its fill", () => {
+    const contrast = (a: string, b: string) => {
+      const [x, y] = [luminance(a), luminance(b)].sort((m, n) => n - m);
+      return (x + 0.05) / (y + 0.05);
+    };
+    for (const id of GOALS_TAB_ORDER) {
+      for (const n of TARGET_CHOICES[id]) {
+        const fill = rampColor(id, n);
+        // 19px bold numbers are large text by WCAG, which needs 3:1.
+        expect(contrast(fill, blockTextColor(fill)), `${id} ${n}`).toBeGreaterThanOrEqual(3);
+      }
+    }
   });
 });
 

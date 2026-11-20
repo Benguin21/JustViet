@@ -30,7 +30,7 @@ function setup(locked = {}, onSave = vi.fn(async () => ({ locked })), start: Goa
 }
 
 describe("Goals tab", () => {
-  it("shows an Off option and five blocks for Grammar, Vocab and Skills, with no switches", () => {
+  it("shows a 0 option and five numbered blocks for Grammar, Vocab and Skills, with no switches", () => {
     const { group, checked, filled } = setup();
     const groups = screen.getAllByRole("radiogroup");
     expect(groups.map((g) => g.getAttribute("aria-labelledby"))).toEqual([
@@ -41,7 +41,7 @@ describe("Goals tab", () => {
     expect(screen.queryAllByRole("switch")).toHaveLength(0);
     expect(screen.queryAllByRole("slider")).toHaveLength(0);
     expect(within(group("Vocab")).getAllByRole("radio").map((r) => r.getAttribute("aria-label"))).toEqual([
-      "Vocab goal off",
+      "0 new flashcards per day, goal off",
       "5 new flashcards per day, Small goal, 10 bonus XP",
       "10 new flashcards per day, Medium goal, 20 bonus XP",
       "15 new flashcards per day, Big goal, 30 bonus XP",
@@ -50,11 +50,12 @@ describe("Goals tab", () => {
     ]);
     expect(checked("Vocab")).toEqual(["5 new flashcards per day, Small goal, 10 bonus XP"]);
     expect(filled("Vocab")).toBe("■□□□□");
-    expect(screen.getByTestId("goal-vocab-value").textContent).toBe("5new flashcards per day");
+    expect(screen.getByTestId("goal-vocab-value").textContent).toBe("5 new flashcards per day.");
+    expect(within(group("Vocab")).getAllByRole("radio").map((r) => r.textContent)).toEqual(["0", "5", "10", "15", "20", "25"]);
     // Grammar and Skills start off.
-    expect(checked("Grammar")).toEqual(["Grammar goal off"]);
+    expect(checked("Grammar")).toEqual(["0 lessons per day, goal off"]);
     expect(filled("Grammar")).toBe("□□□□□");
-    expect(screen.getByTestId("goal-grammar-value").textContent).toBe("Off");
+    expect(screen.getByTestId("goal-grammar-value").textContent).toBe("0 lessons per day.");
     expect(screen.getByTestId("goal-grammar-tier").textContent).toBe("Goal off · 0 XP");
   });
 
@@ -71,7 +72,7 @@ describe("Goals tab", () => {
       fireEvent.click(option("Vocab", new RegExp(`^${n} new flashcards`)));
       expect(filled("Vocab")).toBe(bar);
       expect(tier()).toBe(label);
-      expect(screen.getByTestId("goal-vocab-value").textContent).toBe(`${n}new flashcards per day`);
+      expect(screen.getByTestId("goal-vocab-value").textContent).toBe(`${n} new flashcards per day.`);
     }
     fireEvent.click(option("Grammar", /^2 lessons/));
     expect(filled("Grammar")).toBe("■■□□□");
@@ -109,8 +110,8 @@ describe("Goals tab", () => {
     fireEvent.keyDown(document.activeElement!, { key: "ArrowRight" });
     expect(checked("Vocab")).toEqual(["25 new flashcards per day, Big goal, 30 bonus XP"]);
     fireEvent.keyDown(document.activeElement!, { key: "Home" });
-    expect(checked("Vocab")).toEqual(["Vocab goal off"]);
-    expect(document.activeElement).toBe(option("Vocab", "Vocab goal off"));
+    expect(checked("Vocab")).toEqual(["0 new flashcards per day, goal off"]);
+    expect(document.activeElement).toBe(option("Vocab", /goal off$/));
   });
 
   it("saves only when asked, and says when each change applies", async () => {
@@ -144,14 +145,13 @@ describe("Goals tab", () => {
     );
   });
 
-  it("turns a goal off, keeping its last target, and back on with a block", async () => {
+  it("turns a goal off with 0, keeping its last target", async () => {
     const { option, onSave, save, filled } = setup({ vocab: 5 });
     fireEvent.click(option("Vocab", /^20 new/));
-    fireEvent.click(option("Vocab", "Vocab goal off"));
+    fireEvent.click(option("Vocab", /goal off$/));
     expect(filled("Vocab")).toBe("□□□□□");
-    expect(screen.getByTestId("goal-vocab-value").textContent).toBe("Off");
+    expect(screen.getByTestId("goal-vocab-value").textContent).toBe("0 new flashcards per day.");
     expect(screen.getByTestId("goal-vocab-tier").textContent).toBe("Goal off · 0 XP");
-    expect(screen.getAllByText("Off: Home won’t show this goal.")).toHaveLength(3);
     // Off takes effect straight away, so there's no "starts tomorrow" note.
     expect(screen.queryByText(/already underway/)).toBeNull();
     await act(async () => {
@@ -169,12 +169,12 @@ describe("Goals tab", () => {
     fireEvent.click(option("Skills", /^3 activities/));
     expect(checked("Skills")).toEqual(["3 activities per day, Big goal, 30 bonus XP"]);
     expect(filled("Skills")).toBe("■■■□□");
-    expect(screen.getByTestId("goal-skills-value").textContent).toBe("3activities per day");
+    expect(screen.getByTestId("goal-skills-value").textContent).toBe("3 activities per day.");
   });
 
   it("lets all three goals be off at once", async () => {
     const { option, onSave, save } = setup();
-    fireEvent.click(option("Vocab", "Vocab goal off"));
+    fireEvent.click(option("Vocab", /goal off$/));
     await act(async () => {
       fireEvent.click(save());
     });
@@ -208,7 +208,7 @@ describe("Goals tab", () => {
   it("keeps an off goal's old target untouched", () => {
     const old: GoalSettings = { enabled: { vocab: false, grammar: false, skills: false }, targets: { vocab: 30, grammar: 1, skills: 1 } };
     const { checked, save } = setup({}, undefined, old);
-    expect(checked("Vocab")).toEqual(["Vocab goal off"]);
+    expect(checked("Vocab")).toEqual(["0 new flashcards per day, goal off"]);
     expect(save().disabled).toBe(true);
     expect(screen.queryByText(/isn’t one of the choices/)).toBeNull();
   });

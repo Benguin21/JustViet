@@ -2,7 +2,7 @@
 
 import { useRef, type CSSProperties, type KeyboardEvent } from "react";
 import type { GoalId } from "@/lib/companion/goals";
-import { BLOCK_EMPTY, TARGET_CHOICES, choiceLabel, offLabel, rampColor } from "@/lib/companion/goalSelectors";
+import { BLOCK_EMPTY, TARGET_CHOICES, blockTextColor, choiceLabel, offLabel, rampColor } from "@/lib/companion/goalSelectors";
 import "./goal-selector.css";
 
 type GoalSelectorProps = {
@@ -16,10 +16,11 @@ type GoalSelectorProps = {
 };
 
 /**
- * A goal's target picker: an Off button, then five blocks like a game's volume bar. Picking a block
- * fills it and every block before it. It's one radio group of six options (Off plus the five
- * targets): one Tab stop, and the arrow keys (or Home/End) move the selection, as radios do. The
- * blocks are never disabled; picking one while the goal is off turns it back on.
+ * A goal's target picker: a 0 button (the goal off), then five blocks like a game's volume bar,
+ * each showing its value. Picking a block fills it and every block before it. It's one radio group
+ * of six options (0 plus the five targets): one Tab stop, and the arrow keys (or Home/End) move the
+ * selection, as radios do. The blocks are never disabled; picking one while the goal is off turns
+ * it back on.
  */
 export function GoalSelector({ id, enabled, target, labelledBy, onOff, onPick }: GoalSelectorProps) {
   const choices = TARGET_CHOICES[id];
@@ -49,7 +50,7 @@ export function GoalSelector({ id, enabled, target, labelledBy, onOff, onPick }:
   };
 
   return (
-    <div className="jv-goal-picker mt-3" role="radiogroup" aria-labelledby={labelledBy} onKeyDown={onKeyDown}>
+    <div className="jv-goal-picker mt-2" role="radiogroup" aria-labelledby={labelledBy} onKeyDown={onKeyDown}>
       <div className="jv-goal-tray">
         <button
           ref={(el) => {
@@ -64,10 +65,11 @@ export function GoalSelector({ id, enabled, target, labelledBy, onOff, onPick }:
           className="jv-goal-off"
           data-testid={`goal-${id}-off`}
         >
-          Off
+          0
         </button>
         {choices.map((value, i) => {
           const filled = i + 1 <= selected;
+          const fill = filled ? rampColor(id, value) : BLOCK_EMPTY;
           return (
             <button
               key={value}
@@ -83,16 +85,12 @@ export function GoalSelector({ id, enabled, target, labelledBy, onOff, onPick }:
               className="jv-goal-block"
               data-filled={filled || undefined}
               data-testid={`goal-${id}-block-${value}`}
-              style={{ "--goal-block": filled ? rampColor(id, value) : BLOCK_EMPTY } as CSSProperties}
-            />
+              style={{ "--goal-block": fill, color: filled ? blockTextColor(fill) : undefined } as CSSProperties}
+            >
+              {value}
+            </button>
           );
         })}
-      </div>
-      <div className="jv-goal-scale" aria-hidden="true">
-        <span />
-        {choices.map((value) => (
-          <span key={value}>{value}</span>
-        ))}
       </div>
     </div>
   );

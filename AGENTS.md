@@ -664,20 +664,25 @@ One XP ledger for the whole app, in `src/lib/xp/` (pure and tested in
 ## Goals tab
 
 `src/app/(app)/goals/page.tsx` → `GoalsForm` (`src/components/goals/`): a
-card per goal (Grammar, Vocab, Skills) with its target, its bonus badge
-("Big goal · +30 XP", or "Goal off · 0 XP") and a selector
-(`GoalSelector`): an Off button and five blocks, like a game's volume bar.
-Grammar and Skills offer 1 to 5, Vocab 5, 10, 15, 20, 25
-(`TARGET_CHOICES` in `goalSelectors.ts`). Picking a block fills it and
-every block before it; filled blocks darken with difficulty (`rampColor`,
-`goal-selector.css`). Each selector is one radio group: one Tab stop, the
-arrow keys (and Home/End) move the selection. There are no on/off
-switches: Off saves `enabled: false` and keeps the last target, a block
-saves `enabled: true` with that target, so the saved data
-(`settings/goals`, `enabled` + `targets`) is the same shape as before.
-Nothing is saved until Save goals, which writes through `useGoalSettings`
-and never awards XP; the page then says when each change applies (today,
-or tomorrow for a goal already underway).
+compact card per goal (Grammar, Vocab, Skills), sized so the whole page
+fits one screen without scrolling (a 390×664 phone viewport, Safari with
+its toolbars, and a 1280×720 laptop; keep it that way when adding to it).
+Each card has its title, its bonus badge ("Big goal · +30 XP", or "Goal
+off · 0 XP"), one line with the target and what counts ("15 new
+flashcards per day. First-time study only.", short on purpose so it fits
+one line on a phone) and a selector (`GoalSelector`): a 0 button and five
+numbered blocks, like a game's volume bar. Grammar and Skills offer 1 to
+5, Vocab 5, 10, 15, 20, 25 (`TARGET_CHOICES` in `goalSelectors.ts`).
+Picking a block fills it and every block before it; filled blocks darken
+with difficulty (`rampColor`, `goal-selector.css`) and their numbers
+switch between dark and white for contrast (`blockTextColor`). Each
+selector is one radio group: one Tab stop, the arrow keys (and Home/End)
+move the selection. There are no on/off switches: 0 saves `enabled:
+false` and keeps the last target, a block saves `enabled: true` with that
+target, so the saved data (`settings/goals`, `enabled` + `targets`) is the
+same shape as before. Nothing is saved until Save goals, which writes
+through `useGoalSettings` and never awards XP; the page then says when
+each change applies (today, or tomorrow for a goal already underway).
 
 **The five choices are only what this page offers.** `TARGET_LIMITS`
 (Vocab 1 to 50), `normalizeGoalSettings`, `normalizeDay` and
