@@ -12,18 +12,19 @@
 <helmet>
 <style>
 body{margin:0}
-.jv-goal-slider{-webkit-appearance:none;appearance:none;position:relative;display:block;width:100%;height:44px;margin:0;background:transparent;border-radius:14px;cursor:pointer}
-.jv-goal-slider:focus{outline:none}
-.jv-goal-slider:focus-visible{outline:3px solid var(--color-yellow-500);outline-offset:2px}
-.jv-goal-slider::-webkit-slider-runnable-track{height:12px;border-radius:9999px;background:transparent}
-.jv-goal-slider::-moz-range-track{height:12px;border-radius:9999px;background:transparent}
-.jv-goal-slider::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;box-sizing:border-box;width:28px;height:28px;margin-top:-8px;border:4px solid #fff;border-radius:50%;background:currentColor;box-shadow:0 0 0 1px rgb(147 113 92 / .45),0 3px 0 var(--color-ink-300),0 3px 8px rgb(74 47 34 / .2);transition:transform .1s ease-out}
-.jv-goal-slider::-moz-range-thumb{box-sizing:border-box;width:28px;height:28px;border:4px solid #fff;border-radius:50%;background:currentColor;box-shadow:0 0 0 1px rgb(147 113 92 / .45),0 3px 0 var(--color-ink-300),0 3px 8px rgb(74 47 34 / .2);transition:transform .1s ease-out}
-.jv-goal-slider:active::-webkit-slider-thumb{transform:scale(1.1)}
-.jv-goal-slider:active::-moz-range-thumb{transform:scale(1.1)}
-.jv-goal-slider:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 1px rgb(147 113 92 / .45),0 0 0 6px var(--color-yellow-300),0 3px 8px rgb(74 47 34 / .2)}
-.jv-goal-slider:focus-visible::-moz-range-thumb{box-shadow:0 0 0 1px rgb(147 113 92 / .45),0 0 0 6px var(--color-yellow-300),0 3px 8px rgb(74 47 34 / .2)}
-@media (prefers-reduced-motion: reduce){.jv-goal-slider::-webkit-slider-thumb{transition:none}.jv-goal-slider::-moz-range-thumb{transition:none}}
+.jv-goal-tray,.jv-goal-scale{display:grid;grid-template-columns:3.25rem repeat(5,minmax(0,1fr));gap:6px;padding-inline:6px}
+.jv-goal-tray{padding-block:6px;border-radius:18px;background:#ead8c8;box-shadow:inset 0 2px 3px rgb(74 47 34 / .16),inset 0 -1px 0 rgb(255 255 255 / .6)}
+.jv-goal-block,.jv-goal-off{height:44px;border:0;margin:0;padding:0;border-radius:12px;cursor:pointer;transition:background-color .15s ease-out,box-shadow .15s ease-out,transform .1s ease-out}
+.jv-goal-block{box-shadow:inset 0 -4px 0 rgb(74 47 34 / .08),0 1px 0 rgb(255 255 255 / .7)}
+.jv-goal-block.is-filled{box-shadow:inset 0 -4px 0 rgb(74 22 12 / .28),inset 0 2px 0 rgb(255 255 255 / .3),0 1px 1px rgb(74 47 34 / .18);animation:jv-goal-fill .2s ease-out}
+.jv-goal-off{font-family:var(--font-heading),inherit;font-size:14px;font-weight:800;color:var(--color-ink-500);background:var(--color-surface);box-shadow:inset 0 -3px 0 rgb(74 47 34 / .1),0 1px 0 rgb(255 255 255 / .7)}
+.jv-goal-off[aria-checked="true"]{color:#fff;background:var(--color-ink-700);box-shadow:inset 0 -4px 0 rgb(0 0 0 / .25),0 1px 1px rgb(74 47 34 / .18)}
+.jv-goal-block:active,.jv-goal-off:active{transform:translateY(2px) scale(.97)}
+.jv-goal-block:focus,.jv-goal-off:focus{outline:none}
+.jv-goal-block:focus-visible,.jv-goal-off:focus-visible{outline:3px solid var(--color-yellow-500);outline-offset:2px}
+.jv-goal-scale{margin-top:6px;font-size:12px;line-height:16px;font-weight:700;color:var(--color-ink-500);text-align:center;font-variant-numeric:tabular-nums}
+@keyframes jv-goal-fill{from{transform:scale(.9)}to{transform:scale(1)}}
+@media (prefers-reduced-motion: reduce){.jv-goal-block,.jv-goal-off{transition:none}.jv-goal-block.is-filled{animation:none}.jv-goal-block:active,.jv-goal-off:active{transform:none}}
 @media (min-width: 640px){.jv-save-row{flex-direction:row !important;align-items:center !important}}
 </style>
 </helmet>
@@ -45,28 +46,42 @@ body{margin:0}
 </div>
 
 <section aria-labelledby="goal-grammar-title" class="bg-surface border-ink-300/30" style="border-radius: 24px; border-width: 1px; border-style: solid; padding: 24px">
-<div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 16px">
 <div>
 <h2 id="goal-grammar-title" class="font-heading text-ink-900" style="margin: 0; font-size: 24px; line-height: 32px; font-weight: 800">Grammar</h2>
 <p class="text-ink-500" style="margin: 0; font-size: 14px; line-height: 20px; font-weight: 600">New lessons and reviews both count.</p>
 </div>
-<x-import component-from-global-scope="JustViet.Switch" checked="{{grammar.enabled}}" onChange="{{grammar.toggle}}" label="{{grammar.switchLabel}}"></x-import>
-</div>
 <div style="margin-top: 16px">
 <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px">
 <p class="text-ink-900" style="margin: 0; display: flex; align-items: baseline; gap: 8px">
+<sc-if value="{{grammar.enabled}}" hint-placeholder-val="{{false}}">
 <span class="font-heading" style="font-size: 48px; line-height: 1; font-weight: 800; font-variant-numeric: tabular-nums">{{grammar.target}}</span>
 <span class="text-ink-700" style="font-weight: 700">{{grammar.unitText}}</span>
+</sc-if>
+<sc-if value="{{grammar.off}}" hint-placeholder-val="{{true}}">
+<span class="font-heading text-ink-500" style="font-size: 48px; line-height: 1; font-weight: 800">Off</span>
+</sc-if>
 </p>
 <span style="border-radius: 9999px; padding: 4px 12px; font-size: 14px; line-height: 20px; font-weight: 800; letter-spacing: 0.025em; background: {{grammar.pillBg}}; color: {{grammar.pillFg}}; box-shadow: inset 0 0 0 1px {{grammar.pillRing}}">{{grammar.tierText}}</span>
 </div>
-<div style="position: relative">
-<div aria-hidden="true" style="position: absolute; left: 0; right: 0; top: 16px; height: 12px; border-radius: 9999px; box-shadow: inset 0 1px 2px rgb(74 47 34 / 0.12); background: {{grammar.track}}"></div>
-<input type="range" class="jv-goal-slider" min="1" max="5" step="1" value="{{grammar.target}}" onChange="{{grammar.slide}}" aria-labelledby="goal-grammar-title" aria-valuetext="{{grammar.valueText}}" style="color: {{grammar.thumb}}">
+<div role="radiogroup" aria-labelledby="goal-grammar-title" style="margin-top: 12px">
+<div class="jv-goal-tray">
+<button type="button" role="radio" class="jv-goal-off" aria-checked="{{grammar.off}}" aria-label="Grammar goal off" onClick="{{grammar.setOff}}">Off</button>
+<sc-for list="{{grammar.blocks}}" as="b" hint-placeholder-count="5">
+<button type="button" role="radio" class="{{b.cls}}" aria-checked="{{b.checked}}" aria-label="{{b.label}}" onClick="{{b.pick}}" style="background: {{b.color}}"></button>
+</sc-for>
 </div>
-<div class="text-ink-500" aria-hidden="true" style="margin-top: 6px; display: flex; justify-content: space-between; padding: 0 4px; font-size: 12px; line-height: 16px; font-weight: 700"><span>1</span><span>5</span></div>
+<div class="jv-goal-scale" aria-hidden="true">
+<span></span>
+<sc-for list="{{grammar.blocks}}" as="b" hint-placeholder-count="5">
+<span>{{b.value}}</span>
+</sc-for>
+</div>
+</div>
 <sc-if value="{{grammar.off}}" hint-placeholder-val="{{true}}">
 <p class="text-ink-500" style="margin: 8px 0 0; font-size: 14px; line-height: 20px; font-weight: 600">Off: Home won’t show this goal.</p>
+</sc-if>
+<sc-if value="{{grammar.snapNote}}" hint-placeholder-val="{{false}}">
+<p class="bg-yellow-50 text-ink-700" style="margin: 12px 0 0; border-radius: 16px; padding: 12px 16px; font-size: 14px; line-height: 20px; font-weight: 600; box-shadow: inset 0 0 0 1px var(--color-yellow-200)">{{grammar.snapNote}}</p>
 </sc-if>
 <sc-if value="{{grammar.note}}" hint-placeholder-val="{{false}}">
 <p class="bg-yellow-50 text-ink-700" style="margin: 12px 0 0; border-radius: 16px; padding: 12px 16px; font-size: 14px; line-height: 20px; font-weight: 600; box-shadow: inset 0 0 0 1px var(--color-yellow-200)">{{grammar.note}}</p>
@@ -75,28 +90,42 @@ body{margin:0}
 </section>
 
 <section aria-labelledby="goal-vocab-title" class="bg-surface border-ink-300/30" style="border-radius: 24px; border-width: 1px; border-style: solid; padding: 24px">
-<div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 16px">
 <div>
 <h2 id="goal-vocab-title" class="font-heading text-ink-900" style="margin: 0; font-size: 24px; line-height: 32px; font-weight: 800">Vocab</h2>
 <p class="text-ink-500" style="margin: 0; font-size: 14px; line-height: 20px; font-weight: 600">Counts cards you study for the first time.</p>
 </div>
-<x-import component-from-global-scope="JustViet.Switch" checked="{{vocab.enabled}}" onChange="{{vocab.toggle}}" label="{{vocab.switchLabel}}"></x-import>
-</div>
 <div style="margin-top: 16px">
 <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px">
 <p class="text-ink-900" style="margin: 0; display: flex; align-items: baseline; gap: 8px">
+<sc-if value="{{vocab.enabled}}" hint-placeholder-val="{{true}}">
 <span class="font-heading" style="font-size: 48px; line-height: 1; font-weight: 800; font-variant-numeric: tabular-nums">{{vocab.target}}</span>
 <span class="text-ink-700" style="font-weight: 700">{{vocab.unitText}}</span>
+</sc-if>
+<sc-if value="{{vocab.off}}" hint-placeholder-val="{{false}}">
+<span class="font-heading text-ink-500" style="font-size: 48px; line-height: 1; font-weight: 800">Off</span>
+</sc-if>
 </p>
 <span style="border-radius: 9999px; padding: 4px 12px; font-size: 14px; line-height: 20px; font-weight: 800; letter-spacing: 0.025em; background: {{vocab.pillBg}}; color: {{vocab.pillFg}}; box-shadow: inset 0 0 0 1px {{vocab.pillRing}}">{{vocab.tierText}}</span>
 </div>
-<div style="position: relative">
-<div aria-hidden="true" style="position: absolute; left: 0; right: 0; top: 16px; height: 12px; border-radius: 9999px; box-shadow: inset 0 1px 2px rgb(74 47 34 / 0.12); background: {{vocab.track}}"></div>
-<input type="range" class="jv-goal-slider" min="1" max="50" step="1" value="{{vocab.target}}" onChange="{{vocab.slide}}" aria-labelledby="goal-vocab-title" aria-valuetext="{{vocab.valueText}}" style="color: {{vocab.thumb}}">
+<div role="radiogroup" aria-labelledby="goal-vocab-title" style="margin-top: 12px">
+<div class="jv-goal-tray">
+<button type="button" role="radio" class="jv-goal-off" aria-checked="{{vocab.off}}" aria-label="Vocab goal off" onClick="{{vocab.setOff}}">Off</button>
+<sc-for list="{{vocab.blocks}}" as="b" hint-placeholder-count="5">
+<button type="button" role="radio" class="{{b.cls}}" aria-checked="{{b.checked}}" aria-label="{{b.label}}" onClick="{{b.pick}}" style="background: {{b.color}}"></button>
+</sc-for>
 </div>
-<div class="text-ink-500" aria-hidden="true" style="margin-top: 6px; display: flex; justify-content: space-between; padding: 0 4px; font-size: 12px; line-height: 16px; font-weight: 700"><span>1</span><span>50</span></div>
+<div class="jv-goal-scale" aria-hidden="true">
+<span></span>
+<sc-for list="{{vocab.blocks}}" as="b" hint-placeholder-count="5">
+<span>{{b.value}}</span>
+</sc-for>
+</div>
+</div>
 <sc-if value="{{vocab.off}}" hint-placeholder-val="{{false}}">
 <p class="text-ink-500" style="margin: 8px 0 0; font-size: 14px; line-height: 20px; font-weight: 600">Off: Home won’t show this goal.</p>
+</sc-if>
+<sc-if value="{{vocab.snapNote}}" hint-placeholder-val="{{false}}">
+<p class="bg-yellow-50 text-ink-700" style="margin: 12px 0 0; border-radius: 16px; padding: 12px 16px; font-size: 14px; line-height: 20px; font-weight: 600; box-shadow: inset 0 0 0 1px var(--color-yellow-200)">{{vocab.snapNote}}</p>
 </sc-if>
 <sc-if value="{{vocab.note}}" hint-placeholder-val="{{false}}">
 <p class="bg-yellow-50 text-ink-700" style="margin: 12px 0 0; border-radius: 16px; padding: 12px 16px; font-size: 14px; line-height: 20px; font-weight: 600; box-shadow: inset 0 0 0 1px var(--color-yellow-200)">{{vocab.note}}</p>
@@ -105,28 +134,42 @@ body{margin:0}
 </section>
 
 <section aria-labelledby="goal-skills-title" class="bg-surface border-ink-300/30" style="border-radius: 24px; border-width: 1px; border-style: solid; padding: 24px">
-<div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 16px">
 <div>
 <h2 id="goal-skills-title" class="font-heading text-ink-900" style="margin: 0; font-size: 24px; line-height: 32px; font-weight: 800">Skills</h2>
 <p class="text-ink-500" style="margin: 0; font-size: 14px; line-height: 20px; font-weight: 600">Reading and Listening both count.</p>
 </div>
-<x-import component-from-global-scope="JustViet.Switch" checked="{{skills.enabled}}" onChange="{{skills.toggle}}" label="{{skills.switchLabel}}"></x-import>
-</div>
 <div style="margin-top: 16px">
 <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px">
 <p class="text-ink-900" style="margin: 0; display: flex; align-items: baseline; gap: 8px">
+<sc-if value="{{skills.enabled}}" hint-placeholder-val="{{false}}">
 <span class="font-heading" style="font-size: 48px; line-height: 1; font-weight: 800; font-variant-numeric: tabular-nums">{{skills.target}}</span>
 <span class="text-ink-700" style="font-weight: 700">{{skills.unitText}}</span>
+</sc-if>
+<sc-if value="{{skills.off}}" hint-placeholder-val="{{true}}">
+<span class="font-heading text-ink-500" style="font-size: 48px; line-height: 1; font-weight: 800">Off</span>
+</sc-if>
 </p>
 <span style="border-radius: 9999px; padding: 4px 12px; font-size: 14px; line-height: 20px; font-weight: 800; letter-spacing: 0.025em; background: {{skills.pillBg}}; color: {{skills.pillFg}}; box-shadow: inset 0 0 0 1px {{skills.pillRing}}">{{skills.tierText}}</span>
 </div>
-<div style="position: relative">
-<div aria-hidden="true" style="position: absolute; left: 0; right: 0; top: 16px; height: 12px; border-radius: 9999px; box-shadow: inset 0 1px 2px rgb(74 47 34 / 0.12); background: {{skills.track}}"></div>
-<input type="range" class="jv-goal-slider" min="1" max="5" step="1" value="{{skills.target}}" onChange="{{skills.slide}}" aria-labelledby="goal-skills-title" aria-valuetext="{{skills.valueText}}" style="color: {{skills.thumb}}">
+<div role="radiogroup" aria-labelledby="goal-skills-title" style="margin-top: 12px">
+<div class="jv-goal-tray">
+<button type="button" role="radio" class="jv-goal-off" aria-checked="{{skills.off}}" aria-label="Skills goal off" onClick="{{skills.setOff}}">Off</button>
+<sc-for list="{{skills.blocks}}" as="b" hint-placeholder-count="5">
+<button type="button" role="radio" class="{{b.cls}}" aria-checked="{{b.checked}}" aria-label="{{b.label}}" onClick="{{b.pick}}" style="background: {{b.color}}"></button>
+</sc-for>
 </div>
-<div class="text-ink-500" aria-hidden="true" style="margin-top: 6px; display: flex; justify-content: space-between; padding: 0 4px; font-size: 12px; line-height: 16px; font-weight: 700"><span>1</span><span>5</span></div>
+<div class="jv-goal-scale" aria-hidden="true">
+<span></span>
+<sc-for list="{{skills.blocks}}" as="b" hint-placeholder-count="5">
+<span>{{b.value}}</span>
+</sc-for>
+</div>
+</div>
 <sc-if value="{{skills.off}}" hint-placeholder-val="{{true}}">
 <p class="text-ink-500" style="margin: 8px 0 0; font-size: 14px; line-height: 20px; font-weight: 600">Off: Home won’t show this goal.</p>
+</sc-if>
+<sc-if value="{{skills.snapNote}}" hint-placeholder-val="{{false}}">
+<p class="bg-yellow-50 text-ink-700" style="margin: 12px 0 0; border-radius: 16px; padding: 12px 16px; font-size: 14px; line-height: 20px; font-weight: 600; box-shadow: inset 0 0 0 1px var(--color-yellow-200)">{{skills.snapNote}}</p>
 </sc-if>
 <sc-if value="{{skills.note}}" hint-placeholder-val="{{false}}">
 <p class="bg-yellow-50 text-ink-700" style="margin: 12px 0 0; border-radius: 16px; padding: 12px 16px; font-size: 14px; line-height: 20px; font-weight: 600; box-shadow: inset 0 0 0 1px var(--color-yellow-200)">{{skills.note}}</p>
@@ -148,34 +191,36 @@ body{margin:0}
 </main>
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props='{"vocabUnderwayAt":{"editor":"int","default":0,"min":0,"max":50,"label":"Vocab goal already underway today at (0 = not started)","section":"Today"},"$preview":{"width":1280,"height":1320}}'>
-// The Goals tab, ported from src/components/goals/GoalsForm.tsx and GoalCard.tsx, with the
-// rules from src/lib/companion/goals.ts and goalSliders.ts. Moving a slider only changes this
-// form; nothing is saved until Save goals, and saving never awards XP.
+<script type="text/x-dc" data-dc-script data-props='{"vocabUnderwayAt":{"editor":"int","default":0,"min":0,"max":50,"label":"Vocab goal already underway today at (0 = not started)","section":"Today"},"savedVocab":{"editor":"int","default":5,"min":1,"max":50,"label":"Vocab target saved under the old slider (try 7 or 30)","section":"Saved goals"},"$preview":{"width":1280,"height":1320}}'>
+// The Goals tab, ported from src/components/goals/GoalsForm.tsx, GoalCard.tsx and
+// GoalSelector.tsx, with the rules from src/lib/companion/goals.ts and goalSelectors.ts. Each goal
+// has an Off button and five blocks; picking a block fills it and every block before it. Off saves
+// the goal as off and keeps its last target. Nothing is saved until Save goals, and saving never
+// awards XP. (The app's selector is a radio group the arrow keys move through; here it's taps.)
 
 const ORDER = ['grammar', 'vocab', 'skills'];
-const LIMITS = { grammar: { min: 1, max: 5 }, vocab: { min: 1, max: 50 }, skills: { min: 1, max: 5 } };
+const CHOICES = { grammar: [1, 2, 3, 4, 5], vocab: [5, 10, 15, 20, 25], skills: [1, 2, 3, 4, 5] };
 const COPY = {
   grammar: { title: 'Grammar', one: 'lesson', many: 'lessons' },
   vocab: { title: 'Vocab', one: 'new flashcard', many: 'new flashcards' },
   skills: { title: 'Skills', one: 'activity', many: 'activities' },
 };
 const BONUS = { Starter: 0, Small: 10, Medium: 20, Big: 30 };
-// The tier label beside each slider: darker with difficulty, and always in words too.
+const OFF_TEXT = 'Goal off · 0 XP';
+// The badge beside each target: darker with difficulty, and always in words too.
 const PILL = {
+  Off: { bg: '#ffffff', fg: '#93715c', ring: 'rgb(201 172 151 / 0.6)' },
   Starter: { bg: '#fffaeb', fg: '#6b4a38', ring: 'rgb(201 172 151 / 0.5)' },
   Small: { bg: '#fff1ee', fg: '#b53722', ring: '#ffc0b6' },
   Medium: { bg: '#ffe0da', fg: '#b53722', ring: '#ff9c8d' },
   Big: { bg: '#b53722', fg: '#ffffff', ring: '#b53722' },
 };
-const TRACK_EMPTY = '#f3e6da';
+const BLOCK_EMPTY = '#f3e6da';
 const RAMP = {
-  vocab: [[1, '#ffd6cd'], [5, '#ff9c8d'], [10, '#f15b48'], [15, '#d8452f'], [50, '#a83220']],
+  vocab: [[1, '#ffd6cd'], [5, '#ff9c8d'], [10, '#f15b48'], [15, '#d8452f'], [25, '#a83220']],
   grammar: [[1, '#ff9c8d'], [2, '#f15b48'], [3, '#d8452f'], [5, '#a83220']],
   skills: [[1, '#ff9c8d'], [2, '#f15b48'], [3, '#d8452f'], [5, '#a83220']],
 };
-// What the learner has saved. Defaults as in the app: only Vocab is on, at 5.
-const SAVED = { enabled: { grammar: false, vocab: true, skills: false }, targets: { grammar: 1, vocab: 5, skills: 1 } };
 
 function goalTier(id, target) {
   const t = Math.floor(target);
@@ -184,9 +229,10 @@ function goalTier(id, target) {
   else name = t >= 3 ? 'Big' : t === 2 ? 'Medium' : 'Small';
   return { name, bonus: BONUS[name] };
 }
-function tierText(tier) { return tier.name + ' · +' + tier.bonus + ' XP'; }
+function tierText(tier) { return tier.name + ' goal · +' + tier.bonus + ' XP'; }
 function unitText(id, n) { return (n === 1 ? COPY[id].one : COPY[id].many) + ' per day'; }
 function targetText(id, n) { return n + ' ' + unitText(id, n); }
+function units(id, n) { return n + ' ' + (n === 1 ? COPY[id].one : COPY[id].many); }
 function rgb(hex) { const n = parseInt(hex.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
 function hex(c) { return '#' + ((1 << 24) | (Math.round(c[0]) << 16) | (Math.round(c[1]) << 8) | Math.round(c[2])).toString(16).slice(1); }
 function rampColor(id, value) {
@@ -203,20 +249,28 @@ function rampColor(id, value) {
   }
   return ramp[ramp.length - 1][1];
 }
-function at(id, value) {
-  const { min, max } = LIMITS[id];
-  const f = Math.max(0, Math.min(1, (value - min) / (max - min)));
-  return 'calc(14px + (100% - 28px) * ' + (+f.toFixed(4)) + ')';
+// The nearest of the goal's five choices to a target saved under the old slider.
+function snapTarget(id, target) {
+  let best = CHOICES[id][0];
+  for (const c of CHOICES[id]) if (Math.abs(c - target) < Math.abs(best - target)) best = c;
+  return best;
 }
-// The whole difficulty ramp laid along the track, with the part past the thumb covered in cream.
-function trackBackground(id, value) {
-  const stops = RAMP[id].map(([v, c]) => c + ' ' + at(id, v)).join(', ');
-  const edge = at(id, value);
-  return 'linear-gradient(to right, transparent ' + edge + ', ' + TRACK_EMPTY + ' ' + edge + '), linear-gradient(to right, ' + stops + ')';
+// A goal that's on shows its saved target snapped to a choice; one that's off keeps its target.
+function formFromSaved(saved) {
+  const f = copySettings(saved);
+  for (const id of ORDER) if (saved.enabled[id]) f.targets[id] = snapTarget(id, saved.targets[id]);
+  return f;
 }
-function lockNote(id, target, locked) {
-  if (locked == null || locked === target) return '';
-  return 'Today’s goal is already underway, so today stays at ' + locked + ' ' + (locked === 1 ? COPY[id].one : COPY[id].many) + ' (' + tierText(goalTier(id, locked)) + '). This target starts tomorrow.';
+function snapNote(id, saved, form) {
+  if (!saved.enabled[id] || !form.enabled[id]) return '';
+  const t = saved.targets[id];
+  const shown = snapTarget(id, t);
+  if (shown === t || form.targets[id] !== shown) return '';
+  return 'Your saved goal is ' + units(id, t) + ' a day, which isn’t one of the choices any more. Save goals to switch to ' + units(id, shown) + '.';
+}
+function lockNote(id, enabled, target, locked) {
+  if (!enabled || locked == null || locked === target) return '';
+  return 'Today’s goal is already underway, so today stays at ' + units(id, locked) + ' (' + tierText(goalTier(id, locked)) + '). This target starts tomorrow.';
 }
 function describeSave(prev, next, locked) {
   const lines = [];
@@ -225,6 +279,7 @@ function describeSave(prev, next, locked) {
     if (prev.enabled[id] !== next.enabled[id]) {
       lines.push(next.enabled[id] ? title + ' is on, so it shows on Home.' : title + ' is off, so Home won’t show it.');
     }
+    if (!next.enabled[id]) continue;
     const t = next.targets[id];
     if (prev.targets[id] === t) continue;
     const today = locked[id];
@@ -238,11 +293,24 @@ function describeSave(prev, next, locked) {
 }
 function same(a, b) { return ORDER.every((id) => a.enabled[id] === b.enabled[id] && a.targets[id] === b.targets[id]); }
 function copySettings(s) { return { enabled: { ...s.enabled }, targets: { ...s.targets } }; }
+// What the learner has saved. Defaults as in the app: only Vocab is on, at 5.
+function savedFrom(props) {
+  const v = Math.max(1, Math.min(50, Math.round(props.savedVocab ?? 5)));
+  return { enabled: { grammar: false, vocab: true, skills: false }, targets: { grammar: 1, vocab: v, skills: 1 } };
+}
 
 class Component extends DCLogic {
   constructor(props) {
     super(props);
-    this.state = { saved: copySettings(SAVED), form: copySettings(SAVED), saving: false, result: null };
+    const saved = savedFrom(props);
+    this.state = { saved, form: formFromSaved(saved), saving: false, result: null };
+  }
+
+  componentDidUpdate(prev) {
+    if (prev.savedVocab !== this.props.savedVocab) {
+      const saved = savedFrom(this.props);
+      this.setState({ saved, form: formFromSaved(saved), result: null });
+    }
   }
 
   locked() {
@@ -259,26 +327,32 @@ class Component extends DCLogic {
     const target = f.targets[id];
     const enabled = f.enabled[id];
     const tier = goalTier(id, target);
-    const pill = PILL[tier.name];
+    const pill = PILL[enabled ? tier.name : 'Off'];
+    const picked = enabled ? CHOICES[id].indexOf(target) : -1;
     return {
       enabled,
       off: !enabled,
-      switchLabel: enabled ? 'On' : 'Off',
       target,
       unitText: unitText(id, target),
-      tierText: tierText(tier),
+      tierText: enabled ? tierText(tier) : OFF_TEXT,
       pillBg: pill.bg,
       pillFg: pill.fg,
       pillRing: pill.ring,
-      track: trackBackground(id, target),
-      thumb: rampColor(id, target),
-      valueText: targetText(id, target) + ', ' + tier.name + ' goal, ' + tier.bonus + ' bonus XP',
-      note: lockNote(id, target, this.locked()[id]),
-      toggle: (on) => this.edit((s) => { s.enabled[id] = on; return s; }),
-      slide: (e) => {
-        const n = Math.round(Number(e.target.value));
-        this.edit((s) => { s.targets[id] = n; return s; });
-      },
+      note: lockNote(id, enabled, target, this.locked()[id]),
+      snapNote: snapNote(id, this.state.saved, f),
+      setOff: () => this.edit((s) => { s.enabled[id] = false; return s; }),
+      blocks: CHOICES[id].map((value, i) => {
+        const filled = i <= picked;
+        const t = goalTier(id, value);
+        return {
+          value,
+          checked: i === picked,
+          cls: filled ? 'jv-goal-block is-filled' : 'jv-goal-block',
+          color: filled ? rampColor(id, value) : BLOCK_EMPTY,
+          label: targetText(id, value) + ', ' + t.name + ' goal, ' + t.bonus + ' bonus XP',
+          pick: () => this.edit((s) => { s.enabled[id] = true; s.targets[id] = value; return s; }),
+        };
+      }),
     };
   }
 

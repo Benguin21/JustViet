@@ -664,14 +664,30 @@ One XP ledger for the whole app, in `src/lib/xp/` (pure and tested in
 ## Goals tab
 
 `src/app/(app)/goals/page.tsx` → `GoalsForm` (`src/components/goals/`): a
-card per goal (Grammar, Vocab, Skills) with its on/off switch and a native
-range slider (whole steps; mouse, touch and keyboard for free). Beside each
-slider: the target ("15 new flashcards per day") and its tier ("Big · +30
-XP"); the selected track darkens with difficulty (`goalSliders.ts`,
-`goal-slider.css`). Nothing is saved until Save goals, which writes
-`settings/goals` through `useGoalSettings` and never awards XP; the page
-then says when each change applies (today, or tomorrow for a goal already
-underway).
+card per goal (Grammar, Vocab, Skills) with its target, its bonus badge
+("Big goal · +30 XP", or "Goal off · 0 XP") and a selector
+(`GoalSelector`): an Off button and five blocks, like a game's volume bar.
+Grammar and Skills offer 1 to 5, Vocab 5, 10, 15, 20, 25
+(`TARGET_CHOICES` in `goalSelectors.ts`). Picking a block fills it and
+every block before it; filled blocks darken with difficulty (`rampColor`,
+`goal-selector.css`). Each selector is one radio group: one Tab stop, the
+arrow keys (and Home/End) move the selection. There are no on/off
+switches: Off saves `enabled: false` and keeps the last target, a block
+saves `enabled: true` with that target, so the saved data
+(`settings/goals`, `enabled` + `targets`) is the same shape as before.
+Nothing is saved until Save goals, which writes through `useGoalSettings`
+and never awards XP; the page then says when each change applies (today,
+or tomorrow for a goal already underway).
+
+**The five choices are only what this page offers.** `TARGET_LIMITS`
+(Vocab 1 to 50), `normalizeGoalSettings`, `normalizeDay` and
+`firestore.rules` keep the old ranges, because they also read each day's
+locked target: a target locked under the old slider (say Vocab 3 or 30)
+must read back exactly, or claiming its bonus on Home fails. Don't narrow
+them to the choices. A goal that's on with a saved target that isn't a
+choice shows its nearest choice (`snapTarget`, `formFromSaved`) and a
+note on its card, and counts as an unsaved change; nothing is written
+until the learner saves.
 
 ## Teachers and lessons
 

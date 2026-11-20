@@ -41,7 +41,11 @@ export interface GoalSettings {
   targets: PerGoal<number>;
 }
 
-/** Each goal's daily target range (the Goals tab's sliders), in whole steps. */
+/**
+ * Each goal's allowed daily target range, in whole steps: what saved goals and each day's locked
+ * target are read back with. The Goals tab offers only five of these (TARGET_CHOICES in
+ * goalSelectors.ts); keep this wider, so targets saved under the old slider still read back.
+ */
 export const TARGET_LIMITS: PerGoal<{ fallback: number; min: number; max: number }> = {
   vocab: { fallback: 5, min: 1, max: 50 },
   grammar: { fallback: 1, min: 1, max: 5 },

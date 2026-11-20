@@ -1,0 +1,122 @@
+/*
+ * The Goals tab's target pickers: an Off pill and five chunky blocks in a slightly inset tray,
+ * like a game's volume bar. Each block's colour comes from its --goal-block (rampColor in
+ * src/lib/companion/goalSelectors.ts for a filled block, the pale cream for an empty one). A
+ * filled block has a darker bottom edge, like Button, and presses down when tapped. The values
+ * row underneath uses the same columns and padding as the tray, so each number sits centred
+ * under its block.
+ */
+.jv-goal-tray,
+.jv-goal-scale {
+  display: grid;
+  grid-template-columns: 3.25rem repeat(5, minmax(0, 1fr));
+  gap: 6px;
+  padding-inline: 6px;
+}
+
+.jv-goal-tray {
+  padding-block: 6px;
+  border-radius: 18px;
+  background: #ead8c8;
+  box-shadow:
+    inset 0 2px 3px rgb(74 47 34 / 0.16),
+    inset 0 -1px 0 rgb(255 255 255 / 0.6);
+}
+
+.jv-goal-block,
+.jv-goal-off {
+  height: 44px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease-out,
+    box-shadow 0.15s ease-out,
+    transform 0.1s ease-out;
+}
+
+.jv-goal-block {
+  background: var(--goal-block);
+  box-shadow:
+    inset 0 -4px 0 rgb(74 47 34 / 0.08),
+    0 1px 0 rgb(255 255 255 / 0.7);
+}
+
+.jv-goal-block[data-filled] {
+  box-shadow:
+    inset 0 -4px 0 rgb(74 22 12 / 0.28),
+    inset 0 2px 0 rgb(255 255 255 / 0.3),
+    0 1px 1px rgb(74 47 34 / 0.18);
+  animation: jv-goal-fill 0.2s ease-out;
+}
+
+.jv-goal-off {
+  font-family: var(--font-heading);
+  font-size: 0.875rem;
+  font-weight: 800;
+  color: var(--color-ink-500);
+  background: var(--color-surface);
+  box-shadow:
+    inset 0 -3px 0 rgb(74 47 34 / 0.1),
+    0 1px 0 rgb(255 255 255 / 0.7);
+}
+
+.jv-goal-off[aria-checked="true"] {
+  color: #fff;
+  background: var(--color-ink-700);
+  box-shadow:
+    inset 0 -4px 0 rgb(0 0 0 / 0.25),
+    0 1px 1px rgb(74 47 34 / 0.18);
+}
+
+.jv-goal-block:hover:not([data-filled]),
+.jv-goal-off:hover:not([aria-checked="true"]) {
+  filter: brightness(0.97);
+}
+
+.jv-goal-block:active,
+.jv-goal-off:active {
+  transform: translateY(2px) scale(0.97);
+}
+
+.jv-goal-block:focus,
+.jv-goal-off:focus {
+  outline: none;
+}
+
+.jv-goal-block:focus-visible,
+.jv-goal-off:focus-visible {
+  outline: 3px solid var(--color-yellow-500);
+  outline-offset: 2px;
+}
+
+.jv-goal-scale {
+  margin-top: 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--color-ink-500);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes jv-goal-fill {
+  from {
+    transform: scale(0.9);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jv-goal-block,
+  .jv-goal-off {
+    transition: none;
+  }
+  .jv-goal-block[data-filled] {
+    animation: none;
+  }
+  .jv-goal-block:active,
+  .jv-goal-off:active {
+    transform: none;
+  }
+}

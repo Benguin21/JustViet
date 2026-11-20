@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { TIER_BONUS, type GoalId, type GoalSettings, type PerGoal } from "@/lib/companion/goals";
-import { GOALS_TAB_ORDER, describeSave } from "@/lib/companion/goalSliders";
+import { GOALS_TAB_ORDER, describeSave, formFromSaved, snapNote } from "@/lib/companion/goalSelectors";
 import { GoalCard } from "./GoalCard";
 
 type GoalsFormProps = {
@@ -19,11 +19,14 @@ function same(a: GoalSettings, b: GoalSettings): boolean {
 }
 
 /**
- * The Goals tab: a card per goal with its switch and target slider, and one Save action. Moving
- * a slider only changes this form; nothing reaches the learner's goals, or their XP, until Save.
+ * The Goals tab: a card per goal with its Off-plus-five-blocks selector, and one Save action.
+ * Picking only changes this form; nothing reaches the learner's goals, or their XP, until Save.
+ * Off saves the goal as off and keeps its last target; a block saves it as on with that target.
+ * The form starts from the saved goals with any target the selector doesn't offer snapped to a
+ * choice (formFromSaved), so such a goal shows as an unsaved change until the learner saves.
  */
 export function GoalsForm({ saved, locked, onSave }: GoalsFormProps) {
-  const [form, setForm] = useState<GoalSettings>(saved);
+  const [form, setForm] = useState<GoalSettings>(() => formFromSaved(saved));
   const [saving, setSaving] = useState(false);
   const [result, setResult] = useState<{ lines: string[] } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -34,8 +37,9 @@ export function GoalsForm({ saved, locked, onSave }: GoalsFormProps) {
     setResult(null);
     setError(null);
   };
-  const setEnabled = (id: GoalId, on: boolean) => edit((f) => ({ ...f, enabled: { ...f.enabled, [id]: on } }));
-  const setTarget = (id: GoalId, n: number) => edit((f) => ({ ...f, targets: { ...f.targets, [id]: n } }));
+  const setOff = (id: GoalId) => edit((f) => ({ ...f, enabled: { ...f.enabled, [id]: false } }));
+  const pick = (id: GoalId, n: number) =>
+    edit((f) => ({ enabled: { ...f.enabled, [id]: true }, targets: { ...f.targets, [id]: n } }));
 
   const save = async () => {
     setSaving(true);
@@ -72,8 +76,9 @@ export function GoalsForm({ saved, locked, onSave }: GoalsFormProps) {
           enabled={form.enabled[id]}
           target={form.targets[id]}
           locked={locked[id]}
-          onEnabledChange={(on) => setEnabled(id, on)}
-          onTargetChange={(n) => setTarget(id, n)}
+          snapped={snapNote(id, saved, form)}
+          onOff={() => setOff(id)}
+          onPick={(n) => pick(id, n)}
         />
       ))}
 
