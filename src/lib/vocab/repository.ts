@@ -43,6 +43,7 @@ import type {
   CardRating,
   NewVocabCardInput,
   ReviewLogEntry,
+  SrsFields,
   SrsSettings,
   VocabCard,
   VocabCardEdit,
@@ -200,10 +201,15 @@ export async function updateCard(
   return patch;
 }
 
-/** Resets a card's SRS scheduling back to "new". Past review history is kept for the record. */
+/**
+ * Resets a card's SRS scheduling back to "new". Past review history is kept for the record, and
+ * so is whether the card is suspended (resetting a suspended card doesn't quietly unsuspend it).
+ */
 export async function resetCardProgress(uid: string, cardId: string): Promise<Partial<VocabCard>> {
   const now = Date.now();
-  const patch = { ...createNewCardFields(new Date(now)), updatedAt: now };
+  const fresh: Partial<SrsFields> = createNewCardFields(new Date(now));
+  delete fresh.suspended;
+  const patch = { ...fresh, updatedAt: now };
   await setDoc(cardRef(uid, cardId), patch, { merge: true });
   return patch;
 }
@@ -216,15 +222,25 @@ export async function setCardSuspended(
   await setDoc(cardRef(uid, cardId), { suspended, updatedAt: Date.now() }, { merge: true });
 }
 
-/** Deletes a card and its review log entries together. */
+/**
+ * Deletes a card and its review log entries. A batch holds at most 500 writes, so a card with a
+ * long history is deleted in chunks: its logs first, then the card itself in the last batch. If
+ * a chunk fails, the card is still there (with part of its history) and deleting it again
+ * finishes the job; a card is never left deleted with orphaned logs.
+ */
 export async function deleteCard(uid: string, cardId: string): Promise<void> {
   const database = requireDb();
   const logsSnapshot = await getDocs(query(logsCol(uid), where("cardId", "==", cardId)));
+  const refs = logsSnapshot.docs.map((d) => d.ref);
 
-  const batch = writeBatch(database);
-  batch.delete(cardRef(uid, cardId));
-  for (const logDoc of logsSnapshot.docs) batch.delete(logDoc.ref);
-  await batch.commit();
+  const CHUNK = 400;
+  const chunks = Math.max(1, Math.ceil(refs.length / CHUNK));
+  for (let c = 0; c < chunks; c++) {
+    const batch = writeBatch(database);
+    for (const ref of refs.slice(c * CHUNK, (c + 1) * CHUNK)) batch.delete(ref);
+    if (c === chunks - 1) batch.delete(cardRef(uid, cardId));
+    await batch.commit();
+  }
 }
 
 /**

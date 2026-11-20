@@ -3,9 +3,24 @@
 import { useMemo, useState } from "react";
 import { CardRow } from "@/components/vocab/CardRow";
 import { EmptyState } from "@/components/vocab/EmptyState";
+import { compareVietnamese } from "@/lib/dictionary/collation";
+import { foldDiacritics } from "@/lib/dictionary/normalize";
 import { effectiveStatus, isDue } from "@/lib/vocab/srs";
 import { useNow } from "@/lib/useNow";
 import type { CardStatus, VocabCard } from "@/lib/vocab/types";
+
+/** Whether a card shows under a status filter. "Learning" includes cards relearning after a lapse. */
+function matchesStatus(card: VocabCard, filter: CardStatus): boolean {
+  const status = effectiveStatus(card);
+  return filter === "learning" ? status === "learning" || status === "relearning" : status === filter;
+}
+
+/** Everything a search looks through, accent-folded so "cam on" finds "cảm ơn". */
+function searchText(card: VocabCard): string {
+  return foldDiacritics(
+    [card.front, card.back, card.exampleSentence, card.pronunciation ?? "", card.notes ?? "", card.tags.join(" ")].join(" "),
+  );
+}
 
 type StatusFilter = "all" | "due" | CardStatus;
 
@@ -67,22 +82,15 @@ export function CardList({
   }
 
   const visibleCards = useMemo(() => {
-    const q = search.trim().toLowerCase();
+    const q = foldDiacritics(search);
 
     let result = cards.filter((card) => {
       if (statusFilter === "due" && !isDue(card, now)) return false;
-      if (
-        statusFilter !== "all" &&
-        statusFilter !== "due" &&
-        effectiveStatus(card) !== statusFilter
-      ) {
+      if (statusFilter !== "all" && statusFilter !== "due" && !matchesStatus(card, statusFilter)) {
         return false;
       }
       if (activeTags.size > 0 && !card.tags.some((t) => activeTags.has(t))) return false;
-      if (q) {
-        const haystack = `${card.front} ${card.back} ${card.exampleSentence} ${card.tags.join(" ")}`.toLowerCase();
-        if (!haystack.includes(q)) return false;
-      }
+      if (q && !searchText(card).includes(q)) return false;
       return true;
     });
 
@@ -93,7 +101,7 @@ export function CardList({
         case "dateAdded":
           return b.createdAt - a.createdAt;
         case "alphabetical":
-          return a.front.localeCompare(b.front);
+          return compareVietnamese(a.front, b.front);
         case "difficulty":
           return b.difficulty - a.difficulty;
         case "reviews":
@@ -125,6 +133,7 @@ export function CardList({
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search words, meanings, examples, tags…"
+          aria-label="Search your cards"
           className="w-full max-w-sm rounded-xl border-2 border-ink-300/60 bg-surface px-4 py-2 text-ink-900 placeholder:text-ink-300 focus:border-yellow-500 focus:ring-4 focus:ring-yellow-100 focus:outline-none"
         />
         <div className="flex items-center gap-2 text-sm">

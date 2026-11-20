@@ -17,6 +17,8 @@ type VocabPageHeaderProps = {
   onTabChange: (tab: VocabTab) => void;
   onAddCard: () => void;
   onImportCards: () => void;
+  /** Opens the teachers' "How Vocabulary works" intro again. */
+  onShowIntro: () => void;
 };
 
 export function VocabPageHeader({
@@ -26,17 +28,27 @@ export function VocabPageHeader({
   onTabChange,
   onAddCard,
   onImportCards,
+  onShowIntro,
 }: VocabPageHeaderProps) {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="font-heading text-3xl font-extrabold text-ink-900">Vocab</h1>
+          <h1 className="font-heading text-3xl font-extrabold text-ink-900">Vocabulary</h1>
+          <p className="mt-0.5 text-sm font-bold text-red-500">Your Vocab Spaced Repetition System (SRS)</p>
           <p className="mt-1 font-semibold text-ink-500">
             {totalCards} card{totalCards === 1 ? "" : "s"} · {dueToday} due today
+            <span aria-hidden="true"> · </span>
+            <button
+              type="button"
+              onClick={onShowIntro}
+              className="rounded font-bold text-red-500 underline-offset-2 hover:underline focus:outline-none focus-visible:ring-4 focus-visible:ring-yellow-200"
+            >
+              How it works
+            </button>
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button onClick={onImportCards} variant="outline" fullWidth={false} className="px-6">
             Import Cards
           </Button>
@@ -51,6 +63,7 @@ export function VocabPageHeader({
           <button
             key={tab.value}
             type="button"
+            aria-pressed={activeTab === tab.value}
             onClick={() => onTabChange(tab.value)}
             className={`flex-1 rounded-xl py-2 text-sm font-bold tracking-wide uppercase transition-colors ${
               activeTab === tab.value ? "bg-surface text-red-500 shadow-sm" : "text-ink-500"

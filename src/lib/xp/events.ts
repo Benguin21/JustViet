@@ -70,6 +70,28 @@ export function isSourceId(id: unknown): id is string {
   return typeof id === "string" && /^[A-Za-z0-9_-]{1,120}$/.test(id);
 }
 
+/**
+ * A Vocab card id, which goes into its XP event's id (`vocab_{day}_{card}`). Card ids are already
+ * Firestore document ids, but not all from the safe alphabet above: a card added from the
+ * Dictionary is `dict_` + the URL-encoded headword ("dict_c%E1%BA%A3m%20%C6%A1n"), often longer
+ * than 120 characters for a phrase. So any id that is a valid document id is accepted, kept well
+ * under Firestore's 1,500-byte limit for the event id it becomes.
+ */
+export function isCardId(id: unknown): id is string {
+  return (
+    typeof id === "string" &&
+    id.length > 0 &&
+    id.length <= 1000 &&
+    !id.includes("/") &&
+    id !== "." &&
+    id !== ".." &&
+    !/^__.*__$/.test(id) &&
+    // ASCII only, so the length above is also the byte count (auto ids and encodeURIComponent
+    // output always are).
+    /^[\x21-\x7e]+$/.test(id)
+  );
+}
+
 export const vocabEventId = (day: string, cardId: string) => `vocab_${day}_${cardId}`;
 /** A lesson is new once, ever: reopening it later is a review. */
 export const grammarNewId = (lessonId: string) => `grammar-new_${lessonId}`;

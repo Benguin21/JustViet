@@ -11,7 +11,7 @@ type AddToVocabButtonProps = {
   /** True while the user's vocab list is still loading (the "already added?" answer isn't known yet). */
   pending?: boolean;
   size?: "md" | "sm";
-  /** Show the "View in Vocab" link next to the completed state. */
+  /** Show the "View in Vocabulary" link next to the completed state. */
   showViewLink?: boolean;
 };
 
@@ -61,7 +61,7 @@ export function AddToVocabButton({
             href={`/vocab-srs?card=${encodeURIComponent(cardId)}`}
             className="text-sm font-bold text-red-500 underline-offset-2 hover:underline"
           >
-            View in Vocab →
+            View in Vocabulary →
           </Link>
         )}
       </div>

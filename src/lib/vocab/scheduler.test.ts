@@ -182,6 +182,14 @@ describe("computeForecast", () => {
     expect(forecast).toHaveLength(14);
     expect(forecast.reduce((sum, d) => sum + d.count, 0)).toBe(3);
   });
+
+  it("counts overdue cards as due today", () => {
+    const DAY = 24 * 60 * 60 * 1000;
+    const cards = [makeCard({ due: NOW - 5 * DAY }), makeCard({ due: NOW }), makeCard({ due: NOW - DAY, suspended: true })];
+    const forecast = computeForecast(cards, NOW, 14);
+    expect(forecast[0].count).toBe(2);
+    expect(forecast.reduce((sum, d) => sum + d.count, 0)).toBe(2);
+  });
 });
 
 describe("computeReviewHeatmap", () => {

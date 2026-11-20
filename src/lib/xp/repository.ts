@@ -24,7 +24,7 @@ import {
 import { db } from "@/lib/firebase";
 import { normalizeGoalSettings, type GoalId, type GoalSettings } from "@/lib/companion/goals";
 import { dayKeyIn, deviceTimeZone, isTimeZone } from "./day";
-import { grammarNewId, grammarReviewId, isSourceId, skillEventId, vocabEventId, type XpEvent } from "./events";
+import { grammarNewId, grammarReviewId, isCardId, isSourceId, skillEventId, vocabEventId, type XpEvent } from "./events";
 import {
   normalizeDay,
   normalizeTotal,
@@ -196,7 +196,7 @@ async function run(uid: string, at: number | null, decide: (tx: Transaction, l: 
  * that a failed call missed, which is safe because a card already paid is skipped.
  */
 export async function awardVocabReview(uid: string, log: { id: string; cardId: string; reviewedAt: number }): Promise<AwardResult> {
-  if (!isSourceId(log.cardId)) throw new Error("That card can't earn XP.");
+  if (!isCardId(log.cardId)) throw new Error("That card can't earn XP.");
   return run(uid, log.reviewedAt, async (tx, l) => {
     const paid = await exists(tx, eventRef(uid, vocabEventId(l.ctx.day.day, log.cardId)));
     return planVocabCard(l.ctx, log, paid);

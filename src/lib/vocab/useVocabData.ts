@@ -39,7 +39,8 @@ export interface UseVocabDataResult {
   resetProgress: (cardId: string) => Promise<void>;
   reviewCard: (card: VocabCard, rating: CardRating) => Promise<VocabCard>;
   saveSettings: (settings: SrsSettings) => Promise<void>;
-  rescheduleAllCards: () => Promise<number>;
+  /** Reschedules review cards for `using` (the settings just saved), or the current settings. */
+  rescheduleAllCards: (using?: SrsSettings) => Promise<number>;
 }
 
 const NOT_SIGNED_IN = "You need to be signed in to do that.";
@@ -258,10 +259,10 @@ export function useVocabData({ includeReviewLogs = true }: UseVocabDataOptions =
     [uid],
   );
 
-  const rescheduleAllCardsAction = useCallback(async () => {
+  const rescheduleAllCardsAction = useCallback(async (using?: SrsSettings) => {
     if (!uid) throw new Error(NOT_SIGNED_IN);
     try {
-      const updates = await repo.rescheduleAllCards(uid, cards, settings);
+      const updates = await repo.rescheduleAllCards(uid, cards, using ?? settings);
       const byId = new Map(updates.map((u) => [u.id, u]));
       setCards((prev) =>
         prev.map((c) => {

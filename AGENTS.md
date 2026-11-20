@@ -108,7 +108,9 @@ landing page, not a redirect.)
   `skills/`, rendering `<ComingSoon />` with its own copy. Flesh it out in
   place when it lands.
 - `src/app/(app)/layout.tsx` renders `AppHeader` (logo + user greeting +
-  logout) and wraps children in `RequireAuth`.
+  logout) and wraps children in `RequireAuth`. `src/app/(app)/error.tsx`
+  catches a page that crashes while rendering ("Try again" / "Go Home",
+  header still there). Next 16's error boundary prop is `retry`.
 
 **Theme.** Pastel red/yellow, Duolingo-style — colors are CSS custom
 properties in `src/app/globals.css` (Tailwind v4's `@theme inline`, no
@@ -282,6 +284,11 @@ All under Authentication in the Firebase console:
 
 ## Vocab SRS feature
 
+Shown to learners as **Vocabulary** ("Your Vocab Spaced Repetition System
+(SRS)"): the page heading, Home's section card and goal card, and the
+browser-tab title (`vocab-srs/layout.tsx`). The route stays `/vocab-srs`
+so existing links keep working.
+
 Everything lives on one page, `src/app/(app)/vocab-srs/page.tsx`
 (tabs: Cards / Study / Settings, plus a dashboard). The algorithm/data
 layer is intentionally UI- and Firestore-free where possible, so it's unit
@@ -355,9 +362,32 @@ Settings panel's Algorithm section.
 **Study-session queue behavior:** `StudySession` snapshots its queue once
 at mount (`useState(initialQueue)`); cards still in `learning`/
 `relearning` after being rated get appended back onto that local queue so
-they resurface later in the same session (short learning steps), while
-graduated/reviewed cards leave for good. It does not live-sync with
-Firestore mid-session by design.
+they resurface later in the same session (short learning steps), but only
+when the next step is due within `LEARN_AHEAD_MS` (20 min, like Anki's
+learn-ahead limit); a longer step ("1h", "1d") waits for a later session.
+Graduated/reviewed cards leave for good. It does not live-sync with
+Firestore mid-session by design. Its 1–4 / Space shortcuts are ignored
+while any `aria-modal` dialog is open and for held-down keys.
+
+**Card ids and XP.** A card's id goes into its XP event id
+(`vocab_{day}_{card}`), checked with `isCardId` (`src/lib/xp/events.ts`),
+not the stricter `isSourceId`: Dictionary cards are `dict_` + the
+URL-encoded headword, with `%` in them. (Checking them with `isSourceId`
+once made every Dictionary card earn no XP and Home fail to open the same
+day.) Home pays today's unpaid reviews best-effort: one failed award is
+logged and skipped, never an error page.
+
+**The Vocabulary intro** (`VocabIntro.tsx`): Cô Tươi and Thầy Vinh explain
+what an SRS is, how to add cards, and how to rate them (with a practice
+card), opening by itself on the first visit and again from "How it works"
+in the header. It's drawn by `src/components/teachers/TeacherGuide.tsx`,
+the same card as Home's intro (it reuses `companion.css` and the teacher
+drawings in `art.ts`), which any other page can use for its own
+walkthrough. Its example intervals come from the real scheduler with the
+learner's settings (`src/lib/vocab/tutorial.ts`). Seen-or-skipped is saved
+in `users/{uid}/settings/tutorials` (`src/lib/tutorials/`; one flag per
+tutorial, add new ids to `TUTORIAL_IDS`); it never opens on top of another
+dialog.
 
 **Batch import** (paste from Excel/Sheets, no file upload):
 `src/lib/vocab/import.ts` is the pure parsing/validation pipeline

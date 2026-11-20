@@ -72,7 +72,7 @@ function setup(
   return { ...view, props, onSaveLedger, onMarkProfile };
 }
 
-const vocabCheck = () => screen.getByRole("checkbox", { name: /Vocab SRS/ });
+const vocabCheck = () => screen.getByRole("checkbox", { name: /Vocabulary/ });
 const lastLedger = (fn: ReturnType<typeof vi.fn<HomeCompanionProps["onSaveLedger"]>>) => fn.mock.calls.at(-1)![0];
 
 beforeEach(() => {
@@ -91,7 +91,7 @@ describe("HomeCompanion", () => {
     expect(screen.getByText("2/5 new words studied")).toBeTruthy();
     const check = vocabCheck();
     expect(check.getAttribute("aria-disabled")).toBe("true");
-    expect(check.getAttribute("aria-label")).toBe("Vocab SRS: 2 of 5 new words studied. Feeding unlocks at 5.");
+    expect(check.getAttribute("aria-label")).toBe("Vocabulary: 2 of 5 new words studied. Feeding unlocks at 5.");
     fireEvent.click(check);
     expect(lastLedger(onSaveLedger).claims.vocab).toBe(false);
   });
@@ -100,7 +100,7 @@ describe("HomeCompanion", () => {
     const { onSaveLedger } = setup({ progress: { vocab: 5 } });
     const check = vocabCheck();
     expect(check.getAttribute("aria-disabled")).toBe("false");
-    expect(check.getAttribute("aria-label")).toBe("Feed Rồng Con: mark Vocab SRS complete for 10 XP");
+    expect(check.getAttribute("aria-label")).toBe("Feed Rồng Con: mark Vocabulary complete for 10 XP");
 
     fireEvent.click(check);
     const saved = lastLedger(onSaveLedger);
@@ -125,7 +125,7 @@ describe("HomeCompanion", () => {
     const check = vocabCheck();
     expect(check.getAttribute("aria-checked")).toBe("true");
     expect(check.getAttribute("aria-disabled")).toBe("true");
-    expect(check.getAttribute("aria-label")).toBe("Vocab SRS fed, 10 XP");
+    expect(check.getAttribute("aria-label")).toBe("Vocabulary fed, 10 XP");
     const saves = onSaveLedger.mock.calls.length;
     fireEvent.click(check);
     act(() => {
@@ -274,7 +274,7 @@ describe("HomeCompanion", () => {
     const settings = { ...DEFAULT_GOAL_SETTINGS, targets: { ...DEFAULT_GOAL_SETTINGS.targets, vocab: 3 } };
     const { onSaveLedger } = setup({ progress: { vocab: 4 }, settings });
     expect(screen.getByText("Ready to feed · +0 XP")).toBeTruthy();
-    expect(vocabCheck().getAttribute("aria-label")).toBe("Feed Rồng Con: mark Vocab SRS complete for 0 XP");
+    expect(vocabCheck().getAttribute("aria-label")).toBe("Feed Rồng Con: mark Vocabulary complete for 0 XP");
     fireEvent.click(vocabCheck());
     expect(lastLedger(onSaveLedger).claims.vocab).toBe(true);
     act(() => {

@@ -161,7 +161,9 @@ export function computeForecast(
 
   for (const card of cards) {
     if (card.suspended) continue;
-    const day = startOfDay(card.due);
+    // Overdue cards are due today too: they'd otherwise fall before the first bucket and
+    // vanish from the forecast.
+    const day = Math.max(today, startOfDay(card.due));
     if (buckets.has(day)) buckets.set(day, (buckets.get(day) ?? 0) + 1);
   }
 

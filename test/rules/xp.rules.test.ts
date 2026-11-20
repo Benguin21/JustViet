@@ -93,6 +93,14 @@ describe("activity XP", () => {
     expect((await read(`users/${UID}/days/${today()}`))?.flash).toBe(1);
   });
 
+  it("pays a card added from the Dictionary (its id is the URL-encoded headword)", async () => {
+    const card = `dict_${encodeURIComponent("cảm ơn")}`;
+    const log = await logFor(card);
+    const res = await xp.awardVocabReview(UID, log);
+    expect(res.event?.id).toBe(`vocab_${today()}_${card}`);
+    expect(await total()).toBe(1);
+  });
+
   it("stops flashcard XP at 100 cards a day", async () => {
     for (let i = 0; i < 102; i++) await xp.awardVocabReview(UID, await logFor("card" + i));
     expect(await total()).toBe(100);

@@ -253,7 +253,8 @@ export function rescheduleForRetention(
 }
 
 export function formatInterval(ms: number): string {
-  if (ms <= 60_000) return "<1 min";
+  // Strictly under a minute: the default "1m" Again step should read "1 min", not "<1 min".
+  if (ms < 60_000) return "<1 min";
   const minutes = ms / 60_000;
   if (minutes < 60) return `${Math.round(minutes)} min`;
   const hours = ms / 3_600_000;

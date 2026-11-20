@@ -10,8 +10,11 @@ import { CardDetailModal } from "@/components/vocab/CardDetailModal";
 import { BatchImportModal } from "@/components/vocab/BatchImportModal";
 import { StudySession } from "@/components/vocab/StudySession";
 import { SettingsPanel } from "@/components/vocab/SettingsPanel";
+import { VocabIntro } from "@/components/vocab/VocabIntro";
+import { Button } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Toast } from "@/components/ui/Toast";
+import { useTutorial } from "@/lib/tutorials/useTutorial";
 import { useVocabData } from "@/lib/vocab/useVocabData";
 import { buildStudyQueue, computeTodayStats } from "@/lib/vocab/scheduler";
 import { startOfDay } from "@/lib/vocab/srs";
@@ -57,6 +60,7 @@ function VocabSrsPageContent() {
     settings,
     loading,
     error,
+    refresh,
     addCard,
     addCards,
     editCard,
@@ -72,11 +76,13 @@ function VocabSrsPageContent() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [editingCard, setEditingCard] = useState<VocabCard | null>(null);
-  const [viewingCard, setViewingCard] = useState<VocabCard | null>(null);
+  const [viewingCardId, setViewingCardId] = useState<string | null>(null);
   const [deletingCard, setDeletingCard] = useState<VocabCard | null>(null);
   const [singleCardQueue, setSingleCardQueue] = useState<VocabCard[] | null>(null);
   const [listError, setListError] = useState<string | null>(null);
+  const [retrying, setRetrying] = useState(false);
   const { message: toastMessage, showToast } = useToast();
+  const intro = useTutorial("vocab");
 
   const now = useNow();
   const todayStats = useMemo(() => computeTodayStats(cards, now), [cards, now]);
@@ -91,18 +97,54 @@ function VocabSrsPageContent() {
     [cards, settings, todaysLogs, now],
   );
 
-  // A ?card= link (e.g. "View in Vocab" from the Dictionary) opens that card's details.
-  const linkedCard =
-    cardParam && cardParam !== dismissedCardParam ? cards.find((c) => c.id === cardParam) : undefined;
-  const detailCard = viewingCard ?? linkedCard ?? null;
+  // A ?card= link (e.g. "View in Vocabulary" from the Dictionary) opens that card's details.
+  // The modal always shows (and acts on) the card as it is now in `cards`, never a copy from
+  // when it was opened: a stale copy made Unsuspend do nothing and "Study Now" quietly
+  // unsuspend a card that had just been suspended.
+  const linkedCardId = cardParam && cardParam !== dismissedCardParam ? cardParam : null;
+  const detailId = viewingCardId ?? linkedCardId;
+  const detailCard = (detailId && cards.find((c) => c.id === detailId)) || null;
 
   function closeDetail() {
-    setViewingCard(null);
+    setViewingCardId(null);
     if (cardParam) {
       setDismissedCardParam(cardParam);
       router.replace("/vocab-srs", { scroll: false });
     }
   }
+
+  async function retryLoad() {
+    setRetrying(true);
+    try {
+      await refresh();
+    } finally {
+      setRetrying(false);
+    }
+  }
+
+  // The intro opens by itself on the first visit, but never on top of another dialog (say a
+  // card opened from the Dictionary): it waits until that one closes.
+  const anotherDialogOpen =
+    !!detailCard || showAddModal || showImportModal || !!editingCard || !!deletingCard;
+  const showIntro = intro.open && !loading && !anotherDialogOpen;
+  const introFinish =
+    cards.length === 0
+      ? {
+          label: "Add my first card",
+          onClick: () => {
+            intro.close();
+            setShowAddModal(true);
+          },
+        }
+      : todayStats.due > 0
+        ? {
+            label: "Start studying",
+            onClick: () => {
+              intro.close();
+              startStudying();
+            },
+          }
+        : { label: "Let’s go!", onClick: intro.close };
 
   /**
    * Creates a card, optionally also adding the word to the Dictionary first
@@ -176,10 +218,18 @@ function VocabSrsPageContent() {
         }}
         onAddCard={() => setShowAddModal(true)}
         onImportCards={() => setShowImportModal(true)}
+        onShowIntro={intro.show}
       />
 
       {error && (
-        <p className="rounded-xl bg-red-50 px-4 py-2 text-sm font-semibold text-red-600">{error}</p>
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-red-50 px-4 py-2">
+          <p className="text-sm font-semibold text-red-600">
+            {error} Some of your cards or history may not be showing.
+          </p>
+          <Button size="sm" variant="outline" fullWidth={false} loading={retrying} onClick={retryLoad}>
+            Try again
+          </Button>
+        </div>
       )}
       {listError && (
         <p className="rounded-xl bg-red-50 px-4 py-2 text-sm font-semibold text-red-600">
@@ -193,7 +243,7 @@ function VocabSrsPageContent() {
           <CardList
             cards={cards}
             onAddCard={() => setShowAddModal(true)}
-            onSelectCard={setViewingCard}
+            onSelectCard={(card) => setViewingCardId(card.id)}
             onEditCard={setEditingCard}
             onDeleteCard={setDeletingCard}
             onStudyCard={(card) => startStudying(card)}
@@ -254,7 +304,7 @@ function VocabSrsPageContent() {
 
       {detailCard && (
         <CardDetailModal
-          card={cards.find((c) => c.id === detailCard.id) ?? detailCard}
+          card={detailCard}
           reviewHistory={reviewLogs.filter((log) => log.cardId === detailCard.id)}
           onClose={closeDetail}
           onEdit={() => {
@@ -287,6 +337,8 @@ function VocabSrsPageContent() {
           onCancel={() => setDeletingCard(null)}
         />
       )}
+
+      {showIntro && <VocabIntro settings={settings} finish={introFinish} onClose={intro.close} />}
 
       {toastMessage && <Toast message={toastMessage} />}
     </main>

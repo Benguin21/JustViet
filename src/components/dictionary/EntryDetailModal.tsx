@@ -56,7 +56,7 @@ export function EntryDetailModal({
           <div className="rounded-2xl bg-paper p-4">
             <p className="mb-3 text-sm font-semibold text-ink-500">
               {srsCardId
-                ? "You're studying this word in your Vocab SRS."
+                ? "You're studying this word in Vocabulary."
                 : "Want to remember this word? Add it to your spaced-repetition practice."}
             </p>
             <AddToVocabButton cardId={srsCardId} onAdd={onAddToVocab} pending={srsPending} />

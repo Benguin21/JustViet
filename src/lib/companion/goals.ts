@@ -30,7 +30,7 @@ export interface GoalDef {
 }
 
 export const GOAL_DEFS: PerGoal<GoalDef> = {
-  vocab: { id: "vocab", section: "Vocab SRS", href: "/vocab-srs", one: "new word", many: "new words", verb: "studied" },
+  vocab: { id: "vocab", section: "Vocabulary", href: "/vocab-srs", one: "new word", many: "new words", verb: "studied" },
   grammar: { id: "grammar", section: "Grammar", href: "/grammar", one: "lesson", many: "lessons", verb: "completed" },
   skills: { id: "skills", section: "Skills", href: "/skills", one: "activity", many: "activities", verb: "completed" },
 };
@@ -76,7 +76,7 @@ export function normalizeGoalSettings(raw: unknown): GoalSettings {
   return { enabled, targets };
 }
 
-/** The goals switched on, always in the fixed order (Vocab SRS, Grammar, Skills). */
+/** The goals switched on, always in the fixed order (Vocabulary, Grammar, Skills). */
 export function activeGoals(settings: GoalSettings): GoalId[] {
   return GOAL_IDS.filter((id) => settings.enabled[id]);
 }

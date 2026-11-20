@@ -238,6 +238,7 @@ describe("rescheduleForRetention", () => {
 describe("formatInterval", () => {
   it("formats sub-minute, minute, hour, day, month, and year ranges", () => {
     expect(formatInterval(30_000)).toBe("<1 min");
+    expect(formatInterval(60_000)).toBe("1 min");
     expect(formatInterval(10 * 60_000)).toBe("10 min");
     expect(formatInterval(5 * 3_600_000)).toBe("5 hr");
     expect(formatInterval(4 * 86_400_000)).toBe("4 days");

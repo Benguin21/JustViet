@@ -58,14 +58,20 @@ async function loadCompanion(uid: string): Promise<CompanionData> {
   ]);
   const todays = logs.filter((l) => dayKeyIn(l.reviewedAt, timeZone) === today);
   // Pay anything from today the Vocab page couldn't (safe to repeat: a paid card is skipped).
+  // Best effort: one award that fails (offline, a card the ledger refuses) must never keep Home
+  // from opening, so it's skipped and tried again the next time Home opens.
   let total = total0;
   let day = day0;
   const paid = new Set(events.filter((e) => e.kind === "vocab.card" && e.card).map((e) => e.card as string));
   for (const log of unpaidReviews(todays, paid, day)) {
-    const res = await xp.awardVocabReview(uid, log);
-    if (res.day.day === today) {
-      total = res.total;
-      day = res.day;
+    try {
+      const res = await xp.awardVocabReview(uid, log);
+      if (res.day.day === today) {
+        total = res.total;
+        day = res.day;
+      }
+    } catch (err) {
+      console.warn("Couldn't record XP for a Vocabulary card yet.", err);
     }
   }
   return {

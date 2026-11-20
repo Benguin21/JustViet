@@ -21,7 +21,18 @@ export function CardRow({ card, onSelect, onEdit, onDelete, onStudy }: CardRowPr
       className="cursor-pointer border-t border-ink-300/20 hover:bg-yellow-50"
     >
       <td className="px-4 py-3">
-        <div className="font-heading font-bold text-ink-900">{card.front}</div>
+        {/* The whole row opens the card on click; this button is the keyboard way in. */}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onSelect();
+          }}
+          className="rounded-md text-left font-heading font-bold text-ink-900 hover:text-red-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-yellow-200"
+          lang="vi"
+        >
+          {card.front}
+        </button>
       </td>
       <td className="px-4 py-3 text-ink-700">{card.back}</td>
       <td className="px-4 py-3 text-ink-500 capitalize">{card.partOfSpeech || "—"}</td>

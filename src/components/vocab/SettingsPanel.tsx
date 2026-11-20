@@ -13,8 +13,20 @@ import type { SrsSettings } from "@/lib/vocab/types";
 type SettingsPanelProps = {
   settings: SrsSettings;
   onSave: (settings: SrsSettings) => Promise<void>;
-  onRescheduleAll: () => Promise<number>;
+  /** Reschedules review cards for the settings given (the ones just saved). */
+  onRescheduleAll: (settings: SrsSettings) => Promise<number>;
 };
+
+/** The settings with the step fields parsed from what's typed in them. */
+function withSteps(form: SrsSettings, steps: { learning: string; relearning: string }): SrsSettings {
+  return { ...form, learningSteps: parseSteps(steps.learning), relearningSteps: parseSteps(steps.relearning) };
+}
+
+function sameSettings(a: SrsSettings, b: SrsSettings): boolean {
+  return (Object.keys(a) as (keyof SrsSettings)[]).every((k) =>
+    Array.isArray(a[k]) ? formatSteps(a[k] as string[]) === formatSteps(b[k] as string[]) : a[k] === b[k],
+  );
+}
 
 function Section({
   title,
@@ -56,6 +68,12 @@ function Field({
 
 export function SettingsPanel({ settings, onSave, onRescheduleAll }: SettingsPanelProps) {
   const [form, setForm] = useState<SrsSettings>(settings);
+  // The step fields keep exactly what's typed: parsing them on every keystroke would swallow
+  // the space (or comma) between steps, so "1m 10m" could never be typed.
+  const [steps, setSteps] = useState({
+    learning: formatSteps(settings.learningSteps),
+    relearning: formatSteps(settings.relearningSteps),
+  });
   const [errors, setErrors] = useState<ReturnType<typeof validateSrsSettings>>({});
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
@@ -67,16 +85,31 @@ export function SettingsPanel({ settings, onSave, onRescheduleAll }: SettingsPan
     setSaveMessage(null);
   }
 
-  async function handleSave() {
-    const nextErrors = validateSrsSettings(form);
-    setErrors(nextErrors);
-    if (Object.keys(nextErrors).length > 0) return;
+  function setStepText(which: "learning" | "relearning", value: string) {
+    setSteps((prev) => ({ ...prev, [which]: value }));
+    setSaveMessage(null);
+  }
 
+  /** Validates and saves the form. Returns the saved settings, or null if it wasn't saved. */
+  async function save(): Promise<SrsSettings | null> {
+    const next = withSteps(form, steps);
+    const nextErrors = validateSrsSettings(next);
+    setErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) {
+      setSaveMessage("Please fix the highlighted settings first.");
+      return null;
+    }
+    await onSave(next);
+    setForm(next);
+    setSteps({ learning: formatSteps(next.learningSteps), relearning: formatSteps(next.relearningSteps) });
+    return next;
+  }
+
+  async function handleSave() {
     setSaving(true);
     setSaveMessage(null);
     try {
-      await onSave(form);
-      setSaveMessage("Settings saved.");
+      if (await save()) setSaveMessage("Settings saved.");
     } catch (err) {
       setSaveMessage(err instanceof Error ? err.message : "Something went wrong. Please try again.");
     } finally {
@@ -84,10 +117,16 @@ export function SettingsPanel({ settings, onSave, onRescheduleAll }: SettingsPan
     }
   }
 
+  // Rescheduling uses the retention on screen, so any unsaved changes are saved first.
   async function handleReschedule() {
     setRescheduling(true);
     try {
-      const count = await onRescheduleAll();
+      const next = sameSettings(withSteps(form, steps), settings) ? settings : await save();
+      if (!next) {
+        setConfirmingReschedule(false);
+        return;
+      }
+      const count = await onRescheduleAll(next);
       setSaveMessage(
         count > 0
           ? `Rescheduled ${count} card${count === 1 ? "" : "s"}.`
@@ -139,8 +178,8 @@ export function SettingsPanel({ settings, onSave, onRescheduleAll }: SettingsPan
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Initial learning steps" hint='How long to wait before showing a new card again after each rating, e.g. "1m 10m" means 1 minute, then 10 minutes, before it graduates.'>
             <TextField
-              value={formatSteps(form.learningSteps)}
-              onChange={(e) => set("learningSteps", parseSteps(e.target.value))}
+              value={steps.learning}
+              onChange={(e) => setStepText("learning", e.target.value)}
               error={errors.learningSteps}
               placeholder="1m 10m"
             />
@@ -190,8 +229,8 @@ export function SettingsPanel({ settings, onSave, onRescheduleAll }: SettingsPan
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Relearning steps" hint='How long to wait between re-tries after you forget a card, before it returns to the normal review schedule, e.g. "10m".'>
             <TextField
-              value={formatSteps(form.relearningSteps)}
-              onChange={(e) => set("relearningSteps", parseSteps(e.target.value))}
+              value={steps.relearning}
+              onChange={(e) => setStepText("relearning", e.target.value)}
               error={errors.relearningSteps}
               placeholder="10m"
             />
@@ -278,7 +317,7 @@ export function SettingsPanel({ settings, onSave, onRescheduleAll }: SettingsPan
       {confirmingReschedule && (
         <ConfirmDialog
           title="Reschedule existing cards?"
-          description="This updates the next-review date for every review-state card to match your current desired retention. It won't affect new or learning cards."
+          description="This saves your settings, then updates the next-review date for every review-state card to match the desired retention above. It won't affect new or learning cards."
           confirmLabel={rescheduling ? "Rescheduling…" : "Reschedule"}
           danger={false}
           onConfirm={handleReschedule}
