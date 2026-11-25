@@ -78,10 +78,12 @@ export function targetText(id: GoalId, target: number): string {
   return `${target} ${target === 1 ? c.one : c.many} per day`;
 }
 
-/** The badge for a goal that's off. */
-export const OFF_TEXT = "Goal off · 0 XP";
+/** A goal card's badge in two parts, shown side by side: ["Small goal", "+10 XP"], or ["Goal off", "0 XP"]. */
+export function tierBadge(tier: GoalTier | null): [string, string] {
+  return tier ? [`${tier.name} goal`, `+${tier.bonus} XP`] : ["Goal off", "0 XP"];
+}
 
-/** "Small goal · +10 XP". */
+/** "Small goal · +10 XP", for the notes' prose. */
 export function tierText(tier: GoalTier): string {
   return `${tier.name} goal · +${tier.bonus} XP`;
 }

@@ -4,7 +4,6 @@ import {
   BLOCK_EMPTY,
   blockTextColor,
   GOALS_TAB_ORDER,
-  OFF_TEXT,
   TARGET_CHOICES,
   choiceLabel,
   describeSave,
@@ -16,6 +15,7 @@ import {
   snapNote,
   snapTarget,
   targetText,
+  tierBadge,
   tierText,
 } from "./goalSelectors";
 
@@ -56,7 +56,12 @@ describe("Goals tab selectors", () => {
     }
     // An old Vocab target locked for today still has its own tier.
     expect(label("vocab", 3)).toBe("Starter goal · +0 XP");
-    expect(OFF_TEXT).toBe("Goal off · 0 XP");
+  });
+
+  it("splits the badge into the tier and its XP, with no separator", () => {
+    expect(tierBadge(goalTier("vocab", 5))).toEqual(["Small goal", "+10 XP"]);
+    expect(tierBadge(goalTier("grammar", 3))).toEqual(["Big goal", "+30 XP"]);
+    expect(tierBadge(null)).toEqual(["Goal off", "0 XP"]);
   });
 
   it("says each choice in words", () => {

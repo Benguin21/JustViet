@@ -56,17 +56,17 @@ describe("Goals tab", () => {
     expect(checked("Grammar")).toEqual(["0 lessons per day, goal off"]);
     expect(filled("Grammar")).toBe("□□□□□");
     expect(screen.getByTestId("goal-grammar-value").textContent).toBe("0 lessons per day");
-    expect(screen.getByTestId("goal-grammar-tier").textContent).toBe("Goal off · 0 XP");
+    expect(screen.getByTestId("goal-grammar-tier").textContent).toBe("Goal off 0 XP");
   });
 
   it("fills every block up to the one picked, and updates the number and badge", () => {
     const { option, filled } = setup();
     const tier = () => screen.getByTestId("goal-vocab-tier").textContent;
     const cases: [number, string, string][] = [
-      [15, "■■■□□", "Big goal · +30 XP"],
-      [10, "■■□□□", "Medium goal · +20 XP"],
-      [25, "■■■■■", "Big goal · +30 XP"],
-      [5, "■□□□□", "Small goal · +10 XP"],
+      [15, "■■■□□", "Big goal +30 XP"],
+      [10, "■■□□□", "Medium goal +20 XP"],
+      [25, "■■■■■", "Big goal +30 XP"],
+      [5, "■□□□□", "Small goal +10 XP"],
     ];
     for (const [n, bar, label] of cases) {
       fireEvent.click(option("Vocab", new RegExp(`^${n} new flashcards`)));
@@ -76,10 +76,10 @@ describe("Goals tab", () => {
     }
     fireEvent.click(option("Grammar", /^2 lessons/));
     expect(filled("Grammar")).toBe("■■□□□");
-    expect(screen.getByTestId("goal-grammar-tier").textContent).toBe("Medium goal · +20 XP");
+    expect(screen.getByTestId("goal-grammar-tier").textContent).toBe("Medium goal +20 XP");
     fireEvent.click(option("Skills", /^4 activities/));
     expect(filled("Skills")).toBe("■■■■□");
-    expect(screen.getByTestId("goal-skills-tier").textContent).toBe("Big goal · +30 XP");
+    expect(screen.getByTestId("goal-skills-tier").textContent).toBe("Big goal +30 XP");
   });
 
   it("darkens the filled blocks toward the harder end", () => {
@@ -151,7 +151,7 @@ describe("Goals tab", () => {
     fireEvent.click(option("Vocab", /goal off$/));
     expect(filled("Vocab")).toBe("□□□□□");
     expect(screen.getByTestId("goal-vocab-value").textContent).toBe("0 new flashcards per day");
-    expect(screen.getByTestId("goal-vocab-tier").textContent).toBe("Goal off · 0 XP");
+    expect(screen.getByTestId("goal-vocab-tier").textContent).toBe("Goal off 0 XP");
     // Off takes effect straight away, so there's no "starts tomorrow" note.
     expect(screen.queryByText(/already underway/)).toBeNull();
     await act(async () => {

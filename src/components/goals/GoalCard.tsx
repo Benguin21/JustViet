@@ -1,16 +1,19 @@
 "use client";
 
 import { goalTier, type GoalId, type TierName } from "@/lib/companion/goals";
-import { GOAL_COPY, OFF_TEXT, lockNote, targetText, tierText } from "@/lib/companion/goalSelectors";
+import { GOAL_COPY, lockNote, targetText, tierBadge } from "@/lib/companion/goalSelectors";
 import { GoalSelector } from "./GoalSelector";
 
-/** The badge beside each target: darker with difficulty, and always in words too. */
+/**
+ * The badge beside each target: gold for bonus XP (rewards are gold, like coins and stars), deeper
+ * for bigger bonuses, and always in words too. Starter earns nothing, so it's neutral like Off.
+ */
 const TIER_PILL: Record<TierName | "Off", string> = {
   Off: "bg-surface text-ink-500 ring-1 ring-ink-300/60",
-  Starter: "bg-yellow-50 text-ink-700 ring-1 ring-ink-300/50",
-  Small: "bg-red-50 text-red-700 ring-1 ring-red-200",
-  Medium: "bg-red-100 text-red-700 ring-1 ring-red-300",
-  Big: "bg-red-700 text-white ring-1 ring-red-700",
+  Starter: "bg-surface text-ink-500 ring-1 ring-ink-300/60",
+  Small: "bg-yellow-100 text-ink-900 ring-1 ring-yellow-300",
+  Medium: "bg-yellow-300 text-ink-900 ring-1 ring-yellow-500",
+  Big: "bg-yellow-400 text-ink-900 ring-1 ring-yellow-600",
 };
 
 type GoalCardProps = {
@@ -35,6 +38,7 @@ export function GoalCard({ id, enabled, target, locked, snapped, onOff, onPick }
   const note = lockNote(id, enabled, target, locked);
   const titleId = `goal-${id}-title`;
   const shown = enabled ? target : 0;
+  const [badgeLabel, badgeXp] = tierBadge(enabled ? tier : null);
 
   return (
     <section aria-labelledby={titleId} className="rounded-3xl border border-ink-300/30 bg-surface px-4 py-3 sm:px-5 sm:py-3.5">
@@ -43,10 +47,10 @@ export function GoalCard({ id, enabled, target, locked, snapped, onOff, onPick }
           {copy.title}
         </h2>
         <span
-          className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs leading-5 font-extrabold tracking-wide ${TIER_PILL[enabled ? tier.name : "Off"]}`}
+          className={`inline-flex shrink-0 gap-1.5 rounded-full px-2.5 py-0.5 text-xs leading-5 font-extrabold tracking-wide ${TIER_PILL[enabled ? tier.name : "Off"]}`}
           data-testid={`goal-${id}-tier`}
         >
-          {enabled ? tierText(tier) : OFF_TEXT}
+          <span>{badgeLabel}</span> <span>{badgeXp}</span>
         </span>
       </div>
       <p className="mt-0.5 text-sm leading-5 font-extrabold text-ink-900" data-testid={`goal-${id}-value`}>
