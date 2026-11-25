@@ -156,9 +156,13 @@ export function rampColor(id: GoalId, value: number): string {
   return ramp[ramp.length - 1][1];
 }
 
-/** The number inside a block: dark on the pale fills, white on the deep reds, for contrast. */
-export function blockTextColor(fill: string): string {
-  return luminance(fill) > 0.25 ? "#4a2f22" : "#ffffff"; // --color-ink-900 or white
+/**
+ * The number inside a block: always white, by design. On the two lightest tiers (Starter, Small)
+ * this falls short of WCAG's 3:1 contrast for large text — a deliberate tradeoff for a uniform
+ * look over per-tier contrast.
+ */
+export function blockTextColor(): string {
+  return "#ffffff";
 }
 
 /** Relative luminance (WCAG), for checking that the blocks darken. */

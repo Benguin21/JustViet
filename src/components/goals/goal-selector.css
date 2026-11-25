@@ -2,9 +2,9 @@
  * The Goals tab's target pickers: a white 0 pill (the goal off) and five chunky blocks in a
  * slightly inset tray, like a game's volume bar, each showing its value. Each block's colour comes
  * from its --goal-block (rampColor in src/lib/companion/goalSelectors.ts for a filled block, the
- * pale cream for an empty one), and a filled block's number from blockTextColor. A filled block
- * has a darker bottom edge, like Button, and presses down when tapped. The numbers are 19px bold,
- * large text by WCAG, so the mid reds still give them 3:1 contrast.
+ * pale cream for an empty one). A filled block's number is always white (blockTextColor), which
+ * falls short of WCAG contrast on the two lightest tiers — a deliberate look-over-contrast
+ * tradeoff. A filled block has a darker bottom edge, like Button, and presses down when tapped.
  */
 .jv-goal-tray {
   display: grid;
