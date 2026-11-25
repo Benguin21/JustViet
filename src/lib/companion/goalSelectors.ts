@@ -178,33 +178,6 @@ export function luminance(color: string): number {
 }
 
 /**
- * What to tell the learner after saving `next` over `prev`, one line per goal that changed. A
- * new target for a goal already active today (in `locked`) starts tomorrow; today's stays.
- */
-export function describeSave(prev: GoalSettings, next: GoalSettings, locked: Partial<PerGoal<number>>): string[] {
-  const lines: string[] = [];
-  for (const id of GOALS_TAB_ORDER) {
-    const { title } = GOAL_COPY[id];
-    if (prev.enabled[id] !== next.enabled[id]) {
-      lines.push(next.enabled[id] ? `${title} is on, so it shows on Home.` : `${title} is off, so Home won’t show it.`);
-    }
-    // Off keeps the last target, so there's no new target to tell them about.
-    if (!next.enabled[id]) continue;
-    const t = next.targets[id];
-    if (prev.targets[id] === t) continue;
-    const today = locked[id];
-    if (today != null && today !== t) {
-      lines.push(
-        `${title}: ${targetText(id, t)} from tomorrow. Today’s goal is already underway, so it stays at ${today} (${tierText(goalTier(id, today))}).`,
-      );
-    } else {
-      lines.push(`${title}: ${targetText(id, t)}, starting today.`);
-    }
-  }
-  return lines;
-}
-
-/**
  * The card's note while a goal's chosen target differs from the one locked for today. None while
  * the goal is off: switching a goal off takes effect on Home straight away.
  */

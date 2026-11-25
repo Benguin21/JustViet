@@ -137,12 +137,8 @@ describe("Goals tab", () => {
       enabled: { ...saved.enabled, grammar: true },
       targets: { vocab: 15, grammar: 2, skills: 1 },
     });
-    const status = screen.getByRole("status").textContent;
-    expect(status).toContain("Grammar is on, so it shows on Home.");
-    expect(status).toContain("Grammar: 2 lessons per day, starting today.");
-    expect(status).toContain(
-      "Vocab: 15 new flashcards per day from tomorrow. Today’s goal is already underway, so it stays at 5 (Small goal · +10 XP).",
-    );
+    // No summary of the changes after saving.
+    expect(screen.queryByRole("status")).toBeNull();
   });
 
   it("turns a goal off with 0, keeping its last target", async () => {
@@ -161,7 +157,7 @@ describe("Goals tab", () => {
       enabled: { vocab: false, grammar: false, skills: false },
       targets: { vocab: 20, grammar: 1, skills: 1 },
     });
-    expect(screen.getByRole("status").textContent).toBe("Vocab is off, so Home won’t show it.");
+    expect(screen.queryByRole("status")).toBeNull();
   });
 
   it("re-enables an off goal by picking any block", () => {

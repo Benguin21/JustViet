@@ -680,8 +680,10 @@ move the selection. There are no on/off switches: 0 saves `enabled:
 false` and keeps the last target, a block saves `enabled: true` with that
 target, so the saved data (`settings/goals`, `enabled` + `targets`) is the
 same shape as before. Nothing is saved until Save goals, which writes
-through `useGoalSettings` and never awards XP; the page then says when
-each change applies (today, or tomorrow for a goal already underway).
+through `useGoalSettings` and never awards XP; the page then just says
+"Goals saved." (no summary of the changes). A goal already underway today
+says on its card, before saving, that a new target starts tomorrow
+(`lockNote`).
 
 **The five choices are only what this page offers.** `TARGET_LIMITS`
 (Vocab 1 to 50), `normalizeGoalSettings`, `normalizeDay` and

@@ -6,7 +6,6 @@ import {
   GOALS_TAB_ORDER,
   TARGET_CHOICES,
   choiceLabel,
-  describeSave,
   formFromSaved,
   lockNote,
   luminance,
@@ -128,35 +127,7 @@ describe("old saved targets", () => {
   });
 });
 
-describe("telling the learner what a save changed", () => {
-  it("starts a target today when that goal isn't underway", () => {
-    expect(describeSave(settings({}, { grammar: true }), settings({ grammar: 2 }, { grammar: true }), {})).toEqual([
-      "Grammar: 2 lessons per day, starting today.",
-    ]);
-  });
-
-  it("starts it tomorrow when today's goal is already underway", () => {
-    expect(describeSave(settings(), settings({ vocab: 15 }), { vocab: 5 })).toEqual([
-      "Vocab: 15 new flashcards per day from tomorrow. Today’s goal is already underway, so it stays at 5 (Small goal · +10 XP).",
-    ]);
-    // Setting it back to today's target is simply today's target again.
-    expect(describeSave(settings({ vocab: 15 }), settings({ vocab: 5 }), { vocab: 5 })).toEqual([
-      "Vocab: 5 new flashcards per day, starting today.",
-    ]);
-  });
-
-  it("says when a goal is turned on or off", () => {
-    expect(describeSave(settings(), settings({}, { skills: true, vocab: false }), {})).toEqual([
-      "Vocab is off, so Home won’t show it.",
-      "Skills is on, so it shows on Home.",
-    ]);
-    // Turning a goal on at a new target says both.
-    expect(describeSave(settings(), settings({ grammar: 3 }, { grammar: true }), {})).toEqual([
-      "Grammar is on, so it shows on Home.",
-      "Grammar: 3 lessons per day, starting today.",
-    ]);
-  });
-
+describe("telling the learner when a new target starts", () => {
   it("notes a locked goal on its card while the chosen target differs, and never while it's off", () => {
     expect(lockNote("grammar", true, 3, 1)).toBe(
       "Today’s goal is already underway, so today stays at 1 lesson (Small goal · +10 XP). This target starts tomorrow.",

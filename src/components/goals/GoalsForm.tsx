@@ -3,15 +3,15 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import type { GoalId, GoalSettings, PerGoal } from "@/lib/companion/goals";
-import { GOALS_TAB_ORDER, describeSave, formFromSaved, snapNote } from "@/lib/companion/goalSelectors";
+import { GOALS_TAB_ORDER, formFromSaved, snapNote } from "@/lib/companion/goalSelectors";
 import { GoalCard } from "./GoalCard";
 
 type GoalsFormProps = {
   saved: GoalSettings;
   /** Today's targets for goals already active today. */
   locked: Partial<PerGoal<number>>;
-  /** Saves the goals; resolves once saved, with today's locks as they are now. Never awards XP. */
-  onSave: (settings: GoalSettings) => Promise<{ locked: Partial<PerGoal<number>> }>;
+  /** Saves the goals; resolves once saved. Never awards XP. */
+  onSave: (settings: GoalSettings) => Promise<unknown>;
 };
 
 function same(a: GoalSettings, b: GoalSettings): boolean {
@@ -28,13 +28,13 @@ function same(a: GoalSettings, b: GoalSettings): boolean {
 export function GoalsForm({ saved, locked, onSave }: GoalsFormProps) {
   const [form, setForm] = useState<GoalSettings>(() => formFromSaved(saved));
   const [saving, setSaving] = useState(false);
-  const [result, setResult] = useState<{ lines: string[] } | null>(null);
+  const [justSaved, setJustSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const dirty = !same(form, saved);
 
   const edit = (change: (f: GoalSettings) => GoalSettings) => {
     setForm(change);
-    setResult(null);
+    setJustSaved(false);
     setError(null);
   };
   const setOff = (id: GoalId) => edit((f) => ({ ...f, enabled: { ...f.enabled, [id]: false } }));
@@ -45,9 +45,8 @@ export function GoalsForm({ saved, locked, onSave }: GoalsFormProps) {
     setSaving(true);
     setError(null);
     try {
-      const next = form;
-      const after = await onSave(next);
-      setResult({ lines: describeSave(saved, next, after.locked) });
+      await onSave(form);
+      setJustSaved(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn’t save your goals.");
     } finally {
@@ -82,20 +81,13 @@ export function GoalsForm({ saved, locked, onSave }: GoalsFormProps) {
           Save goals
         </Button>
         <p className="text-sm font-semibold text-ink-500" aria-live="polite">
-          {dirty ? "You have unsaved changes." : result ? "Goals saved." : ""}
+          {dirty ? "You have unsaved changes." : justSaved ? "Goals saved." : ""}
         </p>
       </div>
       {error && (
         <p role="alert" className="text-sm font-semibold text-red-600">
           {error}
         </p>
-      )}
-      {result && result.lines.length > 0 && (
-        <ul role="status" className="flex flex-col gap-1 rounded-2xl bg-surface p-3 text-sm font-semibold text-ink-700 ring-1 ring-ink-300/30">
-          {result.lines.map((l) => (
-            <li key={l}>{l}</li>
-          ))}
-        </ul>
       )}
     </main>
   );
