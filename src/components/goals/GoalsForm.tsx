@@ -60,7 +60,7 @@ export function GoalsForm({ saved, locked, onSave }: GoalsFormProps) {
       <header>
         <h1 className="font-heading text-2xl leading-8 font-extrabold text-ink-900 sm:text-3xl sm:leading-9">Daily goals</h1>
         <p className="text-sm leading-5 font-semibold text-ink-500 sm:text-base sm:leading-6">
-          Set your daily goals. Complete one to earn bonus XP and help your companion grow!
+          Set your daily learning goals here. Complete your goals to earn bonus XP and help your companion grow!
         </p>
       </header>
 
