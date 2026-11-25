@@ -77,11 +77,7 @@ describe("Goals tab selectors", () => {
   });
 
   it("writes every block's number in white, by design", () => {
-    for (const id of GOALS_TAB_ORDER) {
-      for (const n of TARGET_CHOICES[id]) {
-        expect(blockTextColor(rampColor(id, n))).toBe("#ffffff");
-      }
-    }
+    expect(blockTextColor()).toBe("#ffffff");
   });
 });
 

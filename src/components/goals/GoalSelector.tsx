@@ -85,7 +85,7 @@ export function GoalSelector({ id, enabled, target, labelledBy, onOff, onPick }:
               className="jv-goal-block"
               data-filled={filled || undefined}
               data-testid={`goal-${id}-block-${value}`}
-              style={{ "--goal-block": fill, color: filled ? blockTextColor(fill) : undefined } as CSSProperties}
+              style={{ "--goal-block": fill, color: filled ? blockTextColor() : undefined } as CSSProperties}
             >
               {value}
             </button>
